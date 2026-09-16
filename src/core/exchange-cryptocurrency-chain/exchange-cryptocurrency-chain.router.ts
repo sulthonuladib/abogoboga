@@ -8,6 +8,7 @@ import {
 import { ExchangeCryptocurrencyChain } from "./exchange-cryptocurrency-chain";
 import { ExchangeCryptocurrency } from "../exchange-cryptocurrency/exchange-cryptocurrency";
 import { Chain } from "../chain/chain";
+import { UserActionQueue } from "../../queues/user-action.queue";
 import z from "zod";
 
 export const exchangeCryptocurrencyChainRouter = {
@@ -46,6 +47,19 @@ export const exchangeCryptocurrencyChainRouter = {
       if (!result) {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
           message: "something wrong when adding exchange-cryptocurrency-chain",
+        });
+      }
+
+      const parent = await ExchangeCryptocurrency.getById(
+        result.exchangeCryptocurrencyId,
+      );
+      if (parent) {
+        await UserActionQueue.publish("coin-detail-changed", {
+          exchangeCryptocurrencyId: result.exchangeCryptocurrencyId,
+          exchangeId: parent.exchangeId,
+          cryptocurrencyId: parent.cryptocurrencyId,
+          chainId: result.chainId,
+          kind: "chain-added",
         });
       }
 
@@ -131,6 +145,19 @@ export const exchangeCryptocurrencyChainRouter = {
         });
       }
 
+      const parent = await ExchangeCryptocurrency.getById(
+        result.exchangeCryptocurrencyId,
+      );
+      if (parent) {
+        await UserActionQueue.publish("coin-detail-changed", {
+          exchangeCryptocurrencyId: result.exchangeCryptocurrencyId,
+          exchangeId: parent.exchangeId,
+          cryptocurrencyId: parent.cryptocurrencyId,
+          chainId: result.chainId,
+          kind: "chain-updated",
+        });
+      }
+
       return result;
     }),
 
@@ -143,6 +170,19 @@ export const exchangeCryptocurrencyChainRouter = {
       if (!result) {
         throw new ORPCError("NOT_FOUND", {
           message: "exchange-cryptocurrency-chain not found",
+        });
+      }
+
+      const parent = await ExchangeCryptocurrency.getById(
+        result.exchangeCryptocurrencyId,
+      );
+      if (parent) {
+        await UserActionQueue.publish("coin-detail-changed", {
+          exchangeCryptocurrencyId: result.exchangeCryptocurrencyId,
+          exchangeId: parent.exchangeId,
+          cryptocurrencyId: parent.cryptocurrencyId,
+          chainId: result.chainId,
+          kind: "chain-removed",
         });
       }
 

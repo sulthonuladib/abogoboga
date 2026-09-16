@@ -14,7 +14,8 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed:coins": "bun run src/seed/coin-data.ts"
+    "db:seed:coins": "bun run src/seed/coin-data.ts",
+    "db:seed:tester": "bun run src/seed/tester-exchanges.ts"
   },
   "dependencies": {
     "@orpc/client": "^2.0.0-beta.36",
