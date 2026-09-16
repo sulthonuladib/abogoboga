@@ -6,6 +6,7 @@ import { exchangeTable } from "../exchange/exchange.sql";
 import { chainTable } from "../chain/chain.sql";
 import { exchangeCryptocurrencyTable } from "../exchange-cryptocurrency/exchange-cryptocurrency.sql";
 import { exchangeCryptocurrencyChainTable } from "../exchange-cryptocurrency-chain/exchange-cryptocurrency-chain.sql";
+import { orderbookSnapshotTable } from "../orderbook/orderbook.sql";
 import { reset } from "drizzle-seed";
 import z from "zod";
 import { database } from "../../database/connection";
@@ -20,6 +21,7 @@ const clearDatabase = os
       chain: chainTable,
       exchangeCryptocurrency: exchangeCryptocurrencyTable,
       exchangeCryptocurrencyChain: exchangeCryptocurrencyChainTable,
+      orderbookSnapshot: orderbookSnapshotTable,
     });
     return undefined;
   });

@@ -5,6 +5,7 @@ import * as cryptocurrencyTables from "../core/cryptocurrency/cryptocurrency.sql
 import * as chainTables from "../core/chain/chain.sql";
 import * as exchangeCryptocurrencyTables from "../core/exchange-cryptocurrency/exchange-cryptocurrency.sql";
 import * as exchangeCryptocurrencyChainTables from "../core/exchange-cryptocurrency-chain/exchange-cryptocurrency-chain.sql";
+import * as orderbookTables from "../core/orderbook/orderbook.sql";
 
 export const postgresConnection = new Bun.SQL(
   databaseUrl(),
@@ -17,6 +18,7 @@ export const database = drizzle(postgresConnection, {
     ...chainTables,
     ...exchangeCryptocurrencyTables,
     ...exchangeCryptocurrencyChainTables,
+    ...orderbookTables,
   },
 });
 

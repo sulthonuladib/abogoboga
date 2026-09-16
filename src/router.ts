@@ -4,6 +4,7 @@ import { exchangeCryptocurrencyChainRouter } from "./core/exchange-cryptocurrenc
 import { exchangeRouter } from "./core/exchange/exchange.router";
 import { chainRouter } from "./core/chain/chain.router";
 import { utilityRouter } from "./core/utility/utility.router";
+import { workerRouter } from "./core/worker/worker.router";
 
 export const router = {
   exchange: exchangeRouter,
@@ -12,4 +13,5 @@ export const router = {
   exchangeCryptocurrencyChain: exchangeCryptocurrencyChainRouter,
   chain: chainRouter,
   utility: utilityRouter,
+  worker: workerRouter,
 };

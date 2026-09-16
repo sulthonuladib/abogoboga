@@ -11,6 +11,7 @@ import { eq } from "drizzle-orm";
 import { ExchangeCryptocurrency } from "./exchange-cryptocurrency";
 import { Exchange } from "../exchange/exchange";
 import { Cryptocurrency } from "../cryptocurrency/cryptocurrency";
+import { UserActionQueue } from "../../queues/user-action.queue";
 import z from "zod";
 
 const assign = os
@@ -49,6 +50,13 @@ const assign = os
       });
     }
 
+    await UserActionQueue.publish("coin-detail-changed", {
+      exchangeCryptocurrencyId: result.id,
+      exchangeId: result.exchangeId,
+      cryptocurrencyId: result.cryptocurrencyId,
+      kind: "mapping-added",
+    });
+
     return result;
   });
 
@@ -76,6 +84,13 @@ const update = os
       });
     }
 
+    await UserActionQueue.publish("coin-detail-changed", {
+      exchangeCryptocurrencyId: result.id,
+      exchangeId: result.exchangeId,
+      cryptocurrencyId: result.cryptocurrencyId,
+      kind: "mapping-updated",
+    });
+
     return result;
   });
 
@@ -100,6 +115,13 @@ const unassign = os
         message: "exchange-cryptocurrency assignment not found",
       });
     }
+
+    await UserActionQueue.publish("coin-detail-changed", {
+      exchangeCryptocurrencyId: result.id,
+      exchangeId: result.exchangeId,
+      cryptocurrencyId: result.cryptocurrencyId,
+      kind: "mapping-removed",
+    });
 
     return result;
   });

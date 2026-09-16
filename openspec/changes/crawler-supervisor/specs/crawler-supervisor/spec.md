@@ -21,7 +21,7 @@ The system SHALL expose a worker control endpoint that starts crawling for an ex
 #### Scenario: Start already-running exchange
 
 - **WHEN** a user starts an exchange that is already running
-- **THEN** the system returns the current running state without spawning duplicates
+- **THEN** the request is rejected with a conflict error, no event is published, and no duplicate subprocess is spawned
 
 ### Requirement: Stop exchange worker via RPC
 
@@ -31,6 +31,11 @@ The system SHALL terminate all subprocesses of an exchange on stop and SHALL NOT
 
 - **WHEN** a user stops a running exchange
 - **THEN** all its subprocesses are terminated and its coins are removed from the desired set
+
+#### Scenario: Stop already-stopped exchange
+
+- **WHEN** a user stops an exchange that is not running
+- **THEN** the request is rejected with a conflict error and no event is published
 
 ### Requirement: Crash recovery with replay
 

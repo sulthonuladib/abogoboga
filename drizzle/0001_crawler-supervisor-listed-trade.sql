@@ -1,0 +1,2 @@
+ALTER TABLE "exchange_cryptocurrency" ADD COLUMN "listed" boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE "exchange_cryptocurrency" ADD COLUMN "tradeEnabled" boolean DEFAULT true NOT NULL;

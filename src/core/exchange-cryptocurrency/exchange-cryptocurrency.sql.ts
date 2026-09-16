@@ -22,6 +22,8 @@ export const exchangeCryptocurrencyTable = pg.pgTable(
         onUpdate: "cascade",
       }),
     exchangeSymbol: pg.varchar({ length: 255 }).notNull(),
+    listed: pg.boolean().notNull().default(true),
+    tradeEnabled: pg.boolean().notNull().default(true),
     ...addDefaultTimestampFields(),
   },
   (table) => [
