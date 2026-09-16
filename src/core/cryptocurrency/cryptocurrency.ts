@@ -12,7 +12,9 @@ import { exchangeTable } from "../exchange/exchange.sql";
 import { chainTable } from "../chain/chain.sql";
 import type {
   ListCryptocurrencyInput,
+  ListingStatsInput,
   PaginatedCryptocurrencyList,
+  PaginatedListingStats,
 } from "./cryptocurrency.type";
 
 export namespace Cryptocurrency {
@@ -262,5 +264,170 @@ export namespace Cryptocurrency {
       .where(eq(cryptocurrencyTable.id, id))
       .returning()
       .then((result) => result[0]);
+  }
+
+  function canTransfer(
+    srcLinks: Array<{ chainId: number; withdrawEnabled: boolean }>,
+    dstLinks: Array<{ chainId: number; depositEnabled: boolean }>,
+  ): boolean {
+    const dstDepositByChain = new Map<number, boolean>();
+    for (const link of dstLinks) {
+      if (link.depositEnabled) dstDepositByChain.set(link.chainId, true);
+    }
+    for (const src of srcLinks) {
+      if (src.withdrawEnabled && dstDepositByChain.get(src.chainId)) return true;
+    }
+    return false;
+  }
+
+  export function countBlockedRoutes(
+    marketsLinks: Array<
+      Array<{ chainId: number; withdrawEnabled: boolean; depositEnabled: boolean }>
+    >,
+  ): number {
+    if (marketsLinks.length < 2) return 0;
+    let blocked = 0;
+    for (let i = 0; i < marketsLinks.length; i++) {
+      for (let j = 0; j < marketsLinks.length; j++) {
+        if (i === j) continue;
+        const forward = canTransfer(marketsLinks[i]!, marketsLinks[j]!);
+        const backward = canTransfer(marketsLinks[j]!, marketsLinks[i]!);
+        // Ordered pair (i -> j) counts as blocked only when the unordered
+        // route status is `none`: no shared enabled chain in either direction.
+        if (!forward && !backward) blocked += 1;
+      }
+    }
+    return blocked;
+  }
+
+  export async function listingStats(
+    input: ListingStatsInput,
+  ): Promise<PaginatedListingStats> {
+    const search = input.search?.trim() ?? "";
+    let coins: (typeof cryptocurrencyTable.$inferSelect)[];
+    if (search) {
+      coins = await database
+        .select()
+        .from(cryptocurrencyTable)
+        .where(
+          or(
+            ilike(cryptocurrencyTable.symbol, `%${search.toLowerCase()}%`),
+            ilike(cryptocurrencyTable.name, `%${search.toLowerCase()}%`),
+          ),
+        );
+    } else {
+      coins = await database.select().from(cryptocurrencyTable);
+    }
+
+    const allMarkets = await database.select().from(exchangeCryptocurrencyTable);
+    const allLinks = await database
+      .select()
+      .from(exchangeCryptocurrencyChainTable);
+
+    const marketsByCoin = new Map<number, typeof allMarkets>();
+    for (const market of allMarkets) {
+      const list = marketsByCoin.get(market.cryptocurrencyId) ?? [];
+      list.push(market);
+      marketsByCoin.set(market.cryptocurrencyId, list);
+    }
+    const linksByMarket = new Map<number, typeof allLinks>();
+    for (const link of allLinks) {
+      const list = linksByMarket.get(link.exchangeCryptocurrencyId) ?? [];
+      list.push(link);
+      linksByMarket.set(link.exchangeCryptocurrencyId, list);
+    }
+
+    type Row = (typeof coins)[number] & {
+      markets: number;
+      chains: number;
+      blocked: number;
+    };
+    let rows: Row[] = coins.map((coin) => {
+      const markets = marketsByCoin.get(coin.id) ?? [];
+      const marketsLinks = markets.map(
+        (market) => linksByMarket.get(market.id) ?? [],
+      );
+      const distinctChains = new Set<number>();
+      for (const links of marketsLinks) {
+        for (const link of links) distinctChains.add(link.chainId);
+      }
+      return {
+        ...coin,
+        markets: markets.length,
+        chains: distinctChains.size,
+        blocked: countBlockedRoutes(marketsLinks),
+      };
+    });
+
+    if (input.exchangeId !== undefined) {
+      const wanted = input.exchangeId;
+      rows = rows.filter((row) => {
+        const markets = marketsByCoin.get(row.id) ?? [];
+        return markets.some((market) => market.exchangeId === wanted);
+      });
+    }
+    if (input.chainId !== undefined) {
+      const wanted = input.chainId;
+      rows = rows.filter((row) => {
+        const markets = marketsByCoin.get(row.id) ?? [];
+        return markets.some((market) => {
+          const links = linksByMarket.get(market.id) ?? [];
+          return links.some((link) => link.chainId === wanted);
+        });
+      });
+    }
+    if (input.flag === "blocked") {
+      rows = rows.filter((row) => row.blocked > 0);
+    } else if (input.flag === "single") {
+      rows = rows.filter((row) => row.markets <= 1);
+    }
+
+    const direction = input.order === "asc" ? 1 : -1;
+    rows.sort((a, b) => {
+      if (input.sortBy === "symbol") return a.symbol.localeCompare(b.symbol) * direction;
+      return (a[input.sortBy] - b[input.sortBy]) * direction || a.symbol.localeCompare(b.symbol);
+    });
+
+    const { page, limit } = input;
+    const total = rows.length;
+    if (limit === -1) {
+      return {
+        data: rows,
+        meta: {
+          items: total,
+          pages: 1,
+          page,
+          limit,
+          from: total ? 1 : 0,
+          to: total,
+          hasNextPage: false,
+          hasPreviousPage: page > 1,
+          search: input.search,
+          searchBy: "symbol",
+          order: input.order,
+          orderBy: input.sortBy,
+        },
+      };
+    }
+    const pages = Math.ceil(total / limit);
+    const offset = (page - 1) * limit;
+    const data = rows.slice(offset, offset + limit);
+    return {
+      data,
+      meta: {
+        items: total,
+        pages,
+        page,
+        limit,
+        from: total ? offset + 1 : 0,
+        to: Math.min(page * limit, total),
+        hasNextPage: page < pages,
+        hasPreviousPage: page > 1,
+        search: input.search,
+        searchBy: "symbol",
+        order: input.order,
+        orderBy: input.sortBy,
+      },
+    };
   }
 }

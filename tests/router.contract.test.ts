@@ -37,7 +37,7 @@ describe("core router contracts", () => {
   // SAFETY: router members are all oRPC procedures in this contract test.
   const typedRouter = asProcedureRouter(router);
   test.each([
-    ["cryptocurrency", ["add", "list", "findById", "update", "remove", "metadata"]],
+    ["cryptocurrency", ["add", "list", "findById", "update", "remove", "metadata", "stats"]],
     ["exchange", ["add", "list", "findById", "update", "remove"]],
     ["chain", ["add", "list", "findById", "update", "remove"]],
     ["exchangeCryptocurrency", ["assign", "unassign", "update", "list", "findById", "count"]],

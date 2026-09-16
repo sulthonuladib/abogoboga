@@ -5,7 +5,9 @@ import type {
   cryptocurrencySelectSchema,
   cryptocurrencyUpdateSchema,
   listCryptocurrencySelectSchema,
+  listingStatsInputSchema,
   paginatedCryptocurrencySelectSchema,
+  paginatedListingStatsSchema,
 } from "./cryptocurrency.schema";
 import { cryptocurrencyTable } from "./cryptocurrency.sql";
 
@@ -19,3 +21,5 @@ export type ListCryptocurrencyInput = z.infer<
 export type PaginatedCryptocurrencyList = z.infer<
   typeof paginatedCryptocurrencySelectSchema
 >;
+export type ListingStatsInput = z.infer<typeof listingStatsInputSchema>;
+export type PaginatedListingStats = z.infer<typeof paginatedListingStatsSchema>;

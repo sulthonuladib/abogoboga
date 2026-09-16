@@ -79,3 +79,24 @@ export const cryptocurrencyMetadataSelectSchema = cryptocurrencySelectSchema.ext
     }),
   ),
 });
+
+export const listingStatsInputSchema = z.object({
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(-1).max(100).default(10),
+  search: z.string().default(""),
+  exchangeId: z.coerce.number().optional(),
+  chainId: z.coerce.number().optional(),
+  flag: z.enum(["all", "blocked", "single"]).default("all"),
+  sortBy: z.enum(["symbol", "markets", "chains", "blocked"]).default("symbol"),
+  order: z.enum(["asc", "desc"]).default("asc"),
+});
+
+export const listingStatsItemSchema = cryptocurrencySelectSchema.extend({
+  markets: z.number(),
+  chains: z.number(),
+  blocked: z.number(),
+});
+
+export const paginatedListingStatsSchema = createPaginatedOutputSchema(
+  listingStatsItemSchema,
+);

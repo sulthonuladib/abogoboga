@@ -8,7 +8,9 @@ import {
   cryptocurrencySelectSchema,
   cryptocurrencyUpdateSchema,
   listCryptocurrencySelectSchema,
+  listingStatsInputSchema,
   paginatedCryptocurrencySelectSchema,
+  paginatedListingStatsSchema,
   cryptocurrencyMetadataSelectSchema,
 } from "./cryptocurrency.schema";
 
@@ -137,5 +139,13 @@ export const cryptocurrencyRouter = {
         });
       }
       return result;
+    }),
+
+  stats: os
+    .meta(openapi({ method: "POST", path: "/cryptocurrency/stats" }))
+    .input(listingStatsInputSchema)
+    .output(paginatedListingStatsSchema)
+    .handler(async ({ input }) => {
+      return await Cryptocurrency.listingStats(input);
     }),
 };

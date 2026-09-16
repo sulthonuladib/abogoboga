@@ -1,3 +1,7 @@
+import { Elysia } from "elysia";
+import { html } from "@elysiajs/html";
+import { staticPlugin } from "@elysiajs/static";
+import { htmx } from "elysia-htmx";
 import { RPCHandler } from "@orpc/server/fetch";
 import { COMMON_ERROR_STATUS_MAP } from "@orpc/server";
 import { CORSHandlerPlugin } from "@orpc/server/plugins";
@@ -6,6 +10,7 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod";
 import { router } from "./router";
 import { corsHeaders, corsOrigins } from "./config";
+import { webApp } from "./web/web-routes";
 
 // Preserves the v1 `statusCode` semantics of `.errors({...})` definitions.
 const errorStatusMap = {
@@ -25,16 +30,8 @@ const openAPIHandler = new OpenAPIHandler(router, {
   plugins: [new CORSHandlerPlugin({ origin: corsOrigins() ?? undefined })],
 });
 
-const openAPIDocument = new OpenAPIGenerator({
+const openAPIGenerator = new OpenAPIGenerator({
   converters: [new ZodToJsonSchemaConverter()],
-}).generate(router, {
-  errorStatusMap,
-  base: {
-    info: {
-      title: "Cryptocurrency metadata API",
-      version: "1.0.0",
-    },
-  },
 });
 
 const scalarDocumentPage = `<!doctype html>
@@ -53,46 +50,80 @@ const scalarDocumentPage = `<!doctype html>
   </body>
 </html>`;
 
-Bun.serve({
-  async fetch(request: Request) {
-    const pathname = new URL(request.url).pathname;
-    if (pathname === "/docs" || pathname === "/docs/") {
-      return new Response(scalarDocumentPage, {
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          ...corsHeaders(request),
+export const app = new Elysia()  .use(html())
+  .use(htmx())
+  .use(
+    await staticPlugin({
+      assets: "public/static",
+      prefix: "/static",
+    }),
+  )
+  .get("/openapi.json", async ({ request }) => {
+    const document = await openAPIGenerator.generate(router, {
+      errorStatusMap,
+      base: {
+        info: {
+          title: "Cryptocurrency metadata API",
+          version: "1.0.0",
         },
-      });
-    }
-
-    if (pathname === "/openapi.json") {
-      return new Response(JSON.stringify(await openAPIDocument), {
-        headers: {
-          "content-type": "application/json",
-          ...corsHeaders(request),
+      },
+    });
+    return new Response(JSON.stringify(document), {
+      headers: {
+        "content-type": "application/json",
+        ...corsHeaders(request),
+      },
+    });
+  })
+  .get("/docs", ({ request }) => {
+    return new Response(scalarDocumentPage, {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        ...corsHeaders(request),
+      },
+    });
+  })
+  .get("/docs/", ({ request }) => {
+    return new Response(scalarDocumentPage, {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        ...corsHeaders(request),
+      },
+    });
+  })
+  .all(
+    "/api/*",
+    async ({ request }: { request: Request }) => {
+      const { response: openAPIResponse } = await openAPIHandler.handle(
+        request,
+        {
+          prefix: "/api",
+          context: {},
         },
+      );
+      if (openAPIResponse) {
+        return openAPIResponse;
+      }
+
+      const { response } = await handler.handle(request, {
+        prefix: "/api",
+        context: {},
       });
-    }
+      if (response) {
+        return response;
+      }
 
-    const { response: openAPIResponse } = await openAPIHandler.handle(request, {
-      context: {}, // Provide initial context if needed
-    });
-    if (openAPIResponse) {
-      return openAPIResponse;
-    }
+      return new Response("NOT FOUND", { status: 404 });
+    },
+    {
+      parse: "none",
+    },
+  )
+  .use(webApp);
 
-    const { response } = await handler.handle(request, {
-      context: {}, // Provide initial context if needed
-    });
-    if (response) {
-      return response;
-    }
+if (import.meta.main) {
+  app.listen(3001);
+  console.info(`listening on port 3001`);
+}
 
-    return new Response("NOT FOUND", {
-      status: 404,
-    });
-  },
-  port: 3001,
-});
-
-console.info(`listening on port 3001`);
+export type App = typeof app;
