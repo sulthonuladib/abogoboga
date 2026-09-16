@@ -1,65 +1,19 @@
 schema: spec-driven
 
 context: |
-  Project: lister — Cryptocurrency, exchange, network, and metadata API.
-  Stack: Bun + oRPC `@orpc/*@2.0.0-beta` (v2 API) + Zod v4 + Drizzle ORM
-    (drizzle-orm + drizzle-kit + postgres driver) + TypeScript strict.
-    Exact versions live in package.json. `src/crawl-workers/` is excluded
-    from typecheck and lint.
-  Entry: `src/index.ts` — RPCHandler + OpenAPIHandler + OpenAPIGenerator
-    (ZodToJsonSchemaConverter), shared errorStatusMap preserving v1
-    `statusCode` semantics, CORSHandlerPlugin, Bun.serve on :3001 with
-    `/openapi.json` + `/docs` (Scalar). Routers composed in `src/router.ts`
-    from `src/core/*/*.router.ts`: exchange, cryptocurrency,
-    exchangeCryptocurrency, exchangeCryptocurrencyChain, chain, utility.
-  oRPC docs (mandatory): fetch `https://orpc.dev/llms.txt` index live via
-    webfetch, then the relevant sub-page, before writing/changing oRPC code.
-    Never rely on training data. Canonical pages:
-    `https://orpc.dev/docs/procedure`, `https://orpc.dev/docs/router`,
-    `https://orpc.dev/docs/openapi/routing`,
-    `https://orpc.dev/docs/openapi/handler`,
-    `https://orpc.dev/docs/integrations/zod`.
-  Conventions (checkable — enforce in every artifact):
-    - Routers in `src/core/<domain>/<domain>.router.ts` export a `*Router`
-      object of `os` procedures: `.meta(openapi({ method, path, ... }))` +
-      `.input(zod)` + `.output(zod)` + optional `.errors({...})` + `.handler`.
-      Use `ORPCError` for runtime errors; `call` from `@orpc/server` for tests.
-    - IDs use `z.coerce.number()`; PATCH uses
-      `inputStructure: "detailed"` with `{ params: { id }, body: updateSchema }`.
-    - Schemas in `*.schema.ts` via drizzle-zod
-      (createSelectSchema / createInsertSchema / createUpdateSchema) + Zod v4;
-      omit `createdAt`/`updatedAt` (and `logo` where established). List inputs
-      via `createPaginationInputSchema` and outputs via
-      `createPaginatedOutputSchema` in `src/common/pagination.schema.ts`.
-    - Tables in `*.sql.ts` via `pgTable` + `addDefaultTimestampFields()`
-      (`src/utils/drizzle.util.ts`); re-exported in `src/database/schema.ts`
-      (dialect postgresql). Migrations via drizzle-kit push/generate/migrate.
-    - Config via `src/config.ts`: `databaseUrl()` (DATABASE_URL, local fallback
-      only in non-production), `corsOrigins()`/`corsHeaders()` (CORS_ORIGINS).
-    - Commands: `bun test tests`, `bunx tsc --noEmit`,
-      `bunx oxlint --type-aware --ignore-pattern 'src/crawl-workers/**'`.
-      DB: `drizzle-kit push|generate|migrate`. Contract tests live in
-      `tests/router.contract.test.ts` (procedure surface + OpenAPI paths).
+  Follow AGENTS.md for stack, conventions, and runtime rules.
+  Verify with `bun test tests`, `bunx tsc --noEmit`, `call(router...)`.
 
 rules:
-  proposal:
-    - Scope to one coherent slice; it may span related routers that ship together (e.g. cryptocurrency + metadata).
-    - State the REST paths/methods and RPC procedures changed, and what is explicitly out of scope.
   specs:
-    - Write a delta for `specs/<capability>/spec.md`, not a full rewrite; state observable REST + RPC behavior (paths, methods, input/output shapes, error codes).
-    - Surface conflicts with existing router contracts instead of silently picking a winner.
-  design:
-    - Name the routers/procedures touched, Zod/Drizzle schema changes, OpenAPI paths, errorStatusMap additions, and CORS/config impacts.
-    - Call out pagination (`page/limit/search/searchBy/orderBy/order`) and detailed-input PATCH usage where applicable.
+    - Delta only; state observable REST + RPC behavior.
   tasks:
-    - One verifiable step each: run `bun test tests` + `bunx tsc --noEmit` for the touched area plus a runtime smoke assertion (`call(router...)`, `/openapi.json`, or `/docs`).
+    - One verifiable step each.
 
 operations:
   apply:
     guidance:
-      - Keep test summaries concise (command + pass/fail).
-      - Verify OpenAPI generation still covers every touched path/method.
-      - Do not touch `src/crawl-workers/` unless the change explicitly scopes it in.
+      - Keep summaries concise; verify OpenAPI paths.
   archive:
     guidance:
-      - Summarize the archive outcome (specs updated, procedures added/changed) before finishing.
+      - Summarize specs updated and procedures changed.
