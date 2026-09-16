@@ -1,4 +1,4 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, count as drizzleCount, eq } from "drizzle-orm";
 import { exchangeCryptocurrencyTable } from "./exchange-cryptocurrency.sql";
 import { database } from "../../database/connection";
 import type {
@@ -11,7 +11,7 @@ export namespace ExchangeCryptocurrency {
     filter: ExchangeCryptocurrencyFilterExists,
   ): Promise<boolean> {
     const result = await database
-      .select({ count: count() })
+      .select({ count: drizzleCount() })
       .from(exchangeCryptocurrencyTable)
       .where(
         and(
@@ -85,11 +85,51 @@ export namespace ExchangeCryptocurrency {
 
   export async function countExchangeCryptocurrencies(exchangeId: number) {
     const result = await database
-      .select({ count: count() })
+      .select({ count: drizzleCount() })
       .from(exchangeCryptocurrencyTable)
       .where(eq(exchangeCryptocurrencyTable.exchangeId, exchangeId))
       .execute();
 
     return result[0]!.count;
+  }
+
+  export async function count(filter?: {
+    exchangeId?: number;
+    cryptocurrencyId?: number;
+  }): Promise<number> {
+    if (filter) {
+      const conditions = [];
+      if (filter.exchangeId !== undefined) {
+        conditions.push(
+          eq(exchangeCryptocurrencyTable.exchangeId, filter.exchangeId),
+        );
+      }
+      if (filter.cryptocurrencyId !== undefined) {
+        conditions.push(
+          eq(
+            exchangeCryptocurrencyTable.cryptocurrencyId,
+            filter.cryptocurrencyId,
+          ),
+        );
+      }
+      if (conditions.length > 0) {
+        const result = await database
+          .select({ count: drizzleCount() })
+          .from(exchangeCryptocurrencyTable)
+          .where(and(...conditions))
+          .execute();
+
+        // SAFETY: drizzle maps the SQL count aggregate to a number at runtime.
+        return (result[0]?.count as number | undefined) ?? 0;
+      }
+    }
+
+    const result = await database
+      .select({ count: drizzleCount() })
+      .from(exchangeCryptocurrencyTable)
+      .execute();
+
+    // SAFETY: drizzle maps the SQL count aggregate to a number at runtime.
+    return (result[0]?.count as number | undefined) ?? 0;
   }
 }

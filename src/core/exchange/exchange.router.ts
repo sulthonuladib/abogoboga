@@ -1,4 +1,5 @@
 import { ORPCError, os } from "@orpc/server";
+import { openapi } from "@orpc/openapi";
 import { z } from "zod";
 
 import { Exchange } from "./exchange";
@@ -12,7 +13,7 @@ import {
 
 export const exchangeRouter = {
   add: os
-    .route({ method: "POST", path: "/exchange/add" })
+    .meta(openapi({ method: "POST", path: "/exchange/add" }))
     .input(exchangeInsertSchema)
     .output(exchangeSelectSchema)
     .handler(async ({ input }) => {
@@ -43,7 +44,7 @@ export const exchangeRouter = {
     }),
 
   list: os
-    .route({ method: "POST", path: "/exchange/list" })
+    .meta(openapi({ method: "POST", path: "/exchange/list" }))
     .input(listExchangeSelectSchema)
     .output(paginatedExchangeSelectSchema)
     .handler(async ({ input }) => {
@@ -51,7 +52,7 @@ export const exchangeRouter = {
     }),
 
   findById: os
-    .route({ method: "GET", path: "/exchange/{id}" })
+    .meta(openapi({ method: "GET", path: "/exchange/{id}" }))
     .input(z.object({ id: z.coerce.number() }))
     .output(exchangeSelectSchema)
     .handler(async ({ input }) => {
@@ -65,7 +66,7 @@ export const exchangeRouter = {
     }),
 
   update: os
-    .route({ method: "PATCH", path: "/exchange/{id}", inputStructure: "detailed" })
+    .meta(openapi({ method: "PATCH", path: "/exchange/{id}", inputStructure: "detailed" }))
     .input(
       z.object({
         params: z.object({ id: z.coerce.number() }),
@@ -113,7 +114,7 @@ export const exchangeRouter = {
     }),
 
   remove: os
-    .route({ method: "DELETE", path: "/exchange/{id}" })
+    .meta(openapi({ method: "DELETE", path: "/exchange/{id}" }))
     .input(z.object({ id: z.coerce.number() }))
     .output(exchangeSelectSchema)
     .handler(async ({ input }) => {

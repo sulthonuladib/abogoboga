@@ -32,5 +32,8 @@
     "src/**/*.ts",
     "tests/**/*.ts",
     "drizzle.config.ts"
+  ],
+  "exclude": [
+    "src/crawl-workers"
   ]
 }

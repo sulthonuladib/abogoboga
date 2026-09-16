@@ -1,4 +1,5 @@
 import { ORPCError, os } from "@orpc/server";
+import { openapi } from "@orpc/openapi";
 import { Chain } from "./chain";
 import {
   chainInsertSchema,
@@ -11,7 +12,7 @@ import z from "zod";
 
 export const chainRouter = {
   add: os
-    .route({ method: "POST", path: "/chain/add" })
+    .meta(openapi({ method: "POST", path: "/chain/add" }))
     .input(chainInsertSchema)
     .output(chainSelectSchema)
     .handler(async ({ input }) => {
@@ -40,7 +41,7 @@ export const chainRouter = {
     }),
 
   list: os
-    .route({ method: "POST", path: "/chain/list" })
+    .meta(openapi({ method: "POST", path: "/chain/list" }))
     .input(listChainSelectSchema)
     .output(paginatedChainSelectSChema)
     .handler(async ({ input }) => {
@@ -48,7 +49,7 @@ export const chainRouter = {
     }),
 
   findById: os
-    .route({ method: "GET", path: "/chain/{id}" })
+    .meta(openapi({ method: "GET", path: "/chain/{id}" }))
     .input(z.object({ id: z.coerce.number() }))
     .output(chainSelectSchema)
     .handler(async ({ input }) => {
@@ -63,7 +64,7 @@ export const chainRouter = {
     }),
 
   update: os
-    .route({ method: "PATCH", path: "/chain/{id}", inputStructure: "detailed" })
+    .meta(openapi({ method: "PATCH", path: "/chain/{id}", inputStructure: "detailed" }))
     .input(
       z.object({
         params: z.object({ id: z.coerce.number() }),
@@ -107,7 +108,7 @@ export const chainRouter = {
     }),
 
   remove: os
-    .route({ method: "DELETE", path: "/chain/{id}" })
+    .meta(openapi({ method: "DELETE", path: "/chain/{id}" }))
     .input(z.object({ id: z.coerce.number() }))
     .output(chainSelectSchema)
     .handler(async ({ input }) => {

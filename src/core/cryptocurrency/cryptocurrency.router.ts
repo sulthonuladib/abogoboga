@@ -1,4 +1,5 @@
 import { ORPCError, os } from "@orpc/server";
+import { openapi } from "@orpc/openapi";
 import z from "zod";
 
 import { Cryptocurrency } from "./cryptocurrency";
@@ -13,13 +14,13 @@ import {
 
 export const cryptocurrencyRouter = {
   add: os
-    .route({ method: "POST", path: "/cryptocurrency/add" })
+    .meta(openapi({ method: "POST", path: "/cryptocurrency/add" }))
     .input(cryptocurrencyInsertSchema)
     .output(cryptocurrencySelectSchema)
     .errors({
-      CRYPTOCURRENCY_EXISTS: { message: "cryptocurrency with this cmcId already exists", statusCode: 409 },
-      SLUG_EXISTS: { message: "slug is already in use", statusCode: 409 },
-      SOMETHING_WRONG: { message: "something wrong when adding cryptocurrency", statusCode: 500 },
+      CRYPTOCURRENCY_EXISTS: { message: "cryptocurrency with this cmcId already exists" },
+      SLUG_EXISTS: { message: "slug is already in use" },
+      SOMETHING_WRONG: { message: "something wrong when adding cryptocurrency" },
     })
     .handler(async ({ input, errors }) => {
       if (await Cryptocurrency.cmcIdExists(input.cmcId)) {
@@ -37,7 +38,7 @@ export const cryptocurrencyRouter = {
     }),
 
   list: os
-    .route({ method: "POST", path: "/cryptocurrency/list" })
+    .meta(openapi({ method: "POST", path: "/cryptocurrency/list" }))
     .input(listCryptocurrencySelectSchema)
     .output(paginatedCryptocurrencySelectSchema)
     .handler(async ({ input }) => {
@@ -46,7 +47,7 @@ export const cryptocurrencyRouter = {
     }),
 
   findById: os
-    .route({ method: "GET", path: "/cryptocurrency/{id}" })
+    .meta(openapi({ method: "GET", path: "/cryptocurrency/{id}" }))
     .input(z.object({ id: z.coerce.number() }))
     .output(cryptocurrencySelectSchema)
     .handler(async ({ input }) => {
@@ -61,7 +62,7 @@ export const cryptocurrencyRouter = {
     }),
 
   update: os
-    .route({ method: "PATCH", path: "/cryptocurrency/{id}", inputStructure: "detailed" })
+    .meta(openapi({ method: "PATCH", path: "/cryptocurrency/{id}", inputStructure: "detailed" }))
     .input(
       z.object({
         params: z.object({ id: z.coerce.number() }),
@@ -110,7 +111,7 @@ export const cryptocurrencyRouter = {
     }),
 
   remove: os
-    .route({ method: "DELETE", path: "/cryptocurrency/{id}" })
+    .meta(openapi({ method: "DELETE", path: "/cryptocurrency/{id}" }))
     .input(z.object({ id: z.coerce.number() }))
     .output(cryptocurrencySelectSchema)
     .handler(async ({ input }) => {
@@ -125,7 +126,7 @@ export const cryptocurrencyRouter = {
     }),
 
   metadata: os
-    .route({ method: "POST", path: "/cryptocurrency/metadata" })
+    .meta(openapi({ method: "POST", path: "/cryptocurrency/metadata" }))
     .input(z.union([z.object({ id: z.coerce.number() }), z.object({ slug: z.string().min(1) })]))
     .output(cryptocurrencyMetadataSelectSchema)
     .handler(async ({ input }) => {

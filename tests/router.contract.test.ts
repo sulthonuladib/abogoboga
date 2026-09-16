@@ -1,12 +1,24 @@
 import { describe, expect, test } from "bun:test";
 import { OpenAPIGenerator } from "@orpc/openapi";
+import { ZodToJsonSchemaConverter } from "@orpc/zod";
+import { call } from "@orpc/server";
 import { router } from "../src/router";
-import { zodToJsonSchemaConverter } from "../src/openapi/zod.converter";
+
+type SchemaLike = {
+  safeParse: (value: unknown) => { success: boolean };
+};
+
+function firstInputSchema(procedure: {
+  "~orpc": { inputSchemas?: readonly unknown[] };
+}): SchemaLike | undefined {
+  // SAFETY: every procedure under test declares a single Zod input schema.
+  return procedure["~orpc"].inputSchemas?.[0] as SchemaLike | undefined;
+}
 
 type Procedure = {
   "~orpc": {
-    inputSchema?: object;
-    outputSchema?: object;
+    inputSchemas?: SchemaLike[];
+    outputSchemas?: SchemaLike[];
   };
 };
 
@@ -40,11 +52,11 @@ describe("core router contracts", () => {
       for (const [procedureName, procedure] of procedures(coreRouter)) {
         test(`${procedureName} has input and output contracts`, () => {
           // Procedures without `.input(...)` intentionally accept no input schema.
-          if (procedure["~orpc"].inputSchema) {
-            expect(procedure["~orpc"].inputSchema).toBeDefined();
+          if (procedure["~orpc"].inputSchemas?.length) {
+            expect(procedure["~orpc"].inputSchemas).toBeDefined();
           }
           if (procedureName !== "unassign") {
-            expect(procedure["~orpc"].outputSchema).toBeDefined();
+            expect(procedure["~orpc"].outputSchemas?.length).toBeGreaterThan(0);
           }
         });
       }
@@ -55,10 +67,10 @@ describe("core router contracts", () => {
 describe("oRPC validation contracts", () => {
   test("coerces cryptocurrency and exchange IDs", () => {
     expect(
-      router.cryptocurrency.findById["~orpc"].inputSchema?.safeParse({ id: "42" }).success,
+      firstInputSchema(router.cryptocurrency.findById)?.safeParse({ id: "42" })?.success,
     ).toBe(true);
     expect(
-      router.exchange.findById["~orpc"].inputSchema?.safeParse({ id: "42" }).success,
+      firstInputSchema(router.exchange.findById)?.safeParse({ id: "42" })?.success,
     ).toBe(true);
   });
 
@@ -71,10 +83,10 @@ describe("oRPC validation contracts", () => {
       router.exchangeCryptocurrencyChain.update,
     ]) {
       expect(
-        procedure["~orpc"].inputSchema?.safeParse({
+        firstInputSchema(procedure)?.safeParse({
           params: { id: "42" },
           body: {},
-        }).success,
+        })?.success,
       ).toBe(true);
     }
   });
@@ -85,7 +97,7 @@ describe("oRPC validation contracts", () => {
       router.exchange.list,
       router.chain.list,
     ]) {
-      const parsed = procedure["~orpc"].inputSchema?.safeParse({});
+      const parsed = firstInputSchema(procedure)?.safeParse({});
       expect(parsed?.success).toBe(true);
     }
   });
@@ -93,9 +105,9 @@ describe("oRPC validation contracts", () => {
   describe("OpenAPI generation", () => {
     test("generates every core route with its REST path and method", async () => {
       const document = await new OpenAPIGenerator({
-        schemaConverters: [zodToJsonSchemaConverter],
+        converters: [new ZodToJsonSchemaConverter()],
       }).generate(router, {
-        info: { title: "Test API", version: "1.0.0" },
+        base: { info: { title: "Test API", version: "1.0.0" } },
       });
 
       const expected = {
@@ -107,10 +119,14 @@ describe("oRPC validation contracts", () => {
       };
 
       for (const [path, methods] of Object.entries(expected)) {
-        expect(document.paths?.[path]).toBeDefined();
+        // SAFETY: v2 types `paths` without an index signature; tests look up known paths.
+        const paths = document.paths as unknown as
+          | Record<string, Record<string, unknown>>
+          | undefined;
+        expect(paths?.[path]).toBeDefined();
         for (const method of methods) {
           // SAFETY: expected methods are restricted to the OpenAPI path operation keys.
-          expect(document.paths?.[path]?.[method as "get" | "patch" | "delete"]).toBeDefined();
+          expect(paths?.[path]?.[method as "get" | "patch" | "delete"]).toBeDefined();
         }
       }
     });
@@ -118,17 +134,17 @@ describe("oRPC validation contracts", () => {
 
   test("rejects malformed required inputs before reaching Drizzle", async () => {
     expect(
-      router.cryptocurrency.findById.callable()({ id: "not-a-number" }),
+      call(router.cryptocurrency.findById, { id: "not-a-number" }, { context: {} }),
     ).rejects.toMatchObject({
       code: "BAD_REQUEST",
     });
-    // SAFETY: callable is the validated oRPC procedure interface used by this contract test.
-    expect(router.exchangeCryptocurrencyChain.findById.callable()({ id: "not-a-number" })).rejects.toMatchObject({
+    // SAFETY: call is the validated oRPC procedure interface used by this contract test.
+    expect(call(router.exchangeCryptocurrencyChain.findById, { id: "not-a-number" }, { context: {} })).rejects.toMatchObject({
       code: "BAD_REQUEST",
     });
   });
 
   test("ping is a dependency-free health check", async () => {
-    expect(router.utility.ping.callable()()).resolves.toBe("OK");
+    expect(call(router.utility.ping, undefined, { context: {} })).resolves.toBe("OK");
   });
 });

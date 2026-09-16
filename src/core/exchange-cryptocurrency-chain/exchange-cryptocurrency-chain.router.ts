@@ -1,4 +1,5 @@
 import { ORPCError, os } from "@orpc/server";
+import { openapi } from "@orpc/openapi";
 import {
   exchangeCryptocurrencyChainInsertSchema,
   exchangeCryptocurrencyChainSelectSchema,
@@ -11,7 +12,7 @@ import z from "zod";
 
 export const exchangeCryptocurrencyChainRouter = {
   add: os
-    .route({ method: "POST", path: "/exchange-cryptocurrency-chain/add" })
+    .meta(openapi({ method: "POST", path: "/exchange-cryptocurrency-chain/add" }))
     .input(
       exchangeCryptocurrencyChainInsertSchema.extend({
         exchangeCryptocurrencyId: z.coerce.number(),
@@ -52,7 +53,7 @@ export const exchangeCryptocurrencyChainRouter = {
     }),
 
   list: os
-    .route({ method: "POST", path: "/exchange-cryptocurrency-chain/list" })
+    .meta(openapi({ method: "POST", path: "/exchange-cryptocurrency-chain/list" }))
     .input(
       z
         .object({
@@ -67,7 +68,7 @@ export const exchangeCryptocurrencyChainRouter = {
     }),
 
   findById: os
-    .route({ method: "GET", path: "/exchange-cryptocurrency-chain/{id}" })
+    .meta(openapi({ method: "GET", path: "/exchange-cryptocurrency-chain/{id}" }))
     .input(z.object({ id: z.coerce.number() }))
     .output(exchangeCryptocurrencyChainSelectSchema)
     .handler(async ({ input }) => {
@@ -82,7 +83,7 @@ export const exchangeCryptocurrencyChainRouter = {
     }),
 
   update: os
-    .route({ method: "PATCH", path: "/exchange-cryptocurrency-chain/{id}", inputStructure: "detailed" })
+    .meta(openapi({ method: "PATCH", path: "/exchange-cryptocurrency-chain/{id}", inputStructure: "detailed" }))
     .input(
       z.object({
         params: z.object({ id: z.coerce.number() }),
@@ -134,7 +135,7 @@ export const exchangeCryptocurrencyChainRouter = {
     }),
 
   remove: os
-    .route({ method: "DELETE", path: "/exchange-cryptocurrency-chain/{id}" })
+    .meta(openapi({ method: "DELETE", path: "/exchange-cryptocurrency-chain/{id}" }))
     .input(z.object({ id: z.coerce.number() }))
     .output(exchangeCryptocurrencyChainSelectSchema)
     .handler(async ({ input }) => {

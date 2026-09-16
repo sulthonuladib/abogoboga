@@ -1,4 +1,5 @@
 import { os } from "@orpc/server";
+import { openapi } from "@orpc/openapi";
 
 import { cryptocurrencyTable } from "../cryptocurrency/cryptocurrency.sql";
 import { exchangeTable } from "../exchange/exchange.sql";
@@ -10,7 +11,7 @@ import z from "zod";
 import { database } from "../../database/connection";
 
 const clearDatabase = os
-  .route({ method: "POST", path: "/utility/clear-database" })
+  .meta(openapi({ method: "POST", path: "/utility/clear-database" }))
   .output(z.void())
   .handler(async () => {
     await reset(database, {
@@ -24,7 +25,7 @@ const clearDatabase = os
   });
 
 const ping = os
-  .route({ method: "GET", path: "/utility/ping" })
+  .meta(openapi({ method: "GET", path: "/utility/ping" }))
   .output(z.literal("OK"))
   .handler(() => {
     return "OK";

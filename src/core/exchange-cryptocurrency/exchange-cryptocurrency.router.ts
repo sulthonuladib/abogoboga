@@ -1,4 +1,5 @@
 import { ORPCError, os } from "@orpc/server";
+import { openapi } from "@orpc/openapi";
 import {
   exchangeCryptocurrencyInsertSchema,
   exchangeCryptocurrencySelectSchema,
@@ -13,7 +14,7 @@ import { Cryptocurrency } from "../cryptocurrency/cryptocurrency";
 import z from "zod";
 
 const assign = os
-  .route({ method: "POST", path: "/exchange-cryptocurrency/assign" })
+  .meta(openapi({ method: "POST", path: "/exchange-cryptocurrency/assign" }))
   .input(exchangeCryptocurrencyInsertSchema)
   .output(exchangeCryptocurrencySelectSchema)
   .handler(async ({ input }) => {
@@ -26,8 +27,6 @@ const assign = os
     if (await ExchangeCryptocurrency.exists(input)) {
       throw new ORPCError("CONFLICT", {
         message: "exchange with cryptocurrency already exists",
-        status: 409,
-        defined: true,
       });
     }
     let result;
@@ -54,7 +53,7 @@ const assign = os
   });
 
 const update = os
-  .route({ method: "PATCH", path: "/exchange-cryptocurrency/{id}", inputStructure: "detailed" })
+  .meta(openapi({ method: "PATCH", path: "/exchange-cryptocurrency/{id}", inputStructure: "detailed" }))
   .input(
     z.object({
       params: z.object({ id: z.coerce.number() }),
@@ -81,7 +80,7 @@ const update = os
   });
 
 const unassign = os
-  .route({ method: "DELETE", path: "/exchange-cryptocurrency/{id}" })
+  .meta(openapi({ method: "DELETE", path: "/exchange-cryptocurrency/{id}" }))
   .input(z.object({ id: z.coerce.number() }))
   .handler(async ({ input }) => {
     const target = await ExchangeCryptocurrency.getById(input.id);
@@ -106,7 +105,7 @@ const unassign = os
   });
 
 const list = os
-  .route({ method: "POST", path: "/exchange-cryptocurrency/list" })
+  .meta(openapi({ method: "POST", path: "/exchange-cryptocurrency/list" }))
   .input(
     z
       .object({
@@ -121,7 +120,7 @@ const list = os
   });
 
 const findById = os
-  .route({ method: "GET", path: "/exchange-cryptocurrency/{id}" })
+  .meta(openapi({ method: "GET", path: "/exchange-cryptocurrency/{id}" }))
   .input(z.object({ id: z.coerce.number() }))
   .output(exchangeCryptocurrencySelectSchema)
   .handler(async ({ input }) => {
@@ -142,7 +141,7 @@ export const exchangeCryptocurrencyRouter = os.router({
   list,
   findById,
   count: os
-    .route({ method: "POST", path: "/exchange-cryptocurrency/count" })
+    .meta(openapi({ method: "POST", path: "/exchange-cryptocurrency/count" }))
     .input(
       z
         .object({

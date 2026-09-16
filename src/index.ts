@@ -1,25 +1,39 @@
 import { RPCHandler } from "@orpc/server/fetch";
-import { CORSPlugin } from "@orpc/server/plugins";
+import { COMMON_ERROR_STATUS_MAP } from "@orpc/server";
+import { CORSHandlerPlugin } from "@orpc/server/plugins";
 import { OpenAPIGenerator } from "@orpc/openapi";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
+import { ZodToJsonSchemaConverter } from "@orpc/zod";
 import { router } from "./router";
-import { zodToJsonSchemaConverter } from "./openapi/zod.converter";
 import { corsHeaders, corsOrigins } from "./config";
 
+// Preserves the v1 `statusCode` semantics of `.errors({...})` definitions.
+const errorStatusMap = {
+  ...COMMON_ERROR_STATUS_MAP,
+  CRYPTOCURRENCY_EXISTS: 409,
+  SLUG_EXISTS: 409,
+  SOMETHING_WRONG: 500,
+};
+
 const handler = new RPCHandler(router, {
-  plugins: [new CORSPlugin({ origin: corsOrigins() })],
+  errorStatusMap,
+  plugins: [new CORSHandlerPlugin({ origin: corsOrigins() ?? undefined })],
 });
 
 const openAPIHandler = new OpenAPIHandler(router, {
-  plugins: [new CORSPlugin({ origin: corsOrigins() })],
+  errorStatusMap,
+  plugins: [new CORSHandlerPlugin({ origin: corsOrigins() ?? undefined })],
 });
 
 const openAPIDocument = new OpenAPIGenerator({
-  schemaConverters: [zodToJsonSchemaConverter],
+  converters: [new ZodToJsonSchemaConverter()],
 }).generate(router, {
-  info: {
-    title: "Cryptocurrency metadata API",
-    version: "1.0.0",
+  errorStatusMap,
+  base: {
+    info: {
+      title: "Cryptocurrency metadata API",
+      version: "1.0.0",
+    },
   },
 });
 
