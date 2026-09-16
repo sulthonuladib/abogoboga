@@ -1,0 +1,36 @@
+{
+  "name": "@arbitrator/lister",
+  "description": "Cryptocurrency, exchange, network, and metadata API.",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "module": "src/index.ts",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test tests",
+    "typecheck": "bunx tsc --noEmit",
+    "lint": "bunx oxlint --type-aware",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed:coins": "bun run src/seed/coin-data.ts"
+  },
+  "dependencies": {
+    "@orpc/client": "^1.15.1",
+    "@orpc/openapi": "^1.15.1",
+    "@orpc/publisher": "^2.0.0-beta.36",
+    "@orpc/server": "^1.15.1",
+    "bitget-api": "^3.2.3",
+    "drizzle-orm": "^0.45.2",
+    "drizzle-seed": "^0.3.1",
+    "drizzle-zod": "^0.8.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "drizzle-kit": "^0.31.10",
+    "postgres": "^3.4.9",
+    "typescript": "^7.0.2"
+  }
+}
