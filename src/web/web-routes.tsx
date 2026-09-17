@@ -519,11 +519,18 @@ export const webApp = new Elysia()
       setFragmentHeaders(set);
       return (
         <div id="modal-slot">
-          <form hx-post={"/exchanges/" + String(id)} hx-target="#exchanges-list-region" hx-swap="outerHTML">
-            <input name="name" value={exchange.name} />
-            <input name="slug" value={exchange.slug} />
-            <button type="submit">Save</button>
-          </form>
+          <div class="modal modal-open">
+            <div class="modal-box">
+              <h3 class="mb-3 text-lg font-bold">Edit exchange</h3>
+              <form hx-post={"/exchanges/" + String(id)} hx-target="#exchanges-list-region" hx-swap="outerHTML" class="flex flex-col gap-2">
+                <input name="name" value={exchange.name} class="input input-bordered input-sm w-full" />
+                <input name="slug" value={exchange.slug} class="input input-bordered input-sm w-full" />
+                <div class="modal-action">
+                  <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       );
     } catch (error) {
@@ -671,11 +678,18 @@ export const webApp = new Elysia()
       setFragmentHeaders(set);
       return (
         <div id="modal-slot">
-          <form hx-post={"/chains/" + String(id)} hx-target="#chains-list-region" hx-swap="outerHTML">
-            <input name="name" value={chain.name} />
-            <input name="code" value={chain.code} />
-            <button type="submit">Save</button>
-          </form>
+          <div class="modal modal-open">
+            <div class="modal-box">
+              <h3 class="mb-3 text-lg font-bold">Edit chain</h3>
+              <form hx-post={"/chains/" + String(id)} hx-target="#chains-list-region" hx-swap="outerHTML" class="flex flex-col gap-2">
+                <input name="name" value={chain.name} class="input input-bordered input-sm w-full" />
+                <input name="code" value={chain.code} class="input input-bordered input-sm w-full" />
+                <div class="modal-action">
+                  <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       );
     } catch (error) {
@@ -863,7 +877,7 @@ export const webApp = new Elysia()
     const parent = await api.exchangeCryptocurrency.findById({ id: existing.exchangeCryptocurrencyId }).catch(() => undefined);
     await api.exchangeCryptocurrencyChain.remove({ id: linkId });
     setFragmentHeaders(set);
-    if (!parent) return <div id="drawer-body">Removed.</div>;
+    if (!parent) return <div id="drawer-body"><div class="alert alert-info"><span>Removed.</span></div></div>;
     return renderDrawer(parent.cryptocurrencyId);
   })
   .post("/partials/chain-links/:id/toggle", async ({ set, params, query }) => {
@@ -887,7 +901,7 @@ export const webApp = new Elysia()
       });
     }
     setFragmentHeaders(set);
-    if (!parent) return <div id="drawer-body">Updated.</div>;
+    if (!parent) return <div id="drawer-body"><div class="alert alert-info"><span>Updated.</span></div></div>;
     return renderDrawer(parent.cryptocurrencyId);
   })
   .get("/coins/:id/routes", async ({ hx, set, params }) => {
