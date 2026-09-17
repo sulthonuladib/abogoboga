@@ -18,8 +18,7 @@ import {
 } from "@lister/db"
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm"
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core/errors"
-import { Cause, Effect, Layer, Option, Schema } from "effect"
-import { SqlError, UniqueViolation } from "effect/unstable/sql/SqlError"
+import { Effect, Layer, Option, Schema } from "effect"
 import {
   CryptocurrencyStore,
   type CryptocurrencyCreate,
@@ -28,20 +27,8 @@ import {
   type CryptocurrencyUpdate
 } from "./Cryptocurrency.ts"
 import { CryptocurrencyCmcIdExists, CryptocurrencySlugExists } from "./CryptocurrencyErrors.ts"
-
-/**
- * Decode a raw database row into its domain model.
- *
- * Invalid rows are defects: the table shape and the model are defined
- * together, so a mismatch means the migration and code are out of sync.
- *
- * @param schema - Model schema to decode rows with.
- * @returns A mapping function from encoded rows to model instances.
- */
-const decodeRows =
-  <S extends Schema.ConstraintDecoder<unknown>>(schema: S) =>
-  (rows: ReadonlyArray<S["Encoded"]>): ReadonlyArray<S["Type"]> =>
-    Schema.decodeUnknownSync(Schema.Array(schema))(rows)
+import { uniqueViolationConstraint } from "./DrizzleErrors.ts"
+import { decodeRows } from "./RowDecoding.ts"
 
 /**
  * Drizzle-backed implementation of the {@link CryptocurrencyStore} port.
@@ -115,23 +102,18 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
       error: EffectDrizzleQueryError,
       input: CryptocurrencyCreate | CryptocurrencyUpdate
     ): CryptocurrencyCmcIdExists | CryptocurrencySlugExists | undefined => {
-      if (!Cause.isCause(error.cause)) return undefined
+      const constraint = uniqueViolationConstraint(error)
 
-      const sqlError = Cause.findErrorOption(error.cause)
+      if (Option.isNone(constraint)) return undefined
 
-      if (Option.isNone(sqlError) || !(sqlError.value instanceof SqlError)) return undefined
-
-      if (!(sqlError.value.reason instanceof UniqueViolation)) return undefined
-
-      const constraint = sqlError.value.reason.constraint
       const cmcId = "cmcId" in input ? input.cmcId : undefined
       const slug = "slug" in input ? input.slug : undefined
 
-      if (constraint === "cryptocurrency_cmcId_unique" && cmcId !== undefined) {
+      if (constraint.value === "cryptocurrency_cmcId_unique" && cmcId !== undefined) {
         return new CryptocurrencyCmcIdExists({ cmcId })
       }
 
-      if (constraint === "cryptocurrency_slug_unique" && slug !== undefined) {
+      if (constraint.value === "cryptocurrency_slug_unique" && slug !== undefined) {
         return new CryptocurrencySlugExists({ slug })
       }
 
@@ -171,30 +153,32 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
       return Option.fromIterable(decodeCoins(rows))
     })
 
-    const list = Effect.fn("CryptocurrencyStore.list")(function*(query: CryptocurrencyListQuery) {
-      const conditions = listConditions(query)
-      const where = conditions.length > 0 ? and(...conditions) : undefined
+    const list = Effect.fn("CryptocurrencyStore.list")(
+      function*(query: CryptocurrencyListQuery) {
+        const conditions = listConditions(query)
+        const where = conditions.length > 0 ? and(...conditions) : undefined
 
-      const orderBy =
-        query.order === "asc" ? asc(cryptocurrencyTable[query.orderBy]) : desc(cryptocurrencyTable[query.orderBy])
+        const orderBy =
+          query.order === "asc" ? asc(cryptocurrencyTable[query.orderBy]) : desc(cryptocurrencyTable[query.orderBy])
 
-      const totals = yield* db.select({ value: count() }).from(cryptocurrencyTable).where(where).pipe(Effect.orDie)
-      const total = totals[0]?.value ?? 0
+        const totals = yield* db.select({ value: count() }).from(cryptocurrencyTable).where(where)
+        const total = totals[0]?.value ?? 0
 
-      const rows =
-        query.limit === -1
-          ? yield* db.select().from(cryptocurrencyTable).where(where).orderBy(orderBy).pipe(Effect.orDie)
-          : yield* db
-              .select()
-              .from(cryptocurrencyTable)
-              .where(where)
-              .orderBy(orderBy)
-              .limit(query.limit)
-              .offset((query.page - 1) * query.limit)
-              .pipe(Effect.orDie)
+        const rows =
+          query.limit === -1
+            ? yield* db.select().from(cryptocurrencyTable).where(where).orderBy(orderBy)
+            : yield* db
+                .select()
+                .from(cryptocurrencyTable)
+                .where(where)
+                .orderBy(orderBy)
+                .limit(query.limit)
+                .offset((query.page - 1) * query.limit)
 
-      return { rows: decodeCoins(rows), total }
-    })
+        return { rows: decodeCoins(rows), total }
+      },
+      Effect.orDie
+    )
 
     const insert = Effect.fn("CryptocurrencyStore.insert")(function*(input: CryptocurrencyCreate) {
       const rows = yield* db
@@ -252,23 +236,25 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
       return Option.fromIterable(decodeCoins(rows))
     })
 
-    const searchCoins = Effect.fn("CryptocurrencyStore.searchCoins")(function*(search: string) {
-      const term = search.trim()
+    const searchCoins = Effect.fn("CryptocurrencyStore.searchCoins")(
+      function*(search: string) {
+        const term = search.trim()
 
-      if (term === "") {
-        return decodeCoins(yield* db.select().from(cryptocurrencyTable).pipe(Effect.orDie))
-      }
+        if (term === "") {
+          return decodeCoins(yield* db.select().from(cryptocurrencyTable))
+        }
 
-      const pattern = `%${term.toLowerCase()}%`
+        const pattern = `%${term.toLowerCase()}%`
 
-      const rows = yield* db
-        .select()
-        .from(cryptocurrencyTable)
-        .where(or(ilike(cryptocurrencyTable.symbol, pattern), ilike(cryptocurrencyTable.name, pattern)))
-        .pipe(Effect.orDie)
+        const rows = yield* db
+          .select()
+          .from(cryptocurrencyTable)
+          .where(or(ilike(cryptocurrencyTable.symbol, pattern), ilike(cryptocurrencyTable.name, pattern)))
 
-      return decodeCoins(rows)
-    })
+        return decodeCoins(rows)
+      },
+      Effect.orDie
+    )
 
     const listAllMarkets = Effect.gen(function*() {
       return decodeMarkets(yield* db.select().from(exchangeCryptocurrencyTable).pipe(Effect.orDie))

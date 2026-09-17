@@ -1,5 +1,9 @@
 import { HttpApi, OpenApi } from "effect/unstable/httpapi"
+import { ChainApiGroup } from "./ChainApi.ts"
+import { ChainLinkApiGroup } from "./ChainLinkApi.ts"
 import { CryptocurrencyApiGroup } from "./CryptocurrencyApi.ts"
+import { ExchangeApiGroup } from "./ExchangeApi.ts"
+import { MarketApiGroup } from "./MarketApi.ts"
 
 /**
  * Root HTTP API of the control plane.
@@ -9,6 +13,10 @@ import { CryptocurrencyApiGroup } from "./CryptocurrencyApi.ts"
  */
 export class Api extends HttpApi.make("control-plane-api")
   .add(CryptocurrencyApiGroup)
+  .add(ExchangeApiGroup)
+  .add(ChainApiGroup)
+  .add(MarketApiGroup)
+  .add(ChainLinkApiGroup)
   .annotateMerge(
     OpenApi.annotations({
       title: "Control plane API",

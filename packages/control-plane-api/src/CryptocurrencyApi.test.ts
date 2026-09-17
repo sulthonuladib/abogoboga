@@ -6,8 +6,12 @@ import { DateTime, Effect, Layer, Predicate, Schema } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiTest } from "effect/unstable/httpapi"
 import { Api } from "./Api.ts"
+import { ChainHandlers } from "./ChainHandlers.ts"
+import { ChainLinkHandlers } from "./ChainLinkHandlers.ts"
 import { CryptocurrencyHandlers } from "./CryptocurrencyHandlers.ts"
 import { CryptocurrencyCmcIdExists, CryptocurrencyNotFound } from "./CryptocurrencyErrors.ts"
+import { ExchangeHandlers } from "./ExchangeHandlers.ts"
+import { MarketHandlers } from "./MarketHandlers.ts"
 
 const DatabaseTestLayer = Database.layerMemory()
 
@@ -19,7 +23,7 @@ const makeClient = HttpApiTest.groups(Api, ["cryptocurrency"])
 
 type Client = Effect.Success<typeof makeClient>
 
-const exchangeId = (value: number): ExchangeId => Schema.decodeUnknownSync(ExchangeId)(value)
+const exchangeId = (value: number): ExchangeId => Schema.decodeSync(ExchangeId)(value)
 
 const runWithClient = <A, E>(f: (client: Client) => Effect.Effect<A, E, Database>) =>
   Effect.runPromise(
@@ -156,6 +160,10 @@ describe("cryptocurrency HttpApi request errors", () => {
   test("maps malformed payloads to 422 and missing coins to 404", async () => {
     const ApiLayer = HttpApiBuilder.layer(Api).pipe(
       Layer.provide(CryptocurrencyHandlers),
+      Layer.provide(ExchangeHandlers),
+      Layer.provide(ChainHandlers),
+      Layer.provide(MarketHandlers),
+      Layer.provide(ChainLinkHandlers),
       Layer.provide(Database.layerMemory()),
       Layer.provide(HttpServer.layerServices)
     )

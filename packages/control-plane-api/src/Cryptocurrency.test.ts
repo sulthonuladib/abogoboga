@@ -21,11 +21,11 @@ const TestLayer = Cryptocurrency.layer.pipe(
 
 const StoreTestLayer = CryptocurrencyStoreLive.pipe(Layer.provideMerge(DatabaseTestLayer))
 
-const coinId = (value: number): CryptocurrencyId => Schema.decodeUnknownSync(CryptocurrencyId)(value)
+const coinId = (value: number): CryptocurrencyId => Schema.decodeSync(CryptocurrencyId)(value)
 
-const exchangeId = (value: number): ExchangeId => Schema.decodeUnknownSync(ExchangeId)(value)
+const exchangeId = (value: number): ExchangeId => Schema.decodeSync(ExchangeId)(value)
 
-const chainId = (value: number): ChainId => Schema.decodeUnknownSync(ChainId)(value)
+const chainId = (value: number): ChainId => Schema.decodeSync(ChainId)(value)
 
 const run = <A, E>(effect: Effect.Effect<A, E, Cryptocurrency | Database>) =>
   Effect.runPromise(effect.pipe(Effect.provide(TestLayer), Effect.scoped))
