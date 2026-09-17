@@ -18,7 +18,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed:coins": "bun run src/seed/coin-data.ts",
-    "db:seed:tester": "bun run src/seed/tester-exchanges.ts"
+    "db:seed:tester": "bun run src/seed/tester-exchanges.ts",
+    "prepare": "effect-tsgo patch --typescript --oxlint"
   },
   "dependencies": {
     "@elysiajs/html": "^1.4.2",
@@ -47,11 +48,12 @@
     "@tailwindcss/cli": "^4",
     "@types/bun": "^1.4.2",
     "drizzle-kit": "1.0.0-rc.4",
-    "oxlint": "1.83.0",
-    "oxlint-tsgolint": "^7.0.2001",
+    "oxlint": "1.82.0",
+    "oxlint-tsgolint": "7.0.2001",
     "postgres": "^3.4.9",
     "typescript": "^7.0.2",
-    "typescript-language-server": "^6.0.0"
+    "typescript-language-server": "^6.0.0",
+    "@effect/tsgo": "0.45.0"
   },
   "patchedDependencies": {
     "drizzle-orm@1.0.0-rc.4": "patches/drizzle-orm@1.0.0-rc.4.patch"
