@@ -36,7 +36,7 @@ Existing tables and query shapes are preserved; execution moves behind `PgDrizzl
 
 ### D4 SSR on plain `HttpRouter`, same services as the API
 
-HTML pages/partials return `HttpServerResponse.html(...)`; full-vs-fragment branching stays header-driven. Views become pure HTML-string functions (Elysia JSX goes away with Elysia). Alternative (HTML inside `HttpApi` text successes) rejected: no typed-client value, OpenAPI noise.
+HTML pages/partials return `HttpServerResponse.html(...)`; full-vs-fragment branching stays header-driven. Views become pure HTML-string functions (Elysia JSX goes away with Elysia). Routes may be reshaped with the rewritten UI; exact legacy-URL parity is not a goal. Alternative (HTML inside `HttpApi` text successes) rejected: no typed-client value, OpenAPI noise.
 
 ### D5 Supervisor as an Effect service, single-node
 
@@ -64,7 +64,7 @@ HTML pages/partials return `HttpServerResponse.html(...)`; full-vs-fragment bran
 - [Drizzle RC upgrade] Table-definition breakage in `drizzle-orm@rc` → Mitigation: upgrade + `drizzle-kit generate` diff review as its own task before any query port; keep 0.45.2 until the diff is clean.
 - [Dual transport] stdio-JSONL now vs Rpc later duplicates framing thought → Mitigation: `WorkerRpc` group is the single contract; stdio is one `Protocol` implementation of it.
 - [SSE cardinality] Per-shard streams could fan out excessively → Mitigation: one multiplexed control-plane stream with exchange-scoped replay buffer, not per-shard streams.
-- [HTMX view port] JSX-to-string rewrite risks markup drift → Mitigation: port view-by-view behind the existing `bun test tests/` HTML assertions where they exist; screenshot-level parity is explicitly out of scope.
+- [HTMX view rewrite] String-rendered views risk behavior drift from the services they call → Mitigation: route-level full-page and fragment assertions per page (tasks 6.1/6.2); exact markup and legacy-URL parity is explicitly out of scope because the UI ships with the rewrite.
 - [OTLP noise] Misconfigured exporter could spam logs → Mitigation: `layerFromConfig` noops without endpoint; startup logs exporter state once.
 
 ## Migration Plan

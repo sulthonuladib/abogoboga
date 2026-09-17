@@ -9,7 +9,7 @@ The codebase runs its API on oRPC+Elysia+Zod with a global Drizzle singleton, `p
 - **BREAKING**: Remove `@orpc/*`, `elysia`, `@elysiajs/*`, `elysia-htmx`, `zod`, `drizzle-zod`, `ws`, `amqplib`. JSON CRUD is served by Effect `HttpApi`; SSR pages by Effect `HttpRouter`.
 - Restructure the repo as Bun workspaces: `packages/*` (libraries) + `apps/*` (entrypoints `control-plane`, `workers/<exchange>`).
 - Keep Drizzle as the persistence mapper, upgraded to the RC line for the `drizzle-orm/effect-postgres` adapter over `@effect/sql-pg`.
-- Keep the HTMX SSR UI with identical routes, fragments, and OOB behavior, rendered as HTML strings from shared Application Services.
+- Keep the HTMX SSR UI (pages, fragments, OOB behavior) rendered as HTML strings from shared Application Services; the UI ships with the rewrite, so exact legacy URL parity is not required.
 - Promote worker start/stop to a real control plane: activator/deactivator plus live status and an SSE event stream.
 - Rewrite the crawler supervisor on Effect primitives (`FiberMap`, `Scope`, `Stream`, `Schedule`, `PubSub`); keep the JSONL-over-stdio subprocess contract with a strict Schema definition.
 - Add OTLP export (logs/traces/metrics, no-op without a collector) and environment-gated JSON logging.
@@ -20,7 +20,7 @@ The codebase runs its API on oRPC+Elysia+Zod with a global Drizzle singleton, `p
 ### New Capabilities
 
 - `json-crud-api`: Schema-first JSON CRUD over exchanges, cryptocurrencies, markets, chain links, and chains, with extended filters, pagination, and stable error codes.
-- `ssr-web-ui`: HTMX-driven server-rendered pages and partials (dashboard, coins, exchanges, chains, routes matrix, drawers, toasts) with identical URLs and fragment behavior.
+- `ssr-web-ui`: HTMX-driven server-rendered pages and partials (dashboard, coins, exchanges, chains, routes matrix, drawers, toasts) with stable page and fragment URLs; exact legacy URL parity is not required.
 - `worker-control-plane`: Worker activator/deactivator plus monitoring: per-exchange status, shard detail, and a live event stream.
 - `crawler-supervision`: Sharded subprocess supervision with backoff respawn, DB-truth reconciliation, and tick ingestion into orderbook snapshots.
 - `worker-protocol`: Parent/subprocess wire contract: argv bootstrap, stdin commands, stdout ticks, stderr logs.

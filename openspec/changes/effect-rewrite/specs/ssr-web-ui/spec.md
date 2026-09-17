@@ -8,7 +8,7 @@ The SSR web UI is the human interface operators use daily: dashboard, coins, exc
 
 ### Requirement: Stable page and partial URLs
 
-The system SHALL serve the existing page URLs (`/dashboard`, `/coins`, `/exchanges`, `/chains`, `/coins/:id/routes`, detail pages, `/not-found`) rendering full HTML documents, and the existing `/partials/*` URLs rendering HTML fragments for HTMX swaps, with identical URL shapes and query parameters as today.
+The system SHALL serve operator pages (`/dashboard`, `/coins`, `/exchanges`, `/chains`, `/coins/:id/routes`, detail pages, `/not-found`) as full HTML documents, and HTMX fragments under `/partials/*`, with stable and documented URL shapes and query parameters. Exact parity with the legacy frontend URLs is not required: the UI ships with the rewrite and may be reshaped, as long as page and fragment routes stay stable within a release.
 
 #### Scenario: Fragment updates in place
 
@@ -17,7 +17,7 @@ The system SHALL serve the existing page URLs (`/dashboard`, `/coins`, `/exchang
 
 ### Requirement: Form and mutation behavior
 
-Create, edit, and delete flows SHALL behave as today: validation errors re-render the form fragment with an error message; success closes the modal (out-of-band), refreshes the affected fragment, and emits a toast; entity-miss on a full load redirects (302) while an HTMX request receives an `HX-Redirect` to `/not-found`.
+Create, edit, and delete flows SHALL be HTMX-driven: validation errors re-render the form fragment with an error message; success closes the modal (out-of-band), refreshes the affected fragment, and emits a toast; entity-miss on a full load redirects (302) while an HTMX request receives an `HX-Redirect` to `/not-found`.
 
 #### Scenario: Failed coin creation
 
