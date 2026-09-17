@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
-import { database } from "../database/connection";
+import { getDatabase } from "../database/connection";
 import { cryptocurrencyTable } from "../core/cryptocurrency/cryptocurrency.sql";
 import { exchangeTable } from "../core/exchange/exchange.sql";
 import { exchangeCryptocurrencyTable } from "../core/exchange-cryptocurrency/exchange-cryptocurrency.sql";
@@ -166,7 +166,7 @@ export function mapCoinData(input: CoinDataInput): CoinImportPlan {
 
 export async function importCoinData(input: CoinDataInput) {
   const plan = mapCoinData(input);
-  await database.transaction(async (tx) => {
+  await getDatabase().transaction(async (tx) => {
     const importedCoins = await tx
       .insert(cryptocurrencyTable)
       .values(plan.coins)
@@ -242,5 +242,5 @@ if (import.meta.main) {
   console.info(
     `Imported ${result.cryptocurrencies} cryptocurrencies, ${result.exchanges} exchanges, and ${result.assignments} assignments.`,
   );
-  await database.$client.end();
+  await getDatabase().$client.end();
 }

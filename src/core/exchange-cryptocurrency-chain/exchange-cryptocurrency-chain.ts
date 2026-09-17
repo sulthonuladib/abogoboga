@@ -1,6 +1,6 @@
 import { and, count, eq } from "drizzle-orm";
 import { exchangeCryptocurrencyChainTable } from "./exchange-cryptocurrency-chain.sql";
-import { database } from "../../database/connection";
+import { getDatabase } from "../../database/connection";
 import type {
   ExchangeCryptocurrencyChainFilterExists,
   ExchangeCryptocurrencyChainInsert,
@@ -29,14 +29,14 @@ export namespace ExchangeCryptocurrencyChain {
       );
     }
 
-    return await database
+    return await getDatabase()
       .select()
       .from(exchangeCryptocurrencyChainTable)
       .where(conditions?.length ? and(...conditions) : undefined);
   }
 
   export async function getById(id: number) {
-    return await database
+    return await getDatabase()
       .select()
       .from(exchangeCryptocurrencyChainTable)
       .where(eq(exchangeCryptocurrencyChainTable.id, id))
@@ -46,7 +46,7 @@ export namespace ExchangeCryptocurrencyChain {
   export async function exists(
     filter: ExchangeCryptocurrencyChainFilterExists,
   ): Promise<boolean> {
-    const result = await database
+    const result = await getDatabase()
       .select({ count: count() })
       .from(exchangeCryptocurrencyChainTable)
       .where(
@@ -66,7 +66,7 @@ export namespace ExchangeCryptocurrencyChain {
   export async function add(
     exchangeCryptocurrencyChain: ExchangeCryptocurrencyChainInsert,
   ) {
-    return await database
+    return await getDatabase()
       .insert(exchangeCryptocurrencyChainTable)
       .values(exchangeCryptocurrencyChain)
       .returning()
@@ -77,7 +77,7 @@ export namespace ExchangeCryptocurrencyChain {
     id: number,
     exchangeCryptocurrencyChain: ExchangeCryptocurrencyChainUpdate,
   ) {
-    return await database
+    return await getDatabase()
       .update(exchangeCryptocurrencyChainTable)
       .set(exchangeCryptocurrencyChain)
       .where(eq(exchangeCryptocurrencyChainTable.id, id))
@@ -86,7 +86,7 @@ export namespace ExchangeCryptocurrencyChain {
   }
 
   export async function remove(id: number) {
-    return await database
+    return await getDatabase()
       .delete(exchangeCryptocurrencyChainTable)
       .where(eq(exchangeCryptocurrencyChainTable.id, id))
       .returning()

@@ -33,6 +33,8 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
+    "packages/*/src/**/*.ts",
+    "apps/*/src/**/*.ts",
     "tests/**/*.ts",
     "drizzle.config.ts"
   ],

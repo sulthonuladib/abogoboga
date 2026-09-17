@@ -1,6 +1,6 @@
 import { and, asc, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
 
-import { database } from "../../database/connection";
+import { getDatabase } from "../../database/connection";
 import { exchangeTable } from "./exchange.sql";
 import type {
   ExchangeInsert,
@@ -10,7 +10,7 @@ import type {
 
 export namespace Exchange {
   export async function add(exchange: ExchangeInsert) {
-    return await database
+    return await getDatabase()
       .insert(exchangeTable)
       .values(exchange)
       .returning()
@@ -43,7 +43,7 @@ export namespace Exchange {
 
     const { page, limit } = input;
     if (limit === -1) {
-      const items = await database
+      const items = await getDatabase()
         .select({ count: count() })
         .from(exchangeTable)
         .where(conditions?.length ? and(...conditions) : undefined)
@@ -54,7 +54,7 @@ export namespace Exchange {
       const to = items;
 
       return {
-        data: await database
+        data: await getDatabase()
           .select()
           .from(exchangeTable)
           .where(conditions?.length ? and(...conditions) : undefined)
@@ -81,7 +81,7 @@ export namespace Exchange {
     }
 
     // Get total count
-    const totalResult = await database
+    const totalResult = await getDatabase()
       .select({ count: count() })
       .from(exchangeTable)
       .where(conditions?.length ? and(...conditions) : undefined);
@@ -93,7 +93,7 @@ export namespace Exchange {
     const to = Math.min(page * limit, total);
 
     // Get paginated data
-    const data = await database
+    const data = await getDatabase()
       .select()
       .from(exchangeTable)
       .where(conditions?.length ? and(...conditions) : undefined)
@@ -125,7 +125,7 @@ export namespace Exchange {
   }
 
   export async function cmcIdExists(cmcId: number) {
-    return await database
+    return await getDatabase()
       .select({ count: count() })
       .from(exchangeTable)
       .where(eq(exchangeTable.cmcId, cmcId))
@@ -133,7 +133,7 @@ export namespace Exchange {
   }
 
   export async function getById(id: number) {
-    return await database
+    return await getDatabase()
       .select()
       .from(exchangeTable)
       .where(eq(exchangeTable.id, id))
@@ -141,7 +141,7 @@ export namespace Exchange {
   }
 
   export async function getByCmcId(cmcId: number) {
-    return await database
+    return await getDatabase()
       .select()
       .from(exchangeTable)
       .where(eq(exchangeTable.cmcId, cmcId))
@@ -149,7 +149,7 @@ export namespace Exchange {
   }
 
   export async function getBySlug(slug: string) {
-    return await database
+    return await getDatabase()
       .select()
       .from(exchangeTable)
       .where(eq(exchangeTable.slug, slug))
@@ -160,7 +160,7 @@ export namespace Exchange {
     id: number,
     exchange: Partial<typeof exchangeTable.$inferInsert>,
   ) {
-    return await database
+    return await getDatabase()
       .update(exchangeTable)
       .set(exchange)
       .where(eq(exchangeTable.id, id))
@@ -169,7 +169,7 @@ export namespace Exchange {
   }
 
   export async function remove(id: number) {
-    return await database
+    return await getDatabase()
       .delete(exchangeTable)
       .where(eq(exchangeTable.id, id))
       .returning()

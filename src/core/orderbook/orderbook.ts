@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { database } from "../../database/connection";
+import { getDatabase, type DB } from "../../database/connection";
 import { orderbookSnapshotTable } from "./orderbook.sql";
 import type {
   OrderbookSnapshotInsert,
@@ -9,7 +9,7 @@ import type {
 export namespace OrderbookSnapshot {
   export async function upsert(
     input: OrderbookSnapshotInsert,
-    db: typeof database = database,
+    db: DB = getDatabase(),
   ): Promise<OrderbookSnapshotSelect> {
     const rows = await db
       .insert(orderbookSnapshotTable)
@@ -34,7 +34,7 @@ export namespace OrderbookSnapshot {
 
   export async function getByMappingId(
     exchangeCryptocurrencyId: number,
-    db: typeof database = database,
+    db: DB = getDatabase(),
   ): Promise<OrderbookSnapshotSelect | undefined> {
     const rows = await db
       .select()

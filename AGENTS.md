@@ -10,6 +10,8 @@ Before writing any Effect code, first read `node_modules/effect/AGENTS.md`
 If you need to learn more about particular Effect apis and concepts that the
 guide doesn't cover, search through the source code in `node_modules/effect/src`.
 
+When writing Effect code, inspect node_modules/effect for examples of idiomatic usage, tests, module structure, and API design. Treat it as the source of truth for Effect patterns.
+
 # Design principles
 - Prefer correct-by-construction APIs, explicit dependencies, typed failures, and parsed boundary values.
 - Keep domain and application code independent of frameworks, protocols, vendors, and runtime bindings.

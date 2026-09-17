@@ -5,7 +5,7 @@ import {
   exchangeCryptocurrencySelectSchema,
   exchangeCryptocurrencyUpdateSchema,
 } from "./exchange-cryptocurrency.schema";
-import { database } from "../../database/connection";
+import { getDatabase } from "../../database/connection";
 import { exchangeCryptocurrencyTable } from "./exchange-cryptocurrency.sql";
 import { eq } from "drizzle-orm";
 import { ExchangeCryptocurrency } from "./exchange-cryptocurrency";
@@ -32,7 +32,7 @@ const assign = os
     }
     let result;
     try {
-      result = await database
+      result = await getDatabase()
         .insert(exchangeCryptocurrencyTable)
         .values(input)
         .returning()
@@ -104,7 +104,7 @@ const unassign = os
         message: "exchange-cryptocurrency assignment not found",
       });
     }
-    const result = await database
+    const result = await getDatabase()
       .delete(exchangeCryptocurrencyTable)
       .where(eq(exchangeCryptocurrencyTable.id, input.id))
       .returning()

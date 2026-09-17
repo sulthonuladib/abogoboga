@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { database } from "../../database/connection";
+import { getDatabase, type DB } from "../../database/connection";
 import { cryptocurrencyTable } from "../cryptocurrency/cryptocurrency.sql";
 import { exchangeCryptocurrencyChainTable } from "../exchange-cryptocurrency-chain/exchange-cryptocurrency-chain.sql";
 import { exchangeCryptocurrencyTable } from "../exchange-cryptocurrency/exchange-cryptocurrency.sql";
@@ -26,7 +26,7 @@ export function isEligibleCoin(mapping: MappingFlags, chains: ChainFlags[]): boo
 // event; callers MUST NOT trust subscription state carried in event payloads.
 export async function getEligibleCoins(
   exchangeId: number,
-  db: typeof database = database,
+  db: DB = getDatabase(),
 ): Promise<EligibleCoin[]> {
   const rows = await db
     .selectDistinct({

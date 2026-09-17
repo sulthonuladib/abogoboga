@@ -9,13 +9,13 @@ import { exchangeCryptocurrencyChainTable } from "../exchange-cryptocurrency-cha
 import { orderbookSnapshotTable } from "../orderbook/orderbook.sql";
 import { reset } from "drizzle-seed";
 import z from "zod";
-import { database } from "../../database/connection";
+import { getDatabase } from "../../database/connection";
 
 const clearDatabase = os
   .meta(openapi({ method: "POST", path: "/utility/clear-database" }))
   .output(z.void())
   .handler(async () => {
-    await reset(database, {
+    await reset(getDatabase(), {
       cryptocurrency: cryptocurrencyTable,
       exchange: exchangeTable,
       chain: chainTable,

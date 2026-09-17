@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm/relations";
+import { defineRelations } from "drizzle-orm/relations";
 import {
   exchangeTable,
   exchangeCryptocurrencyTable,
@@ -6,47 +6,56 @@ import {
   exchangeCryptocurrencyChainTable,
   chainTable,
 } from "./schema";
+import { orderbookSnapshotTable } from "../core/orderbook/orderbook.sql";
 
-export const exchangeCryptocurrencyRelations = relations(
+const schema = {
+  exchangeTable,
   exchangeCryptocurrencyTable,
-  ({ one, many }) => ({
-    exchange: one(exchangeTable, {
-      fields: [exchangeCryptocurrencyTable.exchangeId],
-      references: [exchangeTable.id],
-    }),
-    cryptocurrency: one(cryptocurrencyTable, {
-      fields: [exchangeCryptocurrencyTable.cryptocurrencyId],
-      references: [cryptocurrencyTable.id],
-    }),
-    exchangeCryptocurrencyChains: many(exchangeCryptocurrencyChainTable),
-  }),
-);
-
-export const exchangeRelations = relations(exchangeTable, ({ many }) => ({
-  exchangeCryptocurrencies: many(exchangeCryptocurrencyTable),
-}));
-
-export const cryptocurrencyRelations = relations(
   cryptocurrencyTable,
-  ({ many }) => ({
-    exchangeCryptocurrencies: many(exchangeCryptocurrencyTable),
-  }),
-);
-
-export const exchangeCryptocurrencyChainRelations = relations(
   exchangeCryptocurrencyChainTable,
-  ({ one }) => ({
-    exchangeCryptocurrency: one(exchangeCryptocurrencyTable, {
-      fields: [exchangeCryptocurrencyChainTable.exchangeCryptocurrencyId],
-      references: [exchangeCryptocurrencyTable.id],
-    }),
-    chain: one(chainTable, {
-      fields: [exchangeCryptocurrencyChainTable.chainId],
-      references: [chainTable.id],
-    }),
-  }),
-);
+  chainTable,
+  orderbookSnapshotTable,
+};
 
-export const chainRelations = relations(chainTable, ({ many }) => ({
-  exchangeCryptocurrencyChains: many(exchangeCryptocurrencyChainTable),
+export const dbRelations = defineRelations(schema, (r) => ({
+  exchangeCryptocurrencyTable: {
+    exchange: r.one.exchangeTable({
+      from: r.exchangeCryptocurrencyTable.exchangeId,
+      to: r.exchangeTable.id,
+    }),
+    cryptocurrency: r.one.cryptocurrencyTable({
+      from: r.exchangeCryptocurrencyTable.cryptocurrencyId,
+      to: r.cryptocurrencyTable.id,
+    }),
+    exchangeCryptocurrencyChains: r.many.exchangeCryptocurrencyChainTable(),
+  },
+  exchangeTable: {
+    exchangeCryptocurrencies: r.many.exchangeCryptocurrencyTable(),
+  },
+  cryptocurrencyTable: {
+    exchangeCryptocurrencies: r.many.exchangeCryptocurrencyTable(),
+  },
+  exchangeCryptocurrencyChainTable: {
+    exchangeCryptocurrency: r.one.exchangeCryptocurrencyTable({
+      from: r.exchangeCryptocurrencyChainTable.exchangeCryptocurrencyId,
+      to: r.exchangeCryptocurrencyTable.id,
+    }),
+    chain: r.one.chainTable({
+      from: r.exchangeCryptocurrencyChainTable.chainId,
+      to: r.chainTable.id,
+    }),
+  },
+  chainTable: {
+    exchangeCryptocurrencyChains: r.many.exchangeCryptocurrencyChainTable(),
+  },
+  orderbookSnapshotTable: {
+    exchange: r.one.exchangeTable({
+      from: r.orderbookSnapshotTable.exchangeId,
+      to: r.exchangeTable.id,
+    }),
+    exchangeCryptocurrency: r.one.exchangeCryptocurrencyTable({
+      from: r.orderbookSnapshotTable.exchangeCryptocurrencyId,
+      to: r.exchangeCryptocurrencyTable.id,
+    }),
+  },
 }));

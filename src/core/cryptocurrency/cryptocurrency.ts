@@ -1,6 +1,6 @@
 import { and, desc, asc, count, eq, or, ilike, type SQL } from "drizzle-orm";
 import { cryptocurrencyTable } from "./cryptocurrency.sql";
-import { database } from "../../database/connection";
+import { getDatabase } from "../../database/connection";
 import type z from "zod";
 import {
   cryptocurrencyInsertSchema,
@@ -45,7 +45,7 @@ export namespace Cryptocurrency {
 
     const { page, limit } = input;
     if (limit === -1) {
-      const items = await database
+      const items = await getDatabase()
         .select({ count: count() })
         .from(cryptocurrencyTable)
         .where(conditions?.length ? and(...conditions) : undefined)
@@ -56,7 +56,7 @@ export namespace Cryptocurrency {
       const to = items;
 
       return {
-        data: await database
+        data: await getDatabase()
           .select()
           .from(cryptocurrencyTable)
           .where(conditions?.length ? and(...conditions) : undefined)
@@ -83,7 +83,7 @@ export namespace Cryptocurrency {
     }
 
     // Get total count
-    const totalResult = await database
+    const totalResult = await getDatabase()
       .select({ count: count() })
       .from(cryptocurrencyTable)
       .where(conditions?.length ? and(...conditions) : undefined);
@@ -95,7 +95,7 @@ export namespace Cryptocurrency {
     const to = Math.min(page * limit, total);
 
     // Get paginated data
-    const data = await database
+    const data = await getDatabase()
       .select()
       .from(cryptocurrencyTable)
       .where(conditions?.length ? and(...conditions) : undefined)
@@ -127,7 +127,7 @@ export namespace Cryptocurrency {
   }
 
   export async function getById(id: number) {
-    return await database
+    return await getDatabase()
       .select()
       .from(cryptocurrencyTable)
       .where(eq(cryptocurrencyTable.id, id))
@@ -135,7 +135,7 @@ export namespace Cryptocurrency {
   }
 
   export async function getByCmcId(cmcId: number) {
-    return await database
+    return await getDatabase()
       .select()
       .from(cryptocurrencyTable)
       .where(eq(cryptocurrencyTable.cmcId, cmcId))
@@ -143,7 +143,7 @@ export namespace Cryptocurrency {
   }
 
   export async function getBySlug(slug: string) {
-    return await database
+    return await getDatabase()
       .select()
       .from(cryptocurrencyTable)
       .where(eq(cryptocurrencyTable.slug, slug))
@@ -156,7 +156,7 @@ export namespace Cryptocurrency {
       : await getBySlug(input.slug);
     if (!cryptocurrency) return undefined;
 
-    const rows = await database
+    const rows = await getDatabase()
       .select({
         exchangeId: exchangeTable.id,
         exchangeName: exchangeTable.name,
@@ -243,7 +243,7 @@ export namespace Cryptocurrency {
   }
 
   export async function cmcIdExists(cmcId: number) {
-    return await database
+    return await getDatabase()
       .select({ count: count() })
       .from(cryptocurrencyTable)
       .where(eq(cryptocurrencyTable.cmcId, cmcId))
@@ -253,7 +253,7 @@ export namespace Cryptocurrency {
   export async function add(
     cryptocurrency: z.infer<typeof cryptocurrencyInsertSchema>,
   ) {
-    return await database
+    return await getDatabase()
       .insert(cryptocurrencyTable)
       .values(cryptocurrency)
       .returning()
@@ -264,7 +264,7 @@ export namespace Cryptocurrency {
     id: number,
     cryptocurrency: z.infer<typeof cryptocurrencyUpdateSchema>,
   ) {
-    return await database
+    return await getDatabase()
       .update(cryptocurrencyTable)
       .set(cryptocurrency)
       .where(eq(cryptocurrencyTable.id, id))
@@ -273,7 +273,7 @@ export namespace Cryptocurrency {
   }
 
   export async function remove(id: number) {
-    return await database
+    return await getDatabase()
       .delete(cryptocurrencyTable)
       .where(eq(cryptocurrencyTable.id, id))
       .returning()
@@ -306,7 +306,7 @@ export namespace Cryptocurrency {
     const search = input.search?.trim() ?? "";
     let coins: (typeof cryptocurrencyTable.$inferSelect)[];
     if (search) {
-      coins = await database
+      coins = await getDatabase()
         .select()
         .from(cryptocurrencyTable)
         .where(
@@ -316,11 +316,11 @@ export namespace Cryptocurrency {
           ),
         );
     } else {
-      coins = await database.select().from(cryptocurrencyTable);
+      coins = await getDatabase().select().from(cryptocurrencyTable);
     }
 
-    const allMarkets = await database.select().from(exchangeCryptocurrencyTable);
-    const allLinks = await database
+    const allMarkets = await getDatabase().select().from(exchangeCryptocurrencyTable);
+    const allLinks = await getDatabase()
       .select()
       .from(exchangeCryptocurrencyChainTable);
 

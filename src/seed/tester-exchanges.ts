@@ -22,7 +22,7 @@
 //   3. Suspend a chain or delist a mapping via the API and watch the shard
 //      unsubscribe; re-run this seeder to restore the eligible state.
 import { sql } from "drizzle-orm";
-import { database } from "../database/connection";
+import { getDatabase } from "../database/connection";
 import { cryptocurrencyTable } from "../core/cryptocurrency/cryptocurrency.sql";
 import { exchangeTable } from "../core/exchange/exchange.sql";
 import { exchangeCryptocurrencyTable } from "../core/exchange-cryptocurrency/exchange-cryptocurrency.sql";
@@ -64,7 +64,7 @@ const coinChain: Record<string, string> = { BTC: "BTC", ETH: "ETH" };
 
 export async function seedTesterExchanges() {
   const exchangeIds = new Map<string, number>();
-  await database.transaction(async (tx) => {
+  await getDatabase().transaction(async (tx) => {
     const importedCoins = await tx
       .insert(cryptocurrencyTable)
       .values(testerCoins)
@@ -207,5 +207,5 @@ if (import.meta.main) {
   for (const [slug, count] of Object.entries(result.eligibility)) {
     console.info(`Eligible on ${slug}: ${count} coins.`);
   }
-  await database.$client.end();
+  await getDatabase().$client.end();
 }

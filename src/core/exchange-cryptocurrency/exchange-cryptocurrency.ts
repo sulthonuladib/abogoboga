@@ -1,6 +1,6 @@
 import { and, count as drizzleCount, eq } from "drizzle-orm";
 import { exchangeCryptocurrencyTable } from "./exchange-cryptocurrency.sql";
-import { database } from "../../database/connection";
+import { getDatabase } from "../../database/connection";
 import type {
   ExchangeCryptocurrencyFilterExists,
   ExchangeCryptocurrencySelect,
@@ -10,7 +10,7 @@ export namespace ExchangeCryptocurrency {
   export async function exists(
     filter: ExchangeCryptocurrencyFilterExists,
   ): Promise<boolean> {
-    const result = await database
+    const result = await getDatabase()
       .select({ count: drizzleCount() })
       .from(exchangeCryptocurrencyTable)
       .where(
@@ -47,7 +47,7 @@ export namespace ExchangeCryptocurrency {
         );
       }
       if (conditions.length > 0) {
-        return await database
+        return await getDatabase()
           .select()
           .from(exchangeCryptocurrencyTable)
           .where(and(...conditions))
@@ -55,13 +55,13 @@ export namespace ExchangeCryptocurrency {
       }
     }
 
-    return await database.select().from(exchangeCryptocurrencyTable).execute();
+    return await getDatabase().select().from(exchangeCryptocurrencyTable).execute();
   }
 
   export async function getById(
     id: number,
   ): Promise<ExchangeCryptocurrencySelect | undefined> {
-    const result = await database
+    const result = await getDatabase()
       .select()
       .from(exchangeCryptocurrencyTable)
       .where(eq(exchangeCryptocurrencyTable.id, id))
@@ -75,7 +75,7 @@ export namespace ExchangeCryptocurrency {
     id: number,
     payload: Partial<ExchangeCryptocurrencySelect>,
   ) {
-    return await database
+    return await getDatabase()
       .update(exchangeCryptocurrencyTable)
       .set(payload)
       .where(eq(exchangeCryptocurrencyTable.id, id))
@@ -84,7 +84,7 @@ export namespace ExchangeCryptocurrency {
   }
 
   export async function countExchangeCryptocurrencies(exchangeId: number) {
-    const result = await database
+    const result = await getDatabase()
       .select({ count: drizzleCount() })
       .from(exchangeCryptocurrencyTable)
       .where(eq(exchangeCryptocurrencyTable.exchangeId, exchangeId))
@@ -113,7 +113,7 @@ export namespace ExchangeCryptocurrency {
         );
       }
       if (conditions.length > 0) {
-        const result = await database
+        const result = await getDatabase()
           .select({ count: drizzleCount() })
           .from(exchangeCryptocurrencyTable)
           .where(and(...conditions))
@@ -124,7 +124,7 @@ export namespace ExchangeCryptocurrency {
       }
     }
 
-    const result = await database
+    const result = await getDatabase()
       .select({ count: drizzleCount() })
       .from(exchangeCryptocurrencyTable)
       .execute();
