@@ -226,19 +226,14 @@ async function exchangeRows(
   };
 }
 
-/** Server-side searchable exchange options (20/page) for assignment forms. */
-async function exchangeOptions(
-  q: string,
-  page = 1,
-): Promise<{
+/** Server-side searchable exchange options (top 10) for assignment forms. */
+async function exchangeOptions(q: string): Promise<{
   options: Array<{ id: number; name: string }>;
   total: number;
-  page: number;
-  pages: number;
 }> {
   const list = await api.exchange.list({
-    page,
-    limit: 20,
+    page: 1,
+    limit: 10,
     search: q,
     searchBy: "name",
     orderBy: "id",
@@ -247,24 +242,17 @@ async function exchangeOptions(
   return {
     options: list.data.map((exchange) => ({ id: exchange.id, name: exchange.name })),
     total: list.meta.items,
-    page: list.meta.page,
-    pages: Math.max(list.meta.pages, 1),
   };
 }
 
-/** Server-side searchable chain options (20/page) for chain-link forms. */
-async function chainOptions(
-  q: string,
-  page = 1,
-): Promise<{
+/** Server-side searchable chain options (top 10) for chain-link forms. */
+async function chainOptions(q: string): Promise<{
   options: Array<{ id: number; name: string; code: string }>;
   total: number;
-  page: number;
-  pages: number;
 }> {
   const list = await api.chain.list({
-    page,
-    limit: 20,
+    page: 1,
+    limit: 10,
     search: q,
     searchBy: "name",
     orderBy: "id",
@@ -273,8 +261,6 @@ async function chainOptions(
   return {
     options: list.data.map((chain) => ({ id: chain.id, name: chain.name, code: chain.code })),
     total: list.meta.items,
-    page: list.meta.page,
-    pages: Math.max(list.meta.pages, 1),
   };
 }
 
@@ -310,17 +296,28 @@ async function chainRows(
   };
 }
 
-/** Drawer option lists: first 20 only, never the full table.
- * Full search/paging happens through the option partials. */
-async function drawerOptionLists(): Promise<{
+/** Drawer option lists: top 10 only, never the full table.
+ * Live search happens through the option partials. Optional queries
+ * keep error re-renders showing the filtered list, not the default. */
+async function drawerOptionLists(
+  exchangeQ = "",
+  chainQ = "",
+): Promise<{
   exchanges: Array<{ id: number; name: string }>;
+  exchangeTotal: number;
   chains: Array<{ id: number; name: string; code: string }>;
+  chainTotal: number;
 }> {
   const [exchanges, chains] = await Promise.all([
-    exchangeOptions("", 1),
-    chainOptions("", 1),
+    exchangeOptions(exchangeQ),
+    chainOptions(chainQ),
   ]);
-  return { exchanges: exchanges.options, chains: chains.options };
+  return {
+    exchanges: exchanges.options,
+    exchangeTotal: exchanges.total,
+    chains: chains.options,
+    chainTotal: chains.total,
+  };
 }
 
 /** Full drawer shell partial (#drawer-slot). Single batched metadata call. */
@@ -331,7 +328,12 @@ async function renderDrawer(coinId: number) {
   ]);
   return CoinDrawer({
     metadata,
-    lists: { exchanges: lists.exchanges, chains: lists.chains },
+    lists: {
+      exchanges: lists.exchanges,
+      exchangeTotal: lists.exchangeTotal,
+      chains: lists.chains,
+      chainTotal: lists.chainTotal,
+    },
   });
 }
 
@@ -352,12 +354,17 @@ async function renderDrawerBody(
 ) {
   const [metadata, lists] = await Promise.all([
     api.cryptocurrency.metadata({ id: coinId }),
-    drawerOptionLists(),
+    drawerOptionLists(overrides?.assignQuery ?? "", overrides?.linkQuery ?? ""),
   ]);
   return DrawerBody({
     coinId,
     markets: metadata.exchanges,
-    lists: { exchanges: lists.exchanges, chains: lists.chains },
+    lists: {
+      exchanges: lists.exchanges,
+      exchangeTotal: lists.exchangeTotal,
+      chains: lists.chains,
+      chainTotal: lists.chainTotal,
+    },
     ...overrides,
   });
 }
@@ -1350,17 +1357,14 @@ export const webApp = new Elysia()
   .get("/partials/exchanges/options", async ({ set, query }) => {
     const qq = (query ?? {}) as Record<string, unknown>;
     const q = str(qq["q"], "");
-    const page = num(qq["page"], 1);
     const target = str(qq["target"], "exchange-options") || "exchange-options";
     const select = str(qq["select"], "exchangeId") || "exchangeId";
     const selected = str(qq["selected"], "") || undefined;
-    const { options, total, page: cur, pages } = await exchangeOptions(q, page);
+    const { options, total } = await exchangeOptions(q);
     setFragmentHeaders(set);
     return ExchangeOptionsFragment({
       options,
       total,
-      page: cur,
-      pages,
       q,
       targetId: target,
       selectName: select,
@@ -1370,17 +1374,14 @@ export const webApp = new Elysia()
   .get("/partials/chains/options", async ({ set, query }) => {
     const qq = (query ?? {}) as Record<string, unknown>;
     const q = str(qq["q"], "");
-    const page = num(qq["page"], 1);
     const target = str(qq["target"], "chain-options") || "chain-options";
     const select = str(qq["select"], "chainId") || "chainId";
     const selected = str(qq["selected"], "") || undefined;
-    const { options, total, page: cur, pages } = await chainOptions(q, page);
+    const { options, total } = await chainOptions(q);
     setFragmentHeaders(set);
     return ChainOptionsFragment({
       options,
       total,
-      page: cur,
-      pages,
       q,
       targetId: target,
       selectName: select,

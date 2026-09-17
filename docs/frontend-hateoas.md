@@ -7,8 +7,11 @@ Do not hardcode partial URLs. Follow `hx-*` attributes, links, and redirects.
 
 - Full page loads (`GET /dashboard`, `/coins`, `/exchanges`, `/chains`,
   `/coins/:id/routes`, `/not-found`) render `Layout` with:
-  - Daisy `drawer` sidebar (`#app-nav-toggle`, `lg:drawer-open`) + `navbar`
-    (`navbar-start`: sidebar toggle + brand, `navbar-center`: `#navbar-crumbs`,
+  - Daisy `drawer` sidebar (`#app-drawer`, `#app-nav-toggle`, `lg:drawer-open`
+    present by default) + `navbar` (`navbar-start`: sidebar toggle
+    (`#app-nav-toggle-btn`) + brand, sidebar header hide button
+    (`#app-nav-collapse-side`), `navbar-center`: `#navbar-crumbs`,
+    desktop collapse persisted via `localStorage:lister:nav-collapsed`)
     `navbar-end`: Refresh + API docs)
   - `<main id="main-content">`, plus `<div id="drawer-slot">`,
     `<div id="modal-slot">`, `<div id="toasts">`
@@ -16,6 +19,9 @@ Do not hardcode partial URLs. Follow `hx-*` attributes, links, and redirects.
   without a second shell, targeting one of the ids below.
 - All fragment responses set `Vary: HX-Request`. Do not cache across
   fragment/full variants.
+- `public/static/app.css` is a checked-in Tailwind build. After changing any
+  class in `src/web/**`, rebuild it (`bun run css:build`) or new utilities
+  silently do nothing.
 
 ## Fragment targets (discover from responses, not from memory)
 
@@ -55,12 +61,13 @@ Do not hardcode partial URLs. Follow `hx-*` attributes, links, and redirects.
   current filter via `hx-include="#*-filter"`.
 - No client-side filtering. Search/paging always issues a request.
 - Assignment options (never preload full tables):
-  - `GET /partials/exchanges/options?q&page&target&select&selected` (20/page)
-  - `GET /partials/chains/options?q&page&target&select&selected` (20/page)
-  - Forms start with first 20 (or current selection only), fetch on
-    `input changed delay:300ms + change`. Paging buttons swap `outerHTML` on
-    `#{target}`. Empty option result states “no matches” with a clear-search
-    control.
+  - `GET /partials/exchanges/options?q&target&select&selected` (top 10)
+  - `GET /partials/chains/options?q&target&select&selected` (top 10)
+  - Forms start with top 10 (or current selection only), fetch on
+    `input changed delay:300ms + change`. The search input sits beside the
+    dropdown; typing swaps `outerHTML` on `#{target}` with the new top 10
+    — no pagination. Empty option result states “no matches”
+    with a clear-search control.
 
 ## Redirects (follow, don’t construct)
 

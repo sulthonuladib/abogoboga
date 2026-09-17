@@ -11,7 +11,9 @@ export type DrawerChainLink = DrawerMarket["chains"][number];
 
 export type DrawerLists = {
   exchanges: Array<{ id: number; name: string }>;
+  exchangeTotal: number;
   chains: Array<{ id: number; name: string; code: string }>;
+  chainTotal: number;
 };
 
 
@@ -81,6 +83,7 @@ export function ChainLinkRow({ link }: { link: DrawerChainLink }) {
 export function MarketCard({
   market,
   chains,
+  chainTotal,
   linkError,
   linkChainId,
   linkCode,
@@ -89,6 +92,7 @@ export function MarketCard({
 }: {
   market: DrawerMarket;
   chains: DrawerLists["chains"];
+  chainTotal: number;
   linkError?: string;
   linkChainId?: string;
   linkCode?: string;
@@ -194,9 +198,7 @@ export function MarketCard({
           )}
           {ChainOptionsFragment({
             options: chains.map((c) => ({ id: c.id, name: c.name, code: c.code })),
-            total: chains.length,
-            page: 1,
-            pages: 1,
+            total: chainTotal,
             q: isLinkTarget ? (linkQuery ?? "") : "",
             targetId: "chain-options-" + String(market.marketId),
             selectName: "chainId",
@@ -272,6 +274,7 @@ export function DrawerBody({
         (MarketCard({
           market,
           chains: lists.chains,
+          chainTotal: lists.chainTotal,
           linkError,
           linkChainId,
           linkCode,
@@ -298,9 +301,7 @@ export function DrawerBody({
             )}
             {ExchangeOptionsFragment({
               options: lists.exchanges,
-              total: lists.exchanges.length,
-              page: 1,
-              pages: 1,
+              total: lists.exchangeTotal,
               q: assignQuery ?? "",
               targetId: "exchange-assign-options",
               selectName: "exchangeId",

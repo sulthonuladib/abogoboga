@@ -280,12 +280,12 @@ export function ChainsTableWrap({
   );
 }
 
-/** Searchable + paginated chain options for chain-link forms. */
+/** Searchable chain dropdown for chain-link forms.
+ * Search input sits beside the dropdown; typing refreshes the dropdown
+ * with the top 10 matches. No pagination. */
 export function ChainOptionsFragment({
   options,
   total,
-  page,
-  pages,
   q,
   targetId,
   selectName,
@@ -293,39 +293,58 @@ export function ChainOptionsFragment({
 }: {
   options: Array<{ id: number; name: string; code: string }>;
   total: number;
-  page: number;
-  pages: number;
   q: string;
   targetId: string;
   selectName: string;
   selectedId?: string;
 }) {
+  const searchUrl =
+    "/partials/chains/options?target=" +
+    encodeURIComponent(targetId) +
+    "&select=" +
+    encodeURIComponent(selectName) +
+    (selectedId ? "&selected=" + encodeURIComponent(selectedId) : "");
   return (
-    <div id={targetId}>
-      <div class="flex flex-wrap items-end gap-2">
-        <label class="form-control min-w-40 flex-1">
-          <div class="label py-1">
-            <span class="label-text text-xs font-semibold uppercase tracking-wide opacity-70">
-              Search chains
-            </span>
-          </div>
-          <input
-            type="search"
-            name="q"
-            value={q}
-            placeholder="Ethereum, bep20…"
-            autocomplete="off"
-            class="input input-bordered input-sm w-full"
-            hx-get={"/partials/chains/options?target=" + encodeURIComponent(targetId) + "&select=" + encodeURIComponent(selectName) + (selectedId ? "&selected=" + encodeURIComponent(selectedId) : "")}
-            hx-target={"#" + targetId}
-            hx-swap="outerHTML"
-            hx-trigger="input changed delay:300ms, change"
-            hx-indicator="#global-bar"
-          />
-        </label>
-      </div>
-      <div class="mt-2 flex items-center gap-2">
+    <div id={targetId} class="flex gap-2">
+      <label class="form-control w-44 shrink-0">
+        <div class="label py-1">
+          <span class="label-text text-xs font-semibold uppercase tracking-wide opacity-70">
+            Search chains
+          </span>
+        </div>
+        <input
+          type="search"
+          name="q"
+          value={q}
+          placeholder="Ethereum, bep20…"
+          autocomplete="off"
+          class="input input-bordered input-sm w-full"
+          hx-get={searchUrl}
+          hx-target={"#" + targetId}
+          hx-swap="outerHTML"
+          hx-trigger="input changed delay:300ms, change"
+          hx-indicator="#global-bar"
+        />
+        <div class="label py-1">
+          <span class="label-text-alt opacity-60">
+            {String(total)} match{total === 1 ? "" : "es"}
+          </span>
+        </div>
+      </label>
+      <label class="form-control min-w-0 flex-1">
+        <div class="label py-1">
+          <span class="label-text text-xs font-semibold uppercase tracking-wide opacity-70">
+            Chains
+          </span>
+        </div>
         <select name={selectName} class="select select-bordered select-sm w-full">
+          {options.length === 0 ? (
+            <option value="" disabled selected>
+              No chains match
+            </option>
+          ) : (
+            ""
+          )}
           {selectedId && !options.some((o) => String(o.id) === selectedId) ? (
             <option value={selectedId} selected>
               Selected #{selectedId}
@@ -339,47 +358,29 @@ export function ChainOptionsFragment({
             </option>
           )) as unknown as "safe"}
         </select>
-      </div>
-      {options.length === 0 ? (
-        <p class="mt-1 text-xs opacity-60">
-          No chains match — <button
-            class="link"
-            hx-get={"/partials/chains/options?target=" + encodeURIComponent(targetId) + "&select=" + encodeURIComponent(selectName)}
-            hx-target={"#" + targetId}
-            hx-swap="outerHTML"
-          >
-            clear the search
-          </button>.
-        </p>
-      ) : (
-        <div class="mt-1 flex flex-wrap items-center justify-between gap-2">
-          <span class="text-xs opacity-60">
-            {String(total)} matches · Page {String(page)} of {String(pages)}
-          </span>
-          <div class="join">
-            <button
-              type="button"
-              class="join-item btn btn-xs"
-              disabled={page <= 1}
-              hx-get={"/partials/chains/options?page=" + String(page - 1) + "&q=" + encodeURIComponent(q) + "&target=" + encodeURIComponent(targetId) + "&select=" + encodeURIComponent(selectName) + (selectedId ? "&selected=" + encodeURIComponent(selectedId) : "")}
-              hx-target={"#" + targetId}
-              hx-swap="outerHTML"
-            >
-              «
-            </button>
-            <button
-              type="button"
-              class="join-item btn btn-xs"
-              disabled={page >= pages}
-              hx-get={"/partials/chains/options?page=" + String(page + 1) + "&q=" + encodeURIComponent(q) + "&target=" + encodeURIComponent(targetId) + "&select=" + encodeURIComponent(selectName) + (selectedId ? "&selected=" + encodeURIComponent(selectedId) : "")}
-              hx-target={"#" + targetId}
-              hx-swap="outerHTML"
-            >
-              »
-            </button>
+        {options.length === 0 ? (
+          <div class="label py-1">
+            <span class="label-text-alt opacity-60">
+              <button
+                type="button"
+                class="link"
+                hx-get={
+                  "/partials/chains/options?target=" +
+                  encodeURIComponent(targetId) +
+                  "&select=" +
+                  encodeURIComponent(selectName)
+                }
+                hx-target={"#" + targetId}
+                hx-swap="outerHTML"
+              >
+                clear the search
+              </button>
+            </span>
           </div>
-        </div>
-      )}
+        ) : (
+          ""
+        )}
+      </label>
     </div>
   );
 }
