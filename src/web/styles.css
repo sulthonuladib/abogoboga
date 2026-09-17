@@ -1,5 +1,7 @@
 @import "tailwindcss";
-@plugin "daisyui";
+@plugin "daisyui" {
+  themes: light;
+}
 
 /* htmx loading indicator discipline (kept out of components so it
    survives Tailwind tree-shaking). */
@@ -8,4 +10,55 @@
 }
 .htmx-request .htmx-indicator {
   display: inline-flex;
+}
+/* htmx swaps the .htmx-request class onto the *requesting* element, so a
+   bare indicator id also needs its own requested state. */
+.htmx-indicator.htmx-request {
+  display: inline-flex;
+}
+
+/* Global top progress bar driven by htmx:send / htmx:afterOnLoad. */
+#global-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 200;
+  height: 2px;
+  width: 100%;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  transition: opacity 150ms ease;
+}
+#global-bar.is-busy {
+  opacity: 1;
+  animation: global-bar-slide 1s ease-in-out infinite;
+}
+@keyframes global-bar-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Toast auto-dismiss. */
+#toasts .alert {
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+#toasts .alert.toast-out {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+/* Row removal sweep for hx-swap="... swap:150ms" deletes. */
+tr.htmx-swapping {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+/* Modal entrance. */
+#modal-slot .modal-box {
+  animation: modal-in 160ms ease-out;
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
 }

@@ -16,6 +16,7 @@ import type {
   PaginatedCryptocurrencyList,
   PaginatedListingStats,
 } from "./cryptocurrency.type";
+import { canTransfer } from "./transfer";
 
 export namespace Cryptocurrency {
   export async function list(
@@ -161,9 +162,13 @@ export namespace Cryptocurrency {
         exchangeName: exchangeTable.name,
         exchangeSlug: exchangeTable.slug,
         exchangeSymbol: exchangeCryptocurrencyTable.exchangeSymbol,
+        marketId: exchangeCryptocurrencyTable.id,
+        listed: exchangeCryptocurrencyTable.listed,
+        tradeEnabled: exchangeCryptocurrencyTable.tradeEnabled,
         chainId: chainTable.id,
         chainName: chainTable.name,
         chainCode: chainTable.code,
+        linkId: exchangeCryptocurrencyChainTable.id,
         exchangeChainCode: exchangeCryptocurrencyChainTable.exchangeChainCode,
         exchangeChainName: exchangeCryptocurrencyChainTable.exchangeChainName,
         withdrawEnabled: exchangeCryptocurrencyChainTable.withdrawEnabled,
@@ -189,10 +194,14 @@ export namespace Cryptocurrency {
       name: string;
       slug: string;
       symbol: string;
+      marketId: number;
+      listed: boolean;
+      tradeEnabled: boolean;
       chains: Array<{
         id: number;
         name: string;
         code: string;
+        linkId: number;
         exchangeChainCode: string;
         exchangeChainName: string | null;
         withdrawEnabled: boolean;
@@ -205,9 +214,13 @@ export namespace Cryptocurrency {
         name: row.exchangeName,
         slug: row.exchangeSlug,
         symbol: row.exchangeSymbol,
+        marketId: row.marketId,
+        listed: row.listed,
+        tradeEnabled: row.tradeEnabled,
         chains: [],
       };
       if (
+        row.linkId !== null &&
         row.chainId !== null &&
         row.chainName !== null &&
         row.chainCode !== null &&
@@ -218,6 +231,7 @@ export namespace Cryptocurrency {
         id: row.chainId,
         name: row.chainName,
         code: row.chainCode,
+        linkId: row.linkId,
         exchangeChainCode: row.exchangeChainCode,
         exchangeChainName: row.exchangeChainName,
         withdrawEnabled: row.withdrawEnabled,
@@ -264,20 +278,6 @@ export namespace Cryptocurrency {
       .where(eq(cryptocurrencyTable.id, id))
       .returning()
       .then((result) => result[0]);
-  }
-
-  function canTransfer(
-    srcLinks: Array<{ chainId: number; withdrawEnabled: boolean }>,
-    dstLinks: Array<{ chainId: number; depositEnabled: boolean }>,
-  ): boolean {
-    const dstDepositByChain = new Map<number, boolean>();
-    for (const link of dstLinks) {
-      if (link.depositEnabled) dstDepositByChain.set(link.chainId, true);
-    }
-    for (const src of srcLinks) {
-      if (src.withdrawEnabled && dstDepositByChain.get(src.chainId)) return true;
-    }
-    return false;
   }
 
   export function countBlockedRoutes(

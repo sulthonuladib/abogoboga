@@ -1,14 +1,81 @@
 import { Html } from "@elysiajs/html";
 import "@elysiajs/html/htmx";
+import type { Chain } from "../../core/chain/chain.type";
+import {
+  EmptyState,
+  Field,
+  InlineLoading,
+  ModalShell,
+  PageHeader,
+  SubmitButton,
+} from "./ui";
 
-export type ChainRow = {
-  id: number;
-  name: string;
-  code: string;
+export type ChainRow = Pick<Chain, "id" | "name" | "code"> & {
   coins: number;
 };
 
-export function ChainsPageBody({
+function ChainAvatar({ code }: { code: string }) {
+  return (
+    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary font-mono text-xs font-bold text-secondary-content">
+      {(code || "?").slice(0, 3).toUpperCase()}
+    </div>
+  );
+}
+
+export function ChainsFilterBar({ q }: { q: string }) {
+  return (
+    <div class="card mb-4 bg-base-100 shadow-sm">
+      <div class="card-body p-4">
+        <form
+          id="chains-filter"
+          hx-get="/partials/chains"
+          hx-target="#chains-table-wrap"
+          hx-swap="innerHTML"
+          hx-trigger="input changed delay:400ms from:#chains-search, change"
+          hx-sync="this:abort"
+          hx-indicator="#chains-loading"
+          class="flex flex-wrap items-end gap-2"
+        >
+          <label class="form-control w-full max-w-xs">
+            <div class="label py-1">
+              <span class="label-text text-xs font-semibold uppercase tracking-wide opacity-70">
+                Search
+              </span>
+            </div>
+            <label class="input input-sm input-bordered flex items-center gap-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+                class="h-4 w-4 opacity-50"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                />
+              </svg>
+              <input
+                id="chains-search"
+                name="q"
+                type="search"
+                placeholder="Ethereum, bep20…"
+                value={q}
+                class="grow"
+                autocomplete="off"
+              />
+            </label>
+          </label>
+          {InlineLoading({ id: "chains-loading" }) as unknown as "safe"}
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export function ChainsTableWrap({
   rows,
   total,
 }: {
@@ -16,76 +83,229 @@ export function ChainsPageBody({
   total: number;
 }) {
   return (
-    <div>
-      <h1 class="mb-4 text-2xl font-bold">Chains</h1>
+    <div id="chains-table-wrap">
       <div id="chains-error"></div>
-      <div class="my-2">
-        <span id="chains-count" class="badge badge-ghost">{String(total)} chains</span>
+      <div class="mb-2 flex items-center gap-2">
+        <span id="chains-count" class="badge badge-neutral">
+          {String(total)} chains
+        </span>
       </div>
-      <div id="chains-list-region" class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
-        <table class="table table-zebra w-full table-sm">
-          <thead>
-            <tr>
-              <th>name</th>
-              <th>code</th>
-              <th>coins</th>
-              <th>actions</th>
-            </tr>
-          </thead>
-          <tbody id="chains-table-body">
-            {rows.map((row) => (
-              <tr id={"chain-row-" + String(row.id)}>
-                <td>
-                  <a
-                    class="link link-primary font-semibold"
-                    href={"/chains/" + String(row.id)}
-                    hx-get={"/chains/" + String(row.id)}
-                    hx-target="#main-content"
-                    hx-swap="innerHTML"
-                    hx-push-url="true"
-                  >
-                    {row.name}
-                  </a>
-                </td>
-                <td>
-                  <span class="badge badge-ghost font-mono">{row.code}</span>
-                </td>
-                <td>
-                  <span class="badge badge-ghost">{String(row.coins)}</span>
-                </td>
-                <td>
-                  <div class="flex gap-1">
-                    <button
-                      class="btn btn-ghost btn-xs"
-                      hx-get={"/chains/" + String(row.id) + "/edit"}
-                      hx-target="#modal-slot"
-                      hx-swap="innerHTML"
-                    >
-                      Edit
-                    </button>
-                    <button class="btn btn-error btn-outline btn-xs" hx-delete={"/chains/" + String(row.id)} hx-swap="none">
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )) as unknown as "safe"}
-          </tbody>
-        </table>
-      </div>
-      <div class="card mt-6 bg-base-100 shadow-sm">
-        <div class="card-body p-4">
-          <h2 class="card-title text-lg">New chain</h2>
-          <div id="chain-create-error"></div>
-          <form hx-post="/chains" hx-target="#chains-list-region" hx-swap="outerHTML" class="flex flex-wrap gap-2">
-            <input name="name" placeholder="name" class="input input-bordered input-sm" />
-            <input name="code" placeholder="code" class="input input-bordered input-sm" />
-            <button type="submit" class="btn btn-primary btn-sm">Create</button>
-          </form>
-        </div>
+      <div class="card bg-base-100 shadow-sm">
+        {rows.length === 0 ? (
+          (EmptyState({
+            title: "No chains found",
+            hint: "Try a different search, or create a new chain.",
+          }) as unknown as "safe")
+        ) : (
+          <div class="overflow-x-auto">
+            <table class="table w-full table-sm">
+              <thead>
+                <tr>
+                  <th>Chain</th>
+                  <th>Code</th>
+                  <th>Coins</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="chains-table-body">
+                {rows.map((row) => (
+                  <tr id={"chain-row-" + String(row.id)} class="hover">
+                    <td>
+                      <div class="flex items-center gap-3">
+                        {ChainAvatar({ code: row.code }) as unknown as "safe"}
+                        <a
+                          class="font-semibold hover:text-primary"
+                          href={"/chains/" + String(row.id)}
+                          hx-get={"/chains/" + String(row.id)}
+                          hx-target="#main-content"
+                          hx-swap="innerHTML show:top"
+                          hx-push-url="true"
+                        >
+                          {row.name}
+                        </a>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="badge badge-ghost badge-sm font-mono">
+                        {row.code}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge badge-ghost badge-sm">
+                        {String(row.coins)}
+                      </span>
+                    </td>
+                    <td>
+                      <div class="flex items-center justify-end gap-1">
+                        <button
+                          class="btn btn-ghost btn-xs"
+                          hx-get={"/chains/" + String(row.id)}
+                          hx-target="#main-content"
+                          hx-swap="innerHTML show:top"
+                          hx-push-url="true"
+                        >
+                          View
+                        </button>
+                        <details class="dropdown dropdown-end">
+                          <summary
+                            class="btn btn-ghost btn-xs"
+                            aria-label={"More actions for " + row.name}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke-width="1.5"
+                              stroke="currentColor"
+                              class="h-4 w-4"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"
+                              />
+                            </svg>
+                          </summary>
+                          <ul class="menu dropdown-content z-30 w-44 rounded-box bg-base-100 p-2 shadow">
+                            <li>
+                              <button
+                                hx-get={"/chains/" + String(row.id) + "/edit"}
+                                hx-target="#modal-slot"
+                                hx-swap="innerHTML"
+                                onclick="this.closest('details').removeAttribute('open')"
+                              >
+                                Edit chain
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                class="text-error"
+                                hx-delete={"/chains/" + String(row.id)}
+                                hx-confirm={
+                                  "Delete " + row.name + "? Linked markets must be removed first."
+                                }
+                                hx-target="closest tr"
+                                hx-swap="outerHTML swap:150ms"
+                                onclick="this.closest('details').removeAttribute('open')"
+                              >
+                                Delete
+                              </button>
+                            </li>
+                          </ul>
+                        </details>
+                      </div>
+                    </td>
+                  </tr>
+                )) as unknown as "safe"}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+export function ChainsPageBody({
+  rows,
+  total,
+  q,
+}: {
+  rows: ChainRow[];
+  total: number;
+  q: string;
+}) {
+  return (
+    <div>
+      {PageHeader({
+        title: "Chains",
+        subtitle:
+          "Networks a coin can move on. Chains are attached to exchange markets, not to coins directly.",
+        actions: (
+          <button
+            class="btn btn-primary btn-sm"
+            hx-get="/chains/new"
+            hx-target="#modal-slot"
+            hx-swap="innerHTML"
+          >
+            + New chain
+          </button>
+        ),
+      }) as unknown as "safe"}
+      {ChainsFilterBar({ q }) as unknown as "safe"}
+      {ChainsTableWrap({ rows, total }) as unknown as "safe"}
+    </div>
+  );
+}
+
+export function ChainFormFragment({
+  mode,
+  chain,
+  error,
+  action,
+}: {
+  mode: "create" | "edit";
+  chain?: { id: number; name: string; code: string };
+  error?: string;
+  action: string;
+}) {
+  const isCreate = mode === "create";
+  return ModalShell({
+    title: isCreate ? "New chain" : "Edit chain",
+    subtitle: isCreate
+      ? "Chains appear in the table as soon as they are created."
+      : "Changes apply immediately to the chains table.",
+    error,
+    children: (
+      <form
+        hx-post={action}
+        hx-target="#chains-table-wrap"
+        hx-swap="outerHTML"
+        hx-indicator="#chain-form-loading"
+        hx-disabled-elt="find button[type=submit]"
+        class="flex flex-col gap-3"
+      >
+        {Field({
+          label: "Name *",
+          children: (
+            <input
+              name="name"
+              placeholder="Ethereum"
+              required
+              value={chain?.name ?? ""}
+              class="input input-bordered input-sm w-full"
+            />
+          ),
+        }) as unknown as "safe"}
+        {Field({
+          label: "Code *",
+          hint: "Short network code, e.g. erc20, bep20, trc20.",
+          children: (
+            <input
+              name="code"
+              placeholder="erc20"
+              required
+              value={chain?.code ?? ""}
+              class="input input-bordered input-sm w-full font-mono"
+            />
+          ),
+        }) as unknown as "safe"}
+        <div class="modal-action mt-1">
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm"
+            onclick="document.getElementById('modal-slot').innerHTML=''"
+          >
+            Cancel
+          </button>
+          {SubmitButton({
+            label: isCreate ? "Create chain" : "Save changes",
+            indicatorId: "chain-form-loading",
+          }) as unknown as "safe"}
+        </div>
+      </form>
+    ),
+  });
 }
 
 export function ChainDetailBody({
@@ -97,18 +317,41 @@ export function ChainDetailBody({
 }) {
   return (
     <div>
-      <h1 class="mb-4 text-2xl font-bold">{chain.name}</h1>
-      <div class="card bg-base-100 shadow-sm">
-        <div class="card-body p-4">
-          <dl class="flex flex-col gap-2">
-            <div class="flex gap-2"><dt class="w-36 font-semibold opacity-70">code</dt><dd><span class="badge badge-ghost font-mono">{chain.code}</span></dd></div>
-            <div class="flex gap-2"><dt class="w-36 font-semibold opacity-70">referencing coins</dt><dd><span class="badge badge-primary">{String(coins)}</span></dd></div>
-          </dl>
-          <div class="card-actions mt-2">
-            <a class="btn btn-ghost btn-sm" href="/chains" hx-get="/chains" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
-              Back to chains
+      {PageHeader({
+        title: chain.name,
+        subtitle: "Chain detail",
+        crumbs: [{ label: "Chains", href: "/chains" }, { label: chain.name }],
+        actions: (
+          <div class="flex gap-2">
+            <button
+              class="btn btn-ghost btn-sm"
+              hx-get={"/chains/" + String(chain.id) + "/edit"}
+              hx-target="#modal-slot"
+              hx-swap="innerHTML"
+            >
+              Edit
+            </button>
+            <a
+              class="btn btn-ghost btn-sm"
+              href="/chains"
+              hx-get="/chains"
+              hx-target="#main-content"
+              hx-swap="innerHTML show:top"
+              hx-push-url="true"
+            >
+              ← All chains
             </a>
           </div>
+        ),
+      }) as unknown as "safe"}
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="stat rounded-box bg-base-100 shadow-sm">
+          <div class="stat-title">Code</div>
+          <div class="stat-value font-mono text-lg">{chain.code}</div>
+        </div>
+        <div class="stat rounded-box bg-base-100 shadow-sm">
+          <div class="stat-title">Referencing coins</div>
+          <div class="stat-value text-lg text-primary">{String(coins)}</div>
         </div>
       </div>
     </div>

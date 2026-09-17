@@ -65,11 +65,15 @@ export const cryptocurrencyMetadataSelectSchema = cryptocurrencySelectSchema.ext
       name: z.string(),
       slug: z.string(),
       symbol: z.string(),
+      marketId: z.number(),
+      listed: z.boolean(),
+      tradeEnabled: z.boolean(),
       chains: z.array(
         z.object({
           id: z.number(),
           name: z.string(),
           code: z.string(),
+          linkId: z.number(),
           exchangeChainCode: z.string(),
           exchangeChainName: z.string().nullable(),
           withdrawEnabled: z.boolean(),

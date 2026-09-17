@@ -4,6 +4,7 @@ import type {
   cryptocurrencyInsertSchema,
   cryptocurrencySelectSchema,
   cryptocurrencyUpdateSchema,
+  cryptocurrencyMetadataSelectSchema,
   listCryptocurrencySelectSchema,
   listingStatsInputSchema,
   paginatedCryptocurrencySelectSchema,
@@ -22,4 +23,8 @@ export type PaginatedCryptocurrencyList = z.infer<
   typeof paginatedCryptocurrencySelectSchema
 >;
 export type ListingStatsInput = z.infer<typeof listingStatsInputSchema>;
+export type ListingStatsRow = PaginatedListingStats["data"][number];
+export type CryptocurrencyMetadata = z.infer<
+  typeof cryptocurrencyMetadataSelectSchema
+>;
 export type PaginatedListingStats = z.infer<typeof paginatedListingStatsSchema>;

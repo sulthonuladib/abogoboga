@@ -6,15 +6,29 @@ import { ORPCError } from "@orpc/server";
 import { api } from "./client";
 import { wantsFragment, setFragmentHeaders } from "./htmx-helpers";
 import { Layout, ErrorFragment } from "./views/layout";
+import { CloseModalOob, ToastOob } from "./views/ui";
 import {
   CoinsPageBody,
-  CoinsTable,
+  CoinsTableWrap,
   CoinFormFragment,
-  type CoinStatsRow,
+  type CoinFilterState,
+  type CoinFilterLists,
 } from "./views/coins";
-import { ExchangesPageBody, ExchangeDetailBody } from "./views/exchanges";
-import { ChainsPageBody, ChainDetailBody } from "./views/chains";
-import { CoinDrawer, type DrawerMarket } from "./views/drawer";
+import {
+  ExchangesPageBody,
+  ExchangesTableWrap,
+  ExchangeFormFragment,
+  ExchangeDetailBody,
+  type ExchangeRow,
+} from "./views/exchanges";
+import {
+  ChainsPageBody,
+  ChainsTableWrap,
+  ChainFormFragment,
+  ChainDetailBody,
+  type ChainRow,
+} from "./views/chains";
+import { CoinDrawer, DrawerBody } from "./views/drawer";
 import {
   RoutesMatrixBody,
   RouteDetailFragment,
@@ -24,8 +38,9 @@ import { DashboardBody, type AttentionItem } from "./views/dashboard";
 import {
   orderedPairStatus,
   sharedChainIds,
+  viableChains,
   type ChainLinkFlags,
-} from "./transfer";
+} from "../core/cryptocurrency/transfer";
 
 function num(value: unknown, fallback: number): number {
   const parsed = Number(value);
@@ -34,6 +49,10 @@ function num(value: unknown, fallback: number): number {
 
 function str(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
+}
+
+function on(value: unknown): boolean {
+  return value === "on" || value === "true" || value === "1";
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -53,171 +72,173 @@ function isConflict(error: unknown): boolean {
   );
 }
 
-async function coinStatsRows(params: {
-  search?: string;
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  order?: string;
-  exchangeId?: number;
-  chainId?: number;
-  flag?: string;
-}): Promise<{ rows: CoinStatsRow[]; total: number; page: number; pages: number }> {
-  const sortBy =
-    params.sortBy === "markets" ||
-    params.sortBy === "chains" ||
-    params.sortBy === "blocked" ||
-    params.sortBy === "symbol"
-      ? params.sortBy
-      : "symbol";
-  const order = params.order === "desc" ? "desc" : "asc";
-  const flag =
-    params.flag === "blocked" || params.flag === "single" ? params.flag : "all";
-  const result = await api.cryptocurrency.stats({
-    page: params.page ?? 1,
-    limit: params.limit ?? 20,
-    search: params.search ?? "",
-    exchangeId: params.exchangeId,
-    chainId: params.chainId,
-    flag,
+function parseCoinFilter(query: Record<string, unknown>): CoinFilterState {
+  const sortByRaw = str(query["sortBy"] ?? query["sort"], "symbol");
+  const sortBy = ["symbol", "markets", "chains", "blocked"].includes(sortByRaw)
+    ? sortByRaw
+    : "symbol";
+  const order = str(query["order"], "asc") === "desc" ? "desc" : "asc";
+  const flagRaw = str(query["flag"], "all");
+  const flag = flagRaw === "blocked" || flagRaw === "single" ? flagRaw : "all";
+  return {
+    q: str(query["q"] ?? query["search"], ""),
     sortBy,
     order,
-  });
-  return {
-    rows: result.data.map((row) => ({
-      id: row.id,
-      symbol: row.symbol,
-      name: row.name,
-      slug: row.slug,
-      cmcId: row.cmcId,
-      logo: row.logo,
-      markets: row.markets,
-      chains: row.chains,
-      blocked: row.blocked,
-    })),
-    total: result.meta.items,
-    page: result.meta.page,
-    pages: result.meta.pages,
+    flag,
+    exchangeId: str(query["exchangeId"], ""),
+    chainId: str(query["chainId"], ""),
   };
 }
 
-async function buildDrawerMarkets(coinId: number): Promise<DrawerMarket[]> {
-  const markets = await api.exchangeCryptocurrency.list({
-    cryptocurrencyId: coinId,
-  });
-  const out: DrawerMarket[] = [];
-  for (const market of markets) {
-    const exchange = await api.exchange
-      .findById({ id: market.exchangeId })
-      .catch(() => undefined);
-    const links = await api.exchangeCryptocurrencyChain.list({
-      exchangeCryptocurrencyId: market.id,
-    });
-    const chains: DrawerMarket["chains"] = [];
-    for (const link of links) {
-      const chain = await api.chain
-        .findById({ id: link.chainId })
-        .catch(() => undefined);
-      chains.push({
-        linkId: link.id,
-        chainId: link.chainId,
-        chainName: chain?.name ?? "chain " + String(link.chainId),
-        chainCode: chain?.code ?? "?",
-        exchangeChainCode: link.exchangeChainCode,
-        depositEnabled: link.depositEnabled,
-        withdrawEnabled: link.withdrawEnabled,
-      });
-    }
-    out.push({
-      marketId: market.id,
-      exchangeId: market.exchangeId,
-      exchangeName: exchange?.name ?? "exchange " + String(market.exchangeId),
-      exchangeSymbol: market.exchangeSymbol,
-      listed: market.listed,
-      tradeEnabled: market.tradeEnabled,
-      chains,
-    });
-  }
-  return out;
+function toStatsInput(filter: CoinFilterState, page: number) {
+  const exchangeRaw = filter.exchangeId === "" ? undefined : Number(filter.exchangeId);
+  const chainRaw = filter.chainId === "" ? undefined : Number(filter.chainId);
+  return {
+    search: filter.q,
+    page,
+    limit: 20,
+    sortBy: filter.sortBy as "symbol" | "markets" | "chains" | "blocked",
+    order: filter.order as "asc" | "desc",
+    flag: filter.flag as "all" | "blocked" | "single",
+    exchangeId: exchangeRaw !== undefined && Number.isFinite(exchangeRaw) ? exchangeRaw : undefined,
+    chainId: chainRaw !== undefined && Number.isFinite(chainRaw) ? chainRaw : undefined,
+  };
 }
 
-async function renderDrawer(coinId: number) {
-  const coin = await api.cryptocurrency.findById({ id: coinId });
-  const markets = await buildDrawerMarkets(coinId);
-  const allExchanges = await api.exchange.list({
+/** Coins table wrap partial (#coins-table-wrap) for a filter + page. */
+async function coinsWrap(filter: CoinFilterState, page: number) {
+  const result = await api.cryptocurrency.stats(toStatsInput(filter, page));
+  return CoinsTableWrap({
+    rows: result.data,
+    total: result.meta.items,
+    page: result.meta.page,
+    pages: Math.max(result.meta.pages, 1),
+    sortBy: filter.sortBy,
+    order: filter.order,
+  });
+}
+
+/** Filter dropdown options for the coins page. */
+async function coinFilterLists(): Promise<CoinFilterLists> {
+  const [allExchanges, allChains] = await Promise.all([
+    api.exchange.list({ page: 1, limit: -1, search: "", searchBy: "name", orderBy: "id", order: "asc" }),
+    api.chain.list({ page: 1, limit: -1, search: "", searchBy: "name", orderBy: "id", order: "asc" }),
+  ]);
+  return {
+    exchanges: allExchanges.data.map((exchange) => ({ id: exchange.id, name: exchange.name })),
+    chains: allChains.data.map((chain) => ({ id: chain.id, name: chain.name, code: chain.code })),
+  };
+}
+
+async function exchangeRows(q: string): Promise<{ rows: ExchangeRow[]; total: number }> {
+  const list = await api.exchange.list({
     page: 1,
     limit: -1,
-    search: "",
+    search: q,
     searchBy: "name",
     orderBy: "id",
     order: "asc",
   });
-  const allChains = await api.chain.list({
-    page: 1,
-    limit: -1,
-    search: "",
-    searchBy: "name",
-    orderBy: "id",
-    order: "asc",
-  });
-  return CoinDrawer({
-    coin: { id: coin.id, symbol: coin.symbol, name: coin.name, slug: coin.slug },
-    markets,
-    exchanges: allExchanges.data.map((exchange) => ({
+  const rows = await Promise.all(
+    list.data.map(async (exchange) => ({
       id: exchange.id,
       name: exchange.name,
+      slug: exchange.slug,
+      cmcId: exchange.cmcId,
+      baseCurrency: exchange.baseCurrency,
+      registeredOnCmc: exchange.registeredOnCmc,
+      coins: await api.exchangeCryptocurrency.count({ exchangeId: exchange.id }),
     })),
-    chains: allChains.data.map((chain) => ({
-      id: chain.id,
-      name: chain.name,
-      code: chain.code,
-    })),
+  );
+  return { rows, total: list.meta.items };
+}
+
+async function chainRows(q: string): Promise<{ rows: ChainRow[]; total: number }> {
+  const list = await api.chain.list({
+    page: 1,
+    limit: -1,
+    search: q,
+    searchBy: "name",
+    orderBy: "id",
+    order: "asc",
   });
+  const allMarkets = await api.exchangeCryptocurrency.list();
+  const allLinks = await api.exchangeCryptocurrencyChain.list();
+  const marketsById = new Map(allMarkets.map((market) => [market.id, market]));
+  const rows = list.data.map((chain) => {
+    const coinIds = new Set<number>();
+    for (const link of allLinks) {
+      if (link.chainId !== chain.id) continue;
+      const market = marketsById.get(link.exchangeCryptocurrencyId);
+      if (market) coinIds.add(market.cryptocurrencyId);
+    }
+    return { id: chain.id, name: chain.name, code: chain.code, coins: coinIds.size };
+  });
+  return { rows, total: list.meta.items };
+}
+
+/** Full drawer shell partial (#drawer-slot). Single batched metadata call. */
+async function renderDrawer(coinId: number) {
+  const [metadata, lists] = await Promise.all([
+    api.cryptocurrency.metadata({ id: coinId }),
+    coinFilterLists(),
+  ]);
+  return CoinDrawer({
+    metadata,
+    lists: { exchanges: lists.exchanges, chains: lists.chains },
+  });
+}
+
+/** Drawer body partial (#drawer-body) for every market / chain-link mutation. */
+async function renderDrawerBody(coinId: number) {
+  const [metadata, lists] = await Promise.all([
+    api.cryptocurrency.metadata({ id: coinId }),
+    coinFilterLists(),
+  ]);
+  return DrawerBody({
+    coinId,
+    markets: metadata.exchanges,
+    lists: { exchanges: lists.exchanges, chains: lists.chains },
+  });
+}
+
+function metadataLinks(
+  market: { chains: Array<{ id: number; withdrawEnabled: boolean; depositEnabled: boolean }> },
+): ChainLinkFlags[] {
+  return market.chains.map((chain) => ({
+    chainId: chain.id,
+    withdrawEnabled: chain.withdrawEnabled,
+    depositEnabled: chain.depositEnabled,
+  }));
 }
 
 async function buildRouteCells(coinId: number): Promise<{
   coin: { id: number; symbol: string; name: string };
   exchanges: Array<{ marketId: number; exchangeName: string }>;
   cells: RouteMatrixCell[];
-  linksByMarket: Map<number, ChainLinkFlags[]>;
 }> {
-  const coin = await api.cryptocurrency.findById({ id: coinId });
-  const markets = await buildDrawerMarkets(coinId);
-  const linksByMarket = new Map<number, ChainLinkFlags[]>();
-  for (const market of markets) {
-    linksByMarket.set(
-      market.marketId,
-      market.chains.map((chain) => ({
-        chainId: chain.chainId,
-        withdrawEnabled: chain.withdrawEnabled,
-        depositEnabled: chain.depositEnabled,
-      })),
-    );
-  }
-  const exchanges = markets.map((market) => ({
+  const metadata = await api.cryptocurrency.metadata({ id: coinId });
+  const exchanges = metadata.exchanges.map((market) => ({
     marketId: market.marketId,
-    exchangeName: market.exchangeName,
+    exchangeName: market.name,
   }));
   const cells: RouteMatrixCell[] = [];
-  for (const from of markets) {
-    for (const to of markets) {
+  for (const from of metadata.exchanges) {
+    for (const to of metadata.exchanges) {
       if (from.marketId === to.marketId) continue;
-      const fromLinks = linksByMarket.get(from.marketId) ?? [];
-      const toLinks = linksByMarket.get(to.marketId) ?? [];
       cells.push({
         fromMarketId: from.marketId,
         toMarketId: to.marketId,
-        fromExchange: from.exchangeName,
-        toExchange: to.exchangeName,
-        status: orderedPairStatus(fromLinks, toLinks),
+        fromExchange: from.name,
+        toExchange: to.name,
+        status: orderedPairStatus(metadataLinks(from), metadataLinks(to)),
       });
     }
   }
   return {
-    coin: { id: coin.id, symbol: coin.symbol, name: coin.name },
+    coin: { id: metadata.id, symbol: metadata.symbol, name: metadata.name },
     exchanges,
     cells,
-    linksByMarket,
   };
 }
 
@@ -225,6 +246,7 @@ export const webApp = new Elysia()
   .use(html())
   .use(htmx())
   .get("/", ({ redirect }) => redirect("/dashboard", 302))
+  .get("/partials/empty", () => <div id="modal-slot"></div>)
   .get("/dashboard", async ({ hx, set }) => {
     const [coinStats, exchangeList, chainList, markets] = await Promise.all([
       api.cryptocurrency.stats({ page: 1, limit: 1, search: "", flag: "all", sortBy: "symbol", order: "asc" }),
@@ -295,9 +317,19 @@ export const webApp = new Elysia()
     return Layout({ title: "Dashboard", active: "/dashboard", children: body });
   })
   .get("/coins", async ({ hx, set, query }) => {
-    const q = str((query as Record<string, unknown>)?.["q"] ?? (query as Record<string, unknown>)?.["search"], "");
-    const { rows, total, page, pages } = await coinStatsRows({ search: q, page: 1, limit: 20 });
-    const body = CoinsPageBody({ rows, total, q, page, pages });
+    const filter = parseCoinFilter((query ?? {}) as Record<string, unknown>);
+    const [result, lists] = await Promise.all([
+      api.cryptocurrency.stats(toStatsInput(filter, 1)),
+      coinFilterLists(),
+    ]);
+    const body = CoinsPageBody({
+      rows: result.data,
+      total: result.meta.items,
+      filter,
+      lists,
+      page: result.meta.page,
+      pages: Math.max(result.meta.pages, 1),
+    });
     if (wantsFragment(hx)) {
       setFragmentHeaders(set);
       return body;
@@ -305,25 +337,15 @@ export const webApp = new Elysia()
     return Layout({ title: "Coins", active: "/coins", children: body });
   })
   .get("/partials/coins", async ({ set, query }) => {
-    const q = str((query as Record<string, unknown>)?.["q"] ?? (query as Record<string, unknown>)?.["search"], "");
-    const page = num((query as Record<string, unknown>)?.["page"], 1);
-    const sortBy = str((query as Record<string, unknown>)?.["sortBy"] ?? (query as Record<string, unknown>)?.["sort"], "symbol");
-    const order = str((query as Record<string, unknown>)?.["order"], "asc");
-    const exchangeIdRaw = (query as Record<string, unknown>)?.["exchangeId"];
-    const chainIdRaw = (query as Record<string, unknown>)?.["chainId"];
-    const flag = str((query as Record<string, unknown>)?.["flag"], "all");
-    const { rows, total } = await coinStatsRows({
-      search: q,
-      page,
-      limit: 20,
-      sortBy,
-      order,
-      exchangeId: exchangeIdRaw === undefined || exchangeIdRaw === "" ? undefined : Number(exchangeIdRaw),
-      chainId: chainIdRaw === undefined || chainIdRaw === "" ? undefined : Number(chainIdRaw),
-      flag,
-    });
+    const q = (query ?? {}) as Record<string, unknown>;
+    const filter = parseCoinFilter(q);
+    const page = num(q["page"], 1);
     setFragmentHeaders(set);
-    return CoinsTable({ rows, total });
+    return coinsWrap(filter, page);
+  })
+  .get("/coins/new", ({ set }) => {
+    setFragmentHeaders(set);
+    return CoinFormFragment({ mode: "create", action: "/coins" });
   })
   .post("/coins", async ({ hx, set, body }) => {
     const fields = (body ?? {}) as Record<string, unknown>;
@@ -334,28 +356,44 @@ export const webApp = new Elysia()
     const logo = str(fields["logo"]).trim() || "https://example.com/logo.png";
     if (!symbol) {
       setFragmentHeaders(set);
-      hx.retarget("#coin-create-error");
+      hx.retarget("#modal-slot");
       hx.reswap("innerHTML");
-      return ErrorFragment({ message: "symbol is required" });
+      return CoinFormFragment({ mode: "create", action: "/coins", error: "symbol is required" });
     }
     if (!Number.isFinite(cmcId)) {
       setFragmentHeaders(set);
-      hx.retarget("#coin-create-error");
+      hx.retarget("#modal-slot");
       hx.reswap("innerHTML");
-      return ErrorFragment({ message: "cmcId must be a number" });
+      return CoinFormFragment({ mode: "create", action: "/coins", error: "cmcId must be a number" });
     }
     try {
       await api.cryptocurrency.add({ symbol, name, slug, cmcId, logo });
     } catch (error) {
       setFragmentHeaders(set);
-      hx.retarget("#coin-create-error");
+      hx.retarget("#modal-slot");
       hx.reswap("innerHTML");
-      return ErrorFragment({ message: errorMessage(error, "could not create coin") });
+      return CoinFormFragment({
+        mode: "create",
+        action: "/coins",
+        error: errorMessage(error, "could not create coin"),
+      });
     }
-    hx.pushURL("/coins");
-    const { rows, total } = await coinStatsRows({ search: "", page: 1, limit: 20 });
+    const defaultFilter: CoinFilterState = {
+      q: "",
+      sortBy: "symbol",
+      order: "asc",
+      flag: "all",
+      exchangeId: "",
+      chainId: "",
+    };
     setFragmentHeaders(set);
-    return CoinsTable({ rows, total });
+    return (
+      <>
+        {coinsWrap(defaultFilter, 1) as unknown as "safe"}
+        {CloseModalOob() as unknown as "safe"}
+        {ToastOob({ kind: "success", message: symbol + " created" }) as unknown as "safe"}
+      </>
+    );
   })
   .get("/coins/:id/edit", async ({ set, params }) => {
     const id = Number((params as Record<string, unknown>)?.["id"]);
@@ -363,9 +401,9 @@ export const webApp = new Elysia()
       const coin = await api.cryptocurrency.findById({ id });
       setFragmentHeaders(set);
       return CoinFormFragment({
+        mode: "edit",
         coin: { id: coin.id, symbol: coin.symbol, name: coin.name, slug: coin.slug, cmcId: coin.cmcId, logo: coin.logo },
         action: "/coins/" + String(id),
-        target: "#coins-list-region",
       });
     } catch (error) {
       if (isNotFound(error)) {
@@ -396,17 +434,46 @@ export const webApp = new Elysia()
         return ErrorFragment({ message: "coin not found" });
       }
       setFragmentHeaders(set);
-      hx.retarget("#coins-error");
+      hx.retarget("#modal-slot");
       hx.reswap("innerHTML");
-      return ErrorFragment({ message: errorMessage(error, "could not update coin") });
+      try {
+        const coin = await api.cryptocurrency.findById({ id });
+        return CoinFormFragment({
+          mode: "edit",
+          coin: { id: coin.id, symbol: coin.symbol, name: coin.name, slug: coin.slug, cmcId: coin.cmcId, logo: coin.logo },
+          action: "/coins/" + String(id),
+          error: errorMessage(error, "could not update coin"),
+        });
+      } catch {
+        return ErrorFragment({ message: errorMessage(error, "could not update coin") });
+      }
     }
-    hx.pushURL("/coins");
-    const { rows, total } = await coinStatsRows({ search: "", page: 1, limit: 20 });
+    const defaultFilter: CoinFilterState = {
+      q: "",
+      sortBy: "symbol",
+      order: "asc",
+      flag: "all",
+      exchangeId: "",
+      chainId: "",
+    };
     setFragmentHeaders(set);
-    return CoinsTable({ rows, total });
+    return (
+      <>
+        {coinsWrap(defaultFilter, 1) as unknown as "safe"}
+        {CloseModalOob() as unknown as "safe"}
+        {ToastOob({ kind: "success", message: "coin saved" }) as unknown as "safe"}
+      </>
+    );
   })
-  .delete("/coins/:id", async ({ set, params, hx }) => {
+  .delete("/coins/:id", async ({ set, params }) => {
     const id = Number((params as Record<string, unknown>)?.["id"]);
+    let symbol = "coin";
+    try {
+      const coin = await api.cryptocurrency.findById({ id });
+      symbol = coin.symbol;
+    } catch {
+      // Fall through to remove, which reports NOT_FOUND properly.
+    }
     try {
       await api.cryptocurrency.remove({ id });
     } catch (error) {
@@ -416,29 +483,38 @@ export const webApp = new Elysia()
       }
       throw error;
     }
-    hx.redirect("/coins");
+    const total = await api.cryptocurrency
+      .stats({ page: 1, limit: 1, search: "", flag: "all", sortBy: "symbol", order: "asc" })
+      .then((result) => result.meta.items);
     setFragmentHeaders(set);
-    return "";
-  })
-  .get("/exchanges", async ({ hx, set }) => {
-    const list = await api.exchange.list({ page: 1, limit: -1, search: "", searchBy: "name", orderBy: "id", order: "asc" });
-    const rows = await Promise.all(
-      list.data.map(async (exchange) => ({
-        id: exchange.id,
-        name: exchange.name,
-        slug: exchange.slug,
-        cmcId: exchange.cmcId,
-        baseCurrency: exchange.baseCurrency,
-        registeredOnCmc: exchange.registeredOnCmc,
-        coins: await api.exchangeCryptocurrency.count({ exchangeId: exchange.id }),
-      })),
+    return (
+      <>
+        <span id="coins-count" hx-swap-oob="true" class="badge badge-neutral">
+          {String(total)} coins
+        </span>
+        {ToastOob({ kind: "success", message: symbol + " deleted" }) as unknown as "safe"}
+      </>
     );
-    const body = ExchangesPageBody({ rows, total: list.meta.items });
+  })
+  .get("/exchanges", async ({ hx, set, query }) => {
+    const q = str(((query ?? {}) as Record<string, unknown>)["q"], "");
+    const { rows, total } = await exchangeRows(q);
+    const body = ExchangesPageBody({ rows, total, q });
     if (wantsFragment(hx)) {
       setFragmentHeaders(set);
       return body;
     }
     return Layout({ title: "Exchanges", active: "/exchanges", children: body });
+  })
+  .get("/partials/exchanges", async ({ set, query }) => {
+    const q = str(((query ?? {}) as Record<string, unknown>)["q"], "");
+    const { rows, total } = await exchangeRows(q);
+    setFragmentHeaders(set);
+    return ExchangesTableWrap({ rows, total });
+  })
+  .get("/exchanges/new", ({ set }) => {
+    setFragmentHeaders(set);
+    return ExchangeFormFragment({ mode: "create", action: "/exchanges" });
   })
   .post("/exchanges", async ({ hx, set, body }) => {
     const fields = (body ?? {}) as Record<string, unknown>;
@@ -448,9 +524,9 @@ export const webApp = new Elysia()
     const baseCurrency = str(fields["baseCurrency"], "usdt") as "usdt" | "idr";
     if (!name) {
       setFragmentHeaders(set);
-      hx.retarget("#exchanges-error");
+      hx.retarget("#modal-slot");
       hx.reswap("innerHTML");
-      return ErrorFragment({ message: "name is required" });
+      return ExchangeFormFragment({ mode: "create", action: "/exchanges", error: "name is required" });
     }
     try {
       await api.exchange.add({
@@ -463,25 +539,23 @@ export const webApp = new Elysia()
       });
     } catch (error) {
       setFragmentHeaders(set);
-      hx.retarget("#exchanges-error");
+      hx.retarget("#modal-slot");
       hx.reswap("innerHTML");
-      return ErrorFragment({ message: errorMessage(error, "could not create exchange") });
+      return ExchangeFormFragment({
+        mode: "create",
+        action: "/exchanges",
+        error: errorMessage(error, "could not create exchange"),
+      });
     }
-    hx.pushURL("/exchanges");
-    const list = await api.exchange.list({ page: 1, limit: -1, search: "", searchBy: "name", orderBy: "id", order: "asc" });
-    const rows = await Promise.all(
-      list.data.map(async (exchange) => ({
-        id: exchange.id,
-        name: exchange.name,
-        slug: exchange.slug,
-        cmcId: exchange.cmcId,
-        baseCurrency: exchange.baseCurrency,
-        registeredOnCmc: exchange.registeredOnCmc,
-        coins: await api.exchangeCryptocurrency.count({ exchangeId: exchange.id }),
-      })),
-    );
+    const { rows, total } = await exchangeRows("");
     setFragmentHeaders(set);
-    return ExchangesPageBody({ rows, total: list.meta.items });
+    return (
+      <>
+        {ExchangesTableWrap({ rows, total }) as unknown as "safe"}
+        {CloseModalOob() as unknown as "safe"}
+        {ToastOob({ kind: "success", message: name + " created" }) as unknown as "safe"}
+      </>
+    );
   })
   .get("/exchanges/:id", async ({ hx, set, params }) => {
     const id = Number((params as Record<string, unknown>)?.["id"]);
@@ -517,22 +591,17 @@ export const webApp = new Elysia()
     try {
       const exchange = await api.exchange.findById({ id });
       setFragmentHeaders(set);
-      return (
-        <div id="modal-slot">
-          <div class="modal modal-open">
-            <div class="modal-box">
-              <h3 class="mb-3 text-lg font-bold">Edit exchange</h3>
-              <form hx-post={"/exchanges/" + String(id)} hx-target="#exchanges-list-region" hx-swap="outerHTML" class="flex flex-col gap-2">
-                <input name="name" value={exchange.name} class="input input-bordered input-sm w-full" />
-                <input name="slug" value={exchange.slug} class="input input-bordered input-sm w-full" />
-                <div class="modal-action">
-                  <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      );
+      return ExchangeFormFragment({
+        mode: "edit",
+        exchange: {
+          id: exchange.id,
+          name: exchange.name,
+          slug: exchange.slug,
+          cmcId: exchange.cmcId,
+          baseCurrency: exchange.baseCurrency,
+        },
+        action: "/exchanges/" + String(id),
+      });
     } catch (error) {
       if (isNotFound(error)) {
         set.status = 404;
@@ -557,25 +626,35 @@ export const webApp = new Elysia()
         return ErrorFragment({ message: "exchange not found" });
       }
       setFragmentHeaders(set);
-      hx.retarget("#exchanges-error");
+      hx.retarget("#modal-slot");
       hx.reswap("innerHTML");
-      return ErrorFragment({ message: errorMessage(error, "could not update exchange") });
+      try {
+        const exchange = await api.exchange.findById({ id });
+        return ExchangeFormFragment({
+          mode: "edit",
+          exchange: {
+            id: exchange.id,
+            name: exchange.name,
+            slug: exchange.slug,
+            cmcId: exchange.cmcId,
+            baseCurrency: exchange.baseCurrency,
+          },
+          action: "/exchanges/" + String(id),
+          error: errorMessage(error, "could not update exchange"),
+        });
+      } catch {
+        return ErrorFragment({ message: errorMessage(error, "could not update exchange") });
+      }
     }
-    hx.pushURL("/exchanges");
-    const list = await api.exchange.list({ page: 1, limit: -1, search: "", searchBy: "name", orderBy: "id", order: "asc" });
-    const rows = await Promise.all(
-      list.data.map(async (exchange) => ({
-        id: exchange.id,
-        name: exchange.name,
-        slug: exchange.slug,
-        cmcId: exchange.cmcId,
-        baseCurrency: exchange.baseCurrency,
-        registeredOnCmc: exchange.registeredOnCmc,
-        coins: await api.exchangeCryptocurrency.count({ exchangeId: exchange.id }),
-      })),
-    );
+    const { rows, total } = await exchangeRows("");
     setFragmentHeaders(set);
-    return ExchangesPageBody({ rows, total: list.meta.items });
+    return (
+      <>
+        {ExchangesTableWrap({ rows, total }) as unknown as "safe"}
+        {CloseModalOob() as unknown as "safe"}
+        {ToastOob({ kind: "success", message: "exchange saved" }) as unknown as "safe"}
+      </>
+    );
   })
   .delete("/exchanges/:id", async ({ hx, set, params }) => {
     const id = Number((params as Record<string, unknown>)?.["id"]);
@@ -600,30 +679,36 @@ export const webApp = new Elysia()
       }
       throw error;
     }
-    hx.redirect("/exchanges");
+    const { total } = await exchangeRows("");
     setFragmentHeaders(set);
-    return "";
+    return (
+      <>
+        <span id="exchanges-count" hx-swap-oob="true" class="badge badge-neutral">
+          {String(total)} exchanges
+        </span>
+        {ToastOob({ kind: "success", message: "exchange deleted" }) as unknown as "safe"}
+      </>
+    );
   })
-  .get("/chains", async ({ hx, set }) => {
-    const list = await api.chain.list({ page: 1, limit: -1, search: "", searchBy: "name", orderBy: "id", order: "asc" });
-    const allMarkets = await api.exchangeCryptocurrency.list();
-    const allLinks = await api.exchangeCryptocurrencyChain.list();
-    const marketsById = new Map(allMarkets.map((market) => [market.id, market]));
-    const rows = list.data.map((chain) => {
-      const coinIds = new Set<number>();
-      for (const link of allLinks) {
-        if (link.chainId !== chain.id) continue;
-        const market = marketsById.get(link.exchangeCryptocurrencyId);
-        if (market) coinIds.add(market.cryptocurrencyId);
-      }
-      return { id: chain.id, name: chain.name, code: chain.code, coins: coinIds.size };
-    });
-    const body = ChainsPageBody({ rows, total: list.meta.items });
+  .get("/chains", async ({ hx, set, query }) => {
+    const q = str(((query ?? {}) as Record<string, unknown>)["q"], "");
+    const { rows, total } = await chainRows(q);
+    const body = ChainsPageBody({ rows, total, q });
     if (wantsFragment(hx)) {
       setFragmentHeaders(set);
       return body;
     }
     return Layout({ title: "Chains", active: "/chains", children: body });
+  })
+  .get("/partials/chains", async ({ set, query }) => {
+    const q = str(((query ?? {}) as Record<string, unknown>)["q"], "");
+    const { rows, total } = await chainRows(q);
+    setFragmentHeaders(set);
+    return ChainsTableWrap({ rows, total });
+  })
+  .get("/chains/new", ({ set }) => {
+    setFragmentHeaders(set);
+    return ChainFormFragment({ mode: "create", action: "/chains" });
   })
   .post("/chains", async ({ hx, set, body }) => {
     const fields = (body ?? {}) as Record<string, unknown>;
@@ -631,23 +716,31 @@ export const webApp = new Elysia()
     const code = str(fields["code"]).trim();
     if (!name || !code) {
       setFragmentHeaders(set);
-      hx.retarget("#chains-error");
+      hx.retarget("#modal-slot");
       hx.reswap("innerHTML");
-      return ErrorFragment({ message: "name and code are required" });
+      return ChainFormFragment({ mode: "create", action: "/chains", error: "name and code are required" });
     }
     try {
       await api.chain.add({ name, code });
     } catch (error) {
       setFragmentHeaders(set);
-      hx.retarget("#chains-error");
+      hx.retarget("#modal-slot");
       hx.reswap("innerHTML");
-      return ErrorFragment({ message: errorMessage(error, "could not create chain") });
+      return ChainFormFragment({
+        mode: "create",
+        action: "/chains",
+        error: errorMessage(error, "could not create chain"),
+      });
     }
-    hx.pushURL("/chains");
-    const list = await api.chain.list({ page: 1, limit: -1, search: "", searchBy: "name", orderBy: "id", order: "asc" });
-    const rows = list.data.map((chain) => ({ id: chain.id, name: chain.name, code: chain.code, coins: 0 }));
+    const { rows, total } = await chainRows("");
     setFragmentHeaders(set);
-    return ChainsPageBody({ rows, total: list.meta.items });
+    return (
+      <>
+        {ChainsTableWrap({ rows, total }) as unknown as "safe"}
+        {CloseModalOob() as unknown as "safe"}
+        {ToastOob({ kind: "success", message: name + " created" }) as unknown as "safe"}
+      </>
+    );
   })
   .get("/chains/:id", async ({ hx, set, params }) => {
     const id = Number((params as Record<string, unknown>)?.["id"]);
@@ -676,22 +769,11 @@ export const webApp = new Elysia()
     try {
       const chain = await api.chain.findById({ id });
       setFragmentHeaders(set);
-      return (
-        <div id="modal-slot">
-          <div class="modal modal-open">
-            <div class="modal-box">
-              <h3 class="mb-3 text-lg font-bold">Edit chain</h3>
-              <form hx-post={"/chains/" + String(id)} hx-target="#chains-list-region" hx-swap="outerHTML" class="flex flex-col gap-2">
-                <input name="name" value={chain.name} class="input input-bordered input-sm w-full" />
-                <input name="code" value={chain.code} class="input input-bordered input-sm w-full" />
-                <div class="modal-action">
-                  <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      );
+      return ChainFormFragment({
+        mode: "edit",
+        chain: { id: chain.id, name: chain.name, code: chain.code },
+        action: "/chains/" + String(id),
+      });
     } catch (error) {
       if (isNotFound(error)) {
         set.status = 404;
@@ -716,15 +798,29 @@ export const webApp = new Elysia()
         return ErrorFragment({ message: "chain not found" });
       }
       setFragmentHeaders(set);
-      hx.retarget("#chains-error");
+      hx.retarget("#modal-slot");
       hx.reswap("innerHTML");
-      return ErrorFragment({ message: errorMessage(error, "could not update chain") });
+      try {
+        const chain = await api.chain.findById({ id });
+        return ChainFormFragment({
+          mode: "edit",
+          chain: { id: chain.id, name: chain.name, code: chain.code },
+          action: "/chains/" + String(id),
+          error: errorMessage(error, "could not update chain"),
+        });
+      } catch {
+        return ErrorFragment({ message: errorMessage(error, "could not update chain") });
+      }
     }
-    hx.pushURL("/chains");
-    const list = await api.chain.list({ page: 1, limit: -1, search: "", searchBy: "name", orderBy: "id", order: "asc" });
-    const rows = list.data.map((chain) => ({ id: chain.id, name: chain.name, code: chain.code, coins: 0 }));
+    const { rows, total } = await chainRows("");
     setFragmentHeaders(set);
-    return ChainsPageBody({ rows, total: list.meta.items });
+    return (
+      <>
+        {ChainsTableWrap({ rows, total }) as unknown as "safe"}
+        {CloseModalOob() as unknown as "safe"}
+        {ToastOob({ kind: "success", message: "chain saved" }) as unknown as "safe"}
+      </>
+    );
   })
   .delete("/chains/:id", async ({ hx, set, params }) => {
     const id = Number((params as Record<string, unknown>)?.["id"]);
@@ -746,9 +842,16 @@ export const webApp = new Elysia()
       }
       throw error;
     }
-    hx.redirect("/chains");
+    const { total } = await chainRows("");
     setFragmentHeaders(set);
-    return "";
+    return (
+      <>
+        <span id="chains-count" hx-swap-oob="true" class="badge badge-neutral">
+          {String(total)} chains
+        </span>
+        {ToastOob({ kind: "success", message: "chain deleted" }) as unknown as "safe"}
+      </>
+    );
   })
   .get("/partials/coins/:id/drawer", async ({ set, params }) => {
     const id = Number((params as Record<string, unknown>)?.["id"]);
@@ -800,9 +903,13 @@ export const webApp = new Elysia()
       }
       throw error;
     }
-    hx.pushURL("/coins");
     setFragmentHeaders(set);
-    return renderDrawer(coinId);
+    return (
+      <>
+        {renderDrawerBody(coinId) as unknown as "safe"}
+        {ToastOob({ kind: "success", message: "market assigned" }) as unknown as "safe"}
+      </>
+    );
   })
   .post("/partials/markets/:id/update", async ({ hx, set, params, body }) => {
     const marketId = Number((params as Record<string, unknown>)?.["id"]);
@@ -812,20 +919,30 @@ export const webApp = new Elysia()
       set.status = 404;
       return ErrorFragment({ message: "market assignment not found" });
     }
-    const patch: Record<string, unknown> = {};
+    const patch: Record<string, unknown> = {
+      listed: on(fields["listed"]),
+      tradeEnabled: on(fields["tradeEnabled"]),
+    };
     const symbol = str(fields["exchangeSymbol"]).trim();
     if (symbol) patch["exchangeSymbol"] = symbol;
     try {
-      await api.exchangeCryptocurrency.update({ params: { id: marketId }, body: patch as { exchangeSymbol?: string } });
+      await api.exchangeCryptocurrency.update({
+        params: { id: marketId },
+        body: patch as { exchangeSymbol?: string; listed?: boolean; tradeEnabled?: boolean },
+      });
     } catch (error) {
       setFragmentHeaders(set);
       hx.retarget("#drawer-error");
       hx.reswap("innerHTML");
       return ErrorFragment({ message: errorMessage(error, "could not update market") });
     }
-    hx.pushURL("/coins");
     setFragmentHeaders(set);
-    return renderDrawer(existing.cryptocurrencyId);
+    return (
+      <>
+        {renderDrawerBody(existing.cryptocurrencyId) as unknown as "safe"}
+        {ToastOob({ kind: "success", message: "market saved" }) as unknown as "safe"}
+      </>
+    );
   })
   .delete("/partials/markets/:id", async ({ set, params }) => {
     const marketId = Number((params as Record<string, unknown>)?.["id"]);
@@ -836,7 +953,12 @@ export const webApp = new Elysia()
     }
     await api.exchangeCryptocurrency.unassign({ id: marketId });
     setFragmentHeaders(set);
-    return renderDrawer(existing.cryptocurrencyId);
+    return (
+      <>
+        {renderDrawerBody(existing.cryptocurrencyId) as unknown as "safe"}
+        {ToastOob({ kind: "success", message: "market unassigned" }) as unknown as "safe"}
+      </>
+    );
   })
   .post("/partials/markets/:id/chains", async ({ hx, set, params, body }) => {
     const marketId = Number((params as Record<string, unknown>)?.["id"]);
@@ -863,9 +985,13 @@ export const webApp = new Elysia()
       hx.reswap("innerHTML");
       return ErrorFragment({ message: errorMessage(error, "could not add chain link") });
     }
-    hx.pushURL("/coins");
     setFragmentHeaders(set);
-    return renderDrawer(market.cryptocurrencyId);
+    return (
+      <>
+        {renderDrawerBody(market.cryptocurrencyId) as unknown as "safe"}
+        {ToastOob({ kind: "success", message: "chain linked" }) as unknown as "safe"}
+      </>
+    );
   })
   .delete("/partials/chain-links/:id", async ({ set, params }) => {
     const linkId = Number((params as Record<string, unknown>)?.["id"]);
@@ -878,7 +1004,12 @@ export const webApp = new Elysia()
     await api.exchangeCryptocurrencyChain.remove({ id: linkId });
     setFragmentHeaders(set);
     if (!parent) return <div id="drawer-body"><div class="alert alert-info"><span>Removed.</span></div></div>;
-    return renderDrawer(parent.cryptocurrencyId);
+    return (
+      <>
+        {renderDrawerBody(parent.cryptocurrencyId) as unknown as "safe"}
+        {ToastOob({ kind: "success", message: "chain link removed" }) as unknown as "safe"}
+      </>
+    );
   })
   .post("/partials/chain-links/:id/toggle", async ({ set, params, query }) => {
     const linkId = Number((params as Record<string, unknown>)?.["id"]);
@@ -902,7 +1033,13 @@ export const webApp = new Elysia()
     }
     setFragmentHeaders(set);
     if (!parent) return <div id="drawer-body"><div class="alert alert-info"><span>Updated.</span></div></div>;
-    return renderDrawer(parent.cryptocurrencyId);
+    const next = flag === "deposit" ? !existing.depositEnabled : !existing.withdrawEnabled;
+    return (
+      <>
+        {renderDrawerBody(parent.cryptocurrencyId) as unknown as "safe"}
+        {ToastOob({ kind: "info", message: flag + " " + (next ? "on" : "off") }) as unknown as "safe"}
+      </>
+    );
   })
   .get("/coins/:id/routes", async ({ hx, set, params }) => {
     const id = Number((params as Record<string, unknown>)?.["id"]);
@@ -941,36 +1078,49 @@ export const webApp = new Elysia()
     const fromId = Number((query as Record<string, unknown>)?.["from"]);
     const toId = Number((query as Record<string, unknown>)?.["to"]);
     try {
-      const { exchanges, cells, linksByMarket } = await buildRouteCells(id);
-      const cell = cells.find((candidate) => candidate.fromMarketId === fromId && candidate.toMarketId === toId);
-      if (!cell) {
+      const metadata = await api.cryptocurrency.metadata({ id });
+      const from = metadata.exchanges.find((market) => market.marketId === fromId);
+      const to = metadata.exchanges.find((market) => market.marketId === toId);
+      if (!from || !to) {
         set.status = 404;
         return ErrorFragment({ message: "route not found" });
       }
-      const fromLinks = linksByMarket.get(fromId) ?? [];
-      const toLinks = linksByMarket.get(toId) ?? [];
+      const fromLinks = metadataLinks(from);
+      const toLinks = metadataLinks(to);
+      const forward = viableChains(fromLinks, toLinks);
+      const backward = viableChains(toLinks, fromLinks);
+      const chainName = new Map<number, string>();
+      for (const market of [from, to]) {
+        for (const chain of market.chains) chainName.set(chain.id, chain.name + " (" + chain.code + ")");
+      }
       const shared = sharedChainIds(fromLinks, toLinks);
+      const sharedNames = shared.map((chainId) => chainName.get(chainId) ?? "chain " + String(chainId));
+      const viableNames = (ids: number[]) =>
+        ids.map((chainId) => chainName.get(chainId) ?? "chain " + String(chainId)).join(", ");
       let explanation: string;
-      if (cell.status === "full") {
-        const via = shared[0];
-        const chain = via === undefined ? undefined : await api.chain.findById({ id: via }).catch(() => undefined);
+      if (forward.length > 0 && backward.length > 0) {
         explanation =
-          "Transferable both ways via shared chain " + (chain ? chain.name + " (" + chain.code + ")" : "chain " + String(via));
-      } else if (cell.status === "none") {
+          from.name + " ⇄ " + to.name + " transferable both ways via " + viableNames(forward);
+      } else if (forward.length === 0 && backward.length === 0) {
         explanation =
           shared.length === 0
-            ? "No shared chain between " + cell.fromExchange + " and " + cell.toExchange + "; both directions blocked"
-            : "Shared chains exist but withdraw/deposit flags block both directions between " + cell.fromExchange + " and " + cell.toExchange;
-      } else if (cell.status === "one-way-blocked") {
+            ? "No shared chain between " + from.name + " and " + to.name + "; both directions blocked"
+            : "Shared chains exist (" +
+              viableNames(shared) +
+              ") but withdraw/deposit flags block both directions between " +
+              from.name +
+              " and " +
+              to.name;
+      } else if (forward.length === 0) {
         explanation =
-          "Direction " + cell.fromExchange + " → " + cell.toExchange + " is blocked (withdraw or deposit flag), reverse works";
+          from.name + " → " + to.name + " is blocked (withdraw or deposit flag); reverse works via " + viableNames(backward);
       } else {
         explanation =
-          "Direction " + cell.fromExchange + " → " + cell.toExchange + " works, reverse direction is blocked";
+          from.name + " → " + to.name + " works via " + viableNames(forward) + "; reverse direction is blocked";
       }
-      void exchanges;
+      const status = orderedPairStatus(fromLinks, toLinks);
       setFragmentHeaders(set);
-      return RouteDetailFragment({ explanation });
+      return RouteDetailFragment({ from: from.name, to: to.name, status, explanation, shared: sharedNames });
     } catch (error) {
       if (isNotFound(error)) {
         set.status = 404;
