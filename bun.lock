@@ -7,6 +7,7 @@
       "dependencies": {
         "@elysiajs/html": "^1.4.2",
         "@elysiajs/static": "^1.4.10",
+        "@lister/db": "workspace:*",
         "@orpc/client": "^2.0.0-beta.36",
         "@orpc/openapi": "^2.0.0-beta.36",
         "@orpc/publisher": "^2.0.0-beta.36",
@@ -69,7 +70,14 @@
       "name": "@lister/db",
       "version": "1.0.0",
       "dependencies": {
+        "@effect/sql-pg": "^4.0.0-rc.115",
+        "@lister/config": "workspace:*",
+        "drizzle-orm": "1.0.0-rc.4",
         "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/sql-pglite": "^4.0.0-rc.115",
+        "@electric-sql/pglite": "^0.5.8",
       },
     },
     "packages/domain": {
@@ -94,6 +102,9 @@
       },
     },
   },
+  "patchedDependencies": {
+    "drizzle-orm@1.0.0-rc.4": "patches/drizzle-orm@1.0.0-rc.4.patch",
+  },
   "packages": {
     "@borewit/text-codec": ["@borewit/text-codec@0.2.2", "", {}, "sha512-DDaRehssg1aNrH4+2hnj1B7vnUGEjU6OIlyRdkMd0aUdIUvKXrJfXsy8LVtXAy7DRvYVluWbMspsRhz2lcW0mQ=="],
 
@@ -104,6 +115,10 @@
     "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-rc.115", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.21.3" }, "peerDependencies": { "effect": "^4.0.0-rc.115" } }, "sha512-rcBwhDIfb82akJoTv7Vwh8K5x9vC/XfuePS7JjOr+z+dORXzsmKqI1BUQF27ARCN9fTAbDh7I6YvBlWhLjnqNg=="],
 
     "@effect/sql-pg": ["@effect/sql-pg@4.0.0-rc.115", "", { "peerDependencies": { "effect": "^4.0.0-rc.115" } }, "sha512-TLdzqBvGF/HwAKpWTw/5ih7JqVkkakVSb4aD6amzMaavFfFl4vsqqeKjSBijwuzbOMANNN0HqnEt/9fgjTsFEA=="],
+
+    "@effect/sql-pglite": ["@effect/sql-pglite@4.0.0-rc.115", "", { "dependencies": { "@electric-sql/pglite": "^0.5.8" }, "peerDependencies": { "effect": "^4.0.0-rc.115" } }, "sha512-ybYdGNrks/j2qYe2RHG7NsdeYThGjFKg6S1ziHQXMhmyKyTS35Az+kK1389+o+m/1DOpvMqDqwG80UOYPAV2LQ=="],
+
+    "@electric-sql/pglite": ["@electric-sql/pglite@0.5.8", "", {}, "sha512-n9tsbUOhwx2epK1V0ZG9Ar4SHWUju04dhmzZXiSBXwBoleOvIfals33NAaWgagQVAL4Rbvx/Ptsu3P+pA09f6Q=="],
 
     "@elysiajs/html": ["@elysiajs/html@1.4.2", "", { "dependencies": { "@kitajs/html": "^4.1.0", "@kitajs/ts-html-plugin": "^4.0.1" }, "peerDependencies": { "elysia": ">= 1.4.0" } }, "sha512-Db7dmbkN7gptckMpU0/Fq9Qi3QuhQr/CH60A+8rs+RT+74NUC8sONs5nkfMm5oL+6kCUWCv19uUwOjBP7zsjYQ=="],
 

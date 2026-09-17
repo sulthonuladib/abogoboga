@@ -3,7 +3,7 @@ import { databaseUrl } from "./src/config";
 
 
 export default defineConfig({
-  schema: "./src/database/schema.ts",
+  schema: "./packages/db/src/schema.ts",
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {

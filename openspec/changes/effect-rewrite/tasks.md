@@ -20,9 +20,9 @@
 
 ## 4. Database service
 
-- [ ] 4.1 Implement `packages/db` `Database` service via `PgDrizzle.makeWithDefaults()` over `PgClient.layerConfig`, running `PgMigrator` on layer build, deleting the `new Bun.SQL()` import-time singleton, and verify layer builds against the Compose Postgres
-- [ ] 4.2 Move existing `*.sql.ts` table definitions into `packages/db` (re-exported), update `drizzle.config.ts` schema paths, and verify `drizzle-kit generate` produces an empty diff plus `bunx tsc --noEmit` passes
-- [ ] 4.3 Add `Database.layerMemory` (or documented reason a substitute is impossible) for repository tests, and verify at least one existing DB-backed test runs through the new layer
+- [x] 4.1 Implement `packages/db` `Database` service via `PgDrizzle.makeWithDefaults()` over `PgClient.layerConfig`, running `PgMigrator` on layer build, deleting the `new Bun.SQL()` import-time singleton, and verify layer builds against the Compose Postgres
+- [x] 4.2 Move existing `*.sql.ts` table definitions into `packages/db` (re-exported), update `drizzle.config.ts` schema paths, and verify `drizzle-kit generate` produces an empty diff plus `bunx tsc --noEmit` passes
+- [x] 4.3 Add `Database.layerMemory` (or documented reason a substitute is impossible) for repository tests, and verify at least one existing DB-backed test runs through the new layer
 
 ## 5. JSON CRUD API
 

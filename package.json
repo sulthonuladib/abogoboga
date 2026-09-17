@@ -23,6 +23,7 @@
   "dependencies": {
     "@elysiajs/html": "^1.4.2",
     "@elysiajs/static": "^1.4.10",
+    "@lister/db": "workspace:*",
     "@orpc/client": "^2.0.0-beta.36",
     "@orpc/openapi": "^2.0.0-beta.36",
     "@orpc/publisher": "^2.0.0-beta.36",
@@ -51,5 +52,8 @@
     "postgres": "^3.4.9",
     "typescript": "^7.0.2",
     "typescript-language-server": "^6.0.0"
+  },
+  "patchedDependencies": {
+    "drizzle-orm@1.0.0-rc.4": "patches/drizzle-orm@1.0.0-rc.4.patch"
   }
 }
