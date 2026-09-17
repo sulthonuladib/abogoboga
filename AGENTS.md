@@ -1,10 +1,19 @@
 # AGENTS.md
 
-----
+# Learning more about Effect
 
-Stack: Bun + oRPC `@orpc/*@2.0.0-beta` (v2 API: `.meta(openapi(...))`, `CORSHandlerPlugin`, `converters`, `call`) + Zod v4 + Drizzle. Entry: `src/index.ts` (RPCHandler + OpenAPIHandler + OpenAPIGenerator), routers in `src/router.ts` + `src/core/*/*.router`. `src/crawl-workers/` is excluded from typecheck.
+This repository uses the Effect Typescript library.
 
-oRPC docs index: `https://orpc.dev/llms.txt` — fetch the relevant sub-page live via webfetch before writing/changing oRPC code, don't rely on training data.
-Canonical pages: `https://orpc.dev/docs/procedure`, `https://orpc.dev/docs/router`, `https://orpc.dev/docs/openapi/routing`, `https://orpc.dev/docs/openapi/handler`, `https://orpc.dev/docs/integrations/zod`.
+Before writing any Effect code, first read `node_modules/effect/AGENTS.md`
+**completely**, and follow the links in the file when required.
 
-Runtime: never start the server or any infra yourself (`bun run`, `bun dev`, `docker compose`, DB, Redis, etc.). If you need the running app for testing, ask the user to start/provide it.
+If you need to learn more about particular Effect apis and concepts that the
+guide doesn't cover, search through the source code in `node_modules/effect/src`.
+
+# Design principles
+- Prefer correct-by-construction APIs, explicit dependencies, typed failures, and parsed boundary values.
+- Keep domain and application code independent of frameworks, protocols, vendors, and runtime bindings.
+- Prefer deep, cohesive modules and real test seams over pass-through abstractions, module mocks, and spies.
+- Use code-shaped contracts, call stacks, and concrete evidence when design precision matters.
+- Keep deliberate workflows user-invoked.
+
