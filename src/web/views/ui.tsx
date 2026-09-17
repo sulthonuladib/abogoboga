@@ -50,15 +50,11 @@ export function CloseDrawerOob() {
   return <div id="drawer-slot" hx-swap-oob="true"></div>;
 }
 
-const CLOSE_MODAL_JS =
-  "document.getElementById('modal-slot').innerHTML=''";
-const CLOSE_DRAWER_JS =
-  "document.getElementById('drawer-slot').innerHTML=''";
-
 /**
- * daisyUI dialog-based modal shell (recommended method: native <dialog>).
- * Loaded into #modal-slot via hx-get, closed by clearing #modal-slot
- * (Escape key is handled globally in the layout script).
+ * Native dialog modal shell.
+ * Dismissal is native: close button (form method=dialog), backdrop
+ * (form method=dialog), Cancel inside the inner form via
+ * formmethod=dialog, and Escape via the dialog element itself.
  */
 export function ModalShell({
   title,
@@ -86,14 +82,15 @@ export function ModalShell({
                 ""
               )}
             </div>
-            <button
-              type="button"
-              class="btn btn-circle btn-ghost btn-sm"
-              aria-label="Close dialog"
-              onclick={CLOSE_MODAL_JS}
-            >
-              ✕
-            </button>
+            <form method="dialog">
+              <button
+                type="submit"
+                class="btn btn-circle btn-ghost btn-sm"
+                aria-label="Close dialog"
+              >
+                ✕
+              </button>
+            </form>
           </div>
           {error ? (
             <div class="alert alert-error mb-3" role="alert">
@@ -105,26 +102,28 @@ export function ModalShell({
           {children as unknown as "safe"}
         </div>
         <form method="dialog" class="modal-backdrop">
-          <button aria-label="Close dialog" onclick={CLOSE_MODAL_JS}>
-            close
-          </button>
+          <button aria-label="Close dialog">close</button>
         </form>
       </dialog>
     </div>
   );
 }
 
-/** Standard page header with breadcrumbs, count and action buttons. */
+/** Standard page header with breadcrumbs, count and action buttons.
+ * When a count is shown it MUST reuse the listing's single badge id
+ * (e.g. #coins-count) via countId instead of a second #page-count. */
 export function PageHeader({
   title,
   subtitle,
   count,
+  countId,
   actions,
   crumbs,
 }: {
   title: string;
   subtitle?: string;
   count?: string;
+  countId?: string;
   actions?: unknown;
   crumbs?: Array<{ label: string; href?: string }>;
 }) {
@@ -160,9 +159,13 @@ export function PageHeader({
           <h1 class="flex items-center gap-2 text-2xl font-bold tracking-tight">
             {title}
             {count ? (
-              <span id="page-count" class="badge badge-neutral">
-                {count}
-              </span>
+              countId ? (
+                <span id={countId} class="badge badge-neutral">
+                  {count}
+                </span>
+              ) : (
+                <span class="badge badge-neutral">{count}</span>
+              )
             ) : (
               ""
             )}
@@ -214,13 +217,15 @@ export function Field({
   );
 }
 
-/** Friendly empty state for tables and lists. */
+/** Friendly empty state for tables and lists with optional actions. */
 export function EmptyState({
   title,
   hint,
+  actions,
 }: {
   title: string;
   hint?: string;
+  actions?: unknown;
 }) {
   return (
     <div class="flex flex-col items-center gap-1 px-6 py-10 text-center">
@@ -240,6 +245,13 @@ export function EmptyState({
       </svg>
       <p class="font-semibold">{title}</p>
       {hint ? <p class="text-sm opacity-60">{hint}</p> : ""}
+      {actions ? (
+        <div class="mt-3 flex flex-wrap items-center justify-center gap-2">
+          {actions as unknown as "safe"}
+        </div>
+      ) : (
+        ""
+      )}
     </div>
   );
 }
@@ -278,6 +290,18 @@ export function SubmitButton({
   );
 }
 
-export function closeDrawerJs(): string {
-  return CLOSE_DRAWER_JS;
+/** Cancel button that dismisses the native dialog without submitting.
+ * Must live inside the hx-post form; formmethod=dialog closes the dialog
+ * instead of issuing a request. */
+export function CancelButton({ label }: { label?: string }) {
+  return (
+    <button
+      type="submit"
+      formmethod="dialog"
+      formnovalidate
+      class="btn btn-ghost btn-sm"
+    >
+      {label ?? "Cancel"}
+    </button>
+  );
 }

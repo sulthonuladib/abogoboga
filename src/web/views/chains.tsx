@@ -78,10 +78,17 @@ export function ChainsFilterBar({ q }: { q: string }) {
 export function ChainsTableWrap({
   rows,
   total,
+  page,
+  pages,
+  q,
 }: {
   rows: ChainRow[];
   total: number;
+  page: number;
+  pages: number;
+  q: string;
 }) {
+  const isFiltered = q.trim() !== "";
   return (
     <div id="chains-table-wrap">
       <div id="chains-error"></div>
@@ -89,13 +96,51 @@ export function ChainsTableWrap({
         <span id="chains-count" class="badge badge-neutral">
           {String(total)} chains
         </span>
+        <span class="text-xs opacity-50">20 per page</span>
       </div>
       <div class="card bg-base-100 shadow-sm">
         {rows.length === 0 ? (
-          (EmptyState({
-            title: "No chains found",
-            hint: "Try a different search, or create a new chain.",
-          }) as unknown as "safe")
+          isFiltered
+            ? (EmptyState({
+                title: "No chains match these filters",
+                hint: "Try a different search, or start fresh.",
+                actions: (
+                  <>
+                    <a
+                      class="btn btn-ghost btn-sm"
+                      href="/chains"
+                      hx-get="/chains"
+                      hx-target="#main-content"
+                      hx-swap="innerHTML show:top"
+                      hx-push-url="true"
+                    >
+                      Clear filters
+                    </a>
+                    <button
+                      class="btn btn-primary btn-sm"
+                      hx-get="/chains/new"
+                      hx-target="#modal-slot"
+                      hx-swap="innerHTML"
+                    >
+                      + New chain
+                    </button>
+                  </>
+                ),
+              }) as unknown as "safe")
+            : (EmptyState({
+                title: "No chains yet",
+                hint: "Create your first chain to enable transfer routes.",
+                actions: (
+                  <button
+                    class="btn btn-primary btn-sm"
+                    hx-get="/chains/new"
+                    hx-target="#modal-slot"
+                    hx-swap="innerHTML"
+                  >
+                    + New chain
+                  </button>
+                ),
+              }) as unknown as "safe")
         ) : (
           <div class="overflow-x-auto">
             <table class="table w-full table-sm">
@@ -172,7 +217,7 @@ export function ChainsTableWrap({
                                 hx-get={"/chains/" + String(row.id) + "/edit"}
                                 hx-target="#modal-slot"
                                 hx-swap="innerHTML"
-                                onclick="this.closest('details').removeAttribute('open')"
+
                               >
                                 Edit chain
                               </button>
@@ -186,7 +231,7 @@ export function ChainsTableWrap({
                                 }
                                 hx-target="closest tr"
                                 hx-swap="outerHTML swap:150ms"
-                                onclick="this.closest('details').removeAttribute('open')"
+
                               >
                                 Delete
                               </button>
@@ -202,6 +247,139 @@ export function ChainsTableWrap({
           </div>
         )}
       </div>
+      <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <span class="text-sm opacity-70">
+          Page {String(page)} of {String(pages)}
+        </span>
+        <div class="join">
+          <button
+            class="join-item btn btn-sm"
+            disabled={page <= 1}
+            hx-get={"/partials/chains?page=" + String(page - 1)}
+            hx-include="#chains-filter"
+            hx-target="#chains-table-wrap"
+            hx-swap="innerHTML show:top"
+            hx-indicator="#chains-loading"
+          >
+            « Prev
+          </button>
+          <button
+            class="join-item btn btn-sm"
+            disabled={page >= pages}
+            hx-get={"/partials/chains?page=" + String(page + 1)}
+            hx-include="#chains-filter"
+            hx-target="#chains-table-wrap"
+            hx-swap="innerHTML show:top"
+            hx-indicator="#chains-loading"
+          >
+            Next »
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Searchable + paginated chain options for chain-link forms. */
+export function ChainOptionsFragment({
+  options,
+  total,
+  page,
+  pages,
+  q,
+  targetId,
+  selectName,
+  selectedId,
+}: {
+  options: Array<{ id: number; name: string; code: string }>;
+  total: number;
+  page: number;
+  pages: number;
+  q: string;
+  targetId: string;
+  selectName: string;
+  selectedId?: string;
+}) {
+  return (
+    <div id={targetId}>
+      <div class="flex flex-wrap items-end gap-2">
+        <label class="form-control min-w-40 flex-1">
+          <div class="label py-1">
+            <span class="label-text text-xs font-semibold uppercase tracking-wide opacity-70">
+              Search chains
+            </span>
+          </div>
+          <input
+            type="search"
+            name="q"
+            value={q}
+            placeholder="Ethereum, bep20…"
+            autocomplete="off"
+            class="input input-bordered input-sm w-full"
+            hx-get={"/partials/chains/options?target=" + encodeURIComponent(targetId) + "&select=" + encodeURIComponent(selectName) + (selectedId ? "&selected=" + encodeURIComponent(selectedId) : "")}
+            hx-target={"#" + targetId}
+            hx-swap="outerHTML"
+            hx-trigger="input changed delay:300ms, change"
+            hx-indicator="#global-bar"
+          />
+        </label>
+      </div>
+      <div class="mt-2 flex items-center gap-2">
+        <select name={selectName} class="select select-bordered select-sm w-full">
+          {selectedId && !options.some((o) => String(o.id) === selectedId) ? (
+            <option value={selectedId} selected>
+              Selected #{selectedId}
+            </option>
+          ) : (
+            ""
+          )}
+          {options.map((opt) => (
+            <option value={String(opt.id)} selected={selectedId === String(opt.id)}>
+              {opt.name} ({opt.code})
+            </option>
+          )) as unknown as "safe"}
+        </select>
+      </div>
+      {options.length === 0 ? (
+        <p class="mt-1 text-xs opacity-60">
+          No chains match — <button
+            class="link"
+            hx-get={"/partials/chains/options?target=" + encodeURIComponent(targetId) + "&select=" + encodeURIComponent(selectName)}
+            hx-target={"#" + targetId}
+            hx-swap="outerHTML"
+          >
+            clear the search
+          </button>.
+        </p>
+      ) : (
+        <div class="mt-1 flex flex-wrap items-center justify-between gap-2">
+          <span class="text-xs opacity-60">
+            {String(total)} matches · Page {String(page)} of {String(pages)}
+          </span>
+          <div class="join">
+            <button
+              type="button"
+              class="join-item btn btn-xs"
+              disabled={page <= 1}
+              hx-get={"/partials/chains/options?page=" + String(page - 1) + "&q=" + encodeURIComponent(q) + "&target=" + encodeURIComponent(targetId) + "&select=" + encodeURIComponent(selectName) + (selectedId ? "&selected=" + encodeURIComponent(selectedId) : "")}
+              hx-target={"#" + targetId}
+              hx-swap="outerHTML"
+            >
+              «
+            </button>
+            <button
+              type="button"
+              class="join-item btn btn-xs"
+              disabled={page >= pages}
+              hx-get={"/partials/chains/options?page=" + String(page + 1) + "&q=" + encodeURIComponent(q) + "&target=" + encodeURIComponent(targetId) + "&select=" + encodeURIComponent(selectName) + (selectedId ? "&selected=" + encodeURIComponent(selectedId) : "")}
+              hx-target={"#" + targetId}
+              hx-swap="outerHTML"
+            >
+              »
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -210,10 +388,14 @@ export function ChainsPageBody({
   rows,
   total,
   q,
+  page,
+  pages,
 }: {
   rows: ChainRow[];
   total: number;
   q: string;
+  page: number;
+  pages: number;
 }) {
   return (
     <div>
@@ -233,7 +415,7 @@ export function ChainsPageBody({
         ),
       }) as unknown as "safe"}
       {ChainsFilterBar({ q }) as unknown as "safe"}
-      {ChainsTableWrap({ rows, total }) as unknown as "safe"}
+      {ChainsTableWrap({ rows, total, page, pages, q }) as unknown as "safe"}
     </div>
   );
 }
@@ -292,9 +474,11 @@ export function ChainFormFragment({
         }) as unknown as "safe"}
         <div class="modal-action mt-1">
           <button
-            type="button"
+            type="submit"
+            formmethod="dialog"
+            formnovalidate
             class="btn btn-ghost btn-sm"
-            onclick="document.getElementById('modal-slot').innerHTML=''"
+            aria-label="Cancel and close dialog"
           >
             Cancel
           </button>

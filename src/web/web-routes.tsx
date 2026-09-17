@@ -5,8 +5,8 @@ import { htmx } from "elysia-htmx";
 import { ORPCError } from "@orpc/server";
 import { api } from "./client";
 import { wantsFragment, setFragmentHeaders } from "./htmx-helpers";
-import { Layout, ErrorFragment } from "./views/layout";
-import { CloseModalOob, ToastOob } from "./views/ui";
+import { Layout, ErrorFragment, NotFoundBody } from "./views/layout";
+import { CloseModalOob, CloseDrawerOob, ToastOob } from "./views/ui";
 import {
   CoinsPageBody,
   CoinsTableWrap,
@@ -19,6 +19,7 @@ import {
   ExchangesTableWrap,
   ExchangeFormFragment,
   ExchangeDetailBody,
+  ExchangeOptionsFragment,
   type ExchangeRow,
 } from "./views/exchanges";
 import {
@@ -26,6 +27,7 @@ import {
   ChainsTableWrap,
   ChainFormFragment,
   ChainDetailBody,
+  ChainOptionsFragment,
   type ChainRow,
 } from "./views/chains";
 import { CoinDrawer, DrawerBody } from "./views/drawer";
@@ -72,6 +74,68 @@ function isConflict(error: unknown): boolean {
   );
 }
 
+type NotFoundKind =
+  | "coin"
+  | "exchange"
+  | "chain"
+  | "market"
+  | "chain-link"
+  | "route";
+
+function notFoundUrl(opts: { kind?: string; id?: string; from?: string }): string {
+  const params = new URLSearchParams();
+  if (opts.from) params.set("from", opts.from);
+  if (opts.kind) params.set("kind", opts.kind);
+  if (opts.id) params.set("id", opts.id);
+  const qs = params.toString();
+  return "/not-found" + (qs ? "?" + qs : "");
+}
+
+function isHtmxRequest(hx: { request?: boolean; historyRestoreRequest?: boolean }): boolean {
+  return !!hx?.request && !hx?.historyRestoreRequest;
+}
+
+/** Centralized entity-miss mapping: full loads 302, htmx gets HX-Redirect. */
+function redirectToNotFound(
+  hx: { request?: boolean; historyRestoreRequest?: boolean; redirect?: (url: string) => void },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  redirectFn: (url: string, status?: any) => unknown,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  set: { headers: Record<string, any>; status?: any },
+  opts: { kind?: NotFoundKind | string; id?: string; from?: string },
+) {
+  const url = notFoundUrl(opts);
+  if (isHtmxRequest(hx)) {
+    hx.redirect?.(url);
+    set.headers["Vary"] = "HX-Request";
+    set.headers["HX-Redirect"] = url;
+    return "";
+  }
+  return redirectFn(url, 302);
+}
+
+function rawId(params: Record<string, unknown>, key: string): string {
+  const value = params?.[key];
+  return typeof value === "string" ? value : String(value ?? "");
+}
+
+function parseIdOrRedirect(
+  raw: string,
+  hx: { request?: boolean; historyRestoreRequest?: boolean; redirect?: (url: string) => void },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  redirectFn: (url: string, status?: any) => unknown,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  set: { headers: Record<string, any>; status?: any },
+  kind: NotFoundKind,
+  from?: string,
+): { id: number } | unknown {
+  const id = Number(raw);
+  if (!Number.isFinite(id)) {
+    return redirectToNotFound(hx, redirectFn, set, { kind, id: raw, from });
+  }
+  return { id };
+}
+
 function parseCoinFilter(query: Record<string, unknown>): CoinFilterState {
   const sortByRaw = str(query["sortBy"] ?? query["sort"], "symbol");
   const sortBy = ["symbol", "markets", "chains", "blocked"].includes(sortByRaw)
@@ -115,6 +179,7 @@ async function coinsWrap(filter: CoinFilterState, page: number) {
     pages: Math.max(result.meta.pages, 1),
     sortBy: filter.sortBy,
     order: filter.order,
+    filter,
   });
 }
 
@@ -130,10 +195,13 @@ async function coinFilterLists(): Promise<CoinFilterLists> {
   };
 }
 
-async function exchangeRows(q: string): Promise<{ rows: ExchangeRow[]; total: number }> {
+async function exchangeRows(
+  q: string,
+  page = 1,
+): Promise<{ rows: ExchangeRow[]; total: number; page: number; pages: number }> {
   const list = await api.exchange.list({
-    page: 1,
-    limit: -1,
+    page,
+    limit: 20,
     search: q,
     searchBy: "name",
     orderBy: "id",
@@ -150,13 +218,73 @@ async function exchangeRows(q: string): Promise<{ rows: ExchangeRow[]; total: nu
       coins: await api.exchangeCryptocurrency.count({ exchangeId: exchange.id }),
     })),
   );
-  return { rows, total: list.meta.items };
+  return {
+    rows,
+    total: list.meta.items,
+    page: list.meta.page,
+    pages: Math.max(list.meta.pages, 1),
+  };
 }
 
-async function chainRows(q: string): Promise<{ rows: ChainRow[]; total: number }> {
+/** Server-side searchable exchange options (20/page) for assignment forms. */
+async function exchangeOptions(
+  q: string,
+  page = 1,
+): Promise<{
+  options: Array<{ id: number; name: string }>;
+  total: number;
+  page: number;
+  pages: number;
+}> {
+  const list = await api.exchange.list({
+    page,
+    limit: 20,
+    search: q,
+    searchBy: "name",
+    orderBy: "id",
+    order: "asc",
+  });
+  return {
+    options: list.data.map((exchange) => ({ id: exchange.id, name: exchange.name })),
+    total: list.meta.items,
+    page: list.meta.page,
+    pages: Math.max(list.meta.pages, 1),
+  };
+}
+
+/** Server-side searchable chain options (20/page) for chain-link forms. */
+async function chainOptions(
+  q: string,
+  page = 1,
+): Promise<{
+  options: Array<{ id: number; name: string; code: string }>;
+  total: number;
+  page: number;
+  pages: number;
+}> {
   const list = await api.chain.list({
-    page: 1,
-    limit: -1,
+    page,
+    limit: 20,
+    search: q,
+    searchBy: "name",
+    orderBy: "id",
+    order: "asc",
+  });
+  return {
+    options: list.data.map((chain) => ({ id: chain.id, name: chain.name, code: chain.code })),
+    total: list.meta.items,
+    page: list.meta.page,
+    pages: Math.max(list.meta.pages, 1),
+  };
+}
+
+async function chainRows(
+  q: string,
+  page = 1,
+): Promise<{ rows: ChainRow[]; total: number; page: number; pages: number }> {
+  const list = await api.chain.list({
+    page,
+    limit: 20,
     search: q,
     searchBy: "name",
     orderBy: "id",
@@ -174,14 +302,32 @@ async function chainRows(q: string): Promise<{ rows: ChainRow[]; total: number }
     }
     return { id: chain.id, name: chain.name, code: chain.code, coins: coinIds.size };
   });
-  return { rows, total: list.meta.items };
+  return {
+    rows,
+    total: list.meta.items,
+    page: list.meta.page,
+    pages: Math.max(list.meta.pages, 1),
+  };
+}
+
+/** Drawer option lists: first 20 only, never the full table.
+ * Full search/paging happens through the option partials. */
+async function drawerOptionLists(): Promise<{
+  exchanges: Array<{ id: number; name: string }>;
+  chains: Array<{ id: number; name: string; code: string }>;
+}> {
+  const [exchanges, chains] = await Promise.all([
+    exchangeOptions("", 1),
+    chainOptions("", 1),
+  ]);
+  return { exchanges: exchanges.options, chains: chains.options };
 }
 
 /** Full drawer shell partial (#drawer-slot). Single batched metadata call. */
 async function renderDrawer(coinId: number) {
   const [metadata, lists] = await Promise.all([
     api.cryptocurrency.metadata({ id: coinId }),
-    coinFilterLists(),
+    drawerOptionLists(),
   ]);
   return CoinDrawer({
     metadata,
@@ -190,15 +336,29 @@ async function renderDrawer(coinId: number) {
 }
 
 /** Drawer body partial (#drawer-body) for every market / chain-link mutation. */
-async function renderDrawerBody(coinId: number) {
+async function renderDrawerBody(
+  coinId: number,
+  overrides?: {
+    assignError?: string;
+    assignExchangeId?: string;
+    assignSymbol?: string;
+    assignQuery?: string;
+    linkError?: string;
+    linkMarketId?: number;
+    linkChainId?: string;
+    linkCode?: string;
+    linkQuery?: string;
+  },
+) {
   const [metadata, lists] = await Promise.all([
     api.cryptocurrency.metadata({ id: coinId }),
-    coinFilterLists(),
+    drawerOptionLists(),
   ]);
   return DrawerBody({
     coinId,
     markets: metadata.exchanges,
     lists: { exchanges: lists.exchanges, chains: lists.chains },
+    ...overrides,
   });
 }
 
@@ -395,8 +555,11 @@ export const webApp = new Elysia()
       </>
     );
   })
-  .get("/coins/:id/edit", async ({ set, params }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .get("/coins/:id/edit", async ({ hx, redirect, set, params }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "coin");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     try {
       const coin = await api.cryptocurrency.findById({ id });
       setFragmentHeaders(set);
@@ -407,14 +570,16 @@ export const webApp = new Elysia()
       });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "coin not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "coin", id: raw });
       }
       throw error;
     }
   })
-  .post("/coins/:id", async ({ hx, set, params, body }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .post("/coins/:id", async ({ hx, redirect, set, params, body }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "coin");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     const fields = (body ?? {}) as Record<string, unknown>;
     const patch: Record<string, unknown> = {};
     for (const key of ["symbol", "name", "slug", "logo"]) {
@@ -430,8 +595,7 @@ export const webApp = new Elysia()
       await api.cryptocurrency.update({ params: { id }, body: patch as { symbol?: string } });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "coin not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "coin", id: raw });
       }
       setFragmentHeaders(set);
       hx.retarget("#modal-slot");
@@ -465,21 +629,25 @@ export const webApp = new Elysia()
       </>
     );
   })
-  .delete("/coins/:id", async ({ set, params }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .delete("/coins/:id", async ({ hx, redirect, set, params }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "coin");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     let symbol = "coin";
     try {
       const coin = await api.cryptocurrency.findById({ id });
       symbol = coin.symbol;
-    } catch {
-      // Fall through to remove, which reports NOT_FOUND properly.
+    } catch (error) {
+      if (isNotFound(error)) {
+        return redirectToNotFound(hx, redirect, set, { kind: "coin", id: raw });
+      }
     }
     try {
       await api.cryptocurrency.remove({ id });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "coin not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "coin", id: raw });
       }
       throw error;
     }
@@ -497,9 +665,11 @@ export const webApp = new Elysia()
     );
   })
   .get("/exchanges", async ({ hx, set, query }) => {
-    const q = str(((query ?? {}) as Record<string, unknown>)["q"], "");
-    const { rows, total } = await exchangeRows(q);
-    const body = ExchangesPageBody({ rows, total, q });
+    const qq = (query ?? {}) as Record<string, unknown>;
+    const q = str(qq["q"], "");
+    const page = num(qq["page"], 1);
+    const { rows, total, page: cur, pages } = await exchangeRows(q, page);
+    const body = ExchangesPageBody({ rows, total, q, page: cur, pages });
     if (wantsFragment(hx)) {
       setFragmentHeaders(set);
       return body;
@@ -507,10 +677,12 @@ export const webApp = new Elysia()
     return Layout({ title: "Exchanges", active: "/exchanges", children: body });
   })
   .get("/partials/exchanges", async ({ set, query }) => {
-    const q = str(((query ?? {}) as Record<string, unknown>)["q"], "");
-    const { rows, total } = await exchangeRows(q);
+    const qq = (query ?? {}) as Record<string, unknown>;
+    const q = str(qq["q"], "");
+    const page = num(qq["page"], 1);
+    const { rows, total, page: cur, pages } = await exchangeRows(q, page);
     setFragmentHeaders(set);
-    return ExchangesTableWrap({ rows, total });
+    return ExchangesTableWrap({ rows, total, page: cur, pages, q });
   })
   .get("/exchanges/new", ({ set }) => {
     setFragmentHeaders(set);
@@ -547,18 +719,21 @@ export const webApp = new Elysia()
         error: errorMessage(error, "could not create exchange"),
       });
     }
-    const { rows, total } = await exchangeRows("");
+    const { rows, total, page: cur, pages } = await exchangeRows("", 1);
     setFragmentHeaders(set);
     return (
       <>
-        {ExchangesTableWrap({ rows, total }) as unknown as "safe"}
+        {ExchangesTableWrap({ rows, total, page: cur, pages, q: "" }) as unknown as "safe"}
         {CloseModalOob() as unknown as "safe"}
         {ToastOob({ kind: "success", message: name + " created" }) as unknown as "safe"}
       </>
     );
   })
-  .get("/exchanges/:id", async ({ hx, set, params }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .get("/exchanges/:id", async ({ hx, redirect, set, params }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "exchange");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     try {
       const exchange = await api.exchange.findById({ id });
       const coins = await api.exchangeCryptocurrency.count({ exchangeId: id });
@@ -580,14 +755,16 @@ export const webApp = new Elysia()
       return Layout({ title: exchange.name, active: "/exchanges", children: body });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "exchange not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "exchange", id: raw });
       }
       throw error;
     }
   })
-  .get("/exchanges/:id/edit", async ({ set, params }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .get("/exchanges/:id/edit", async ({ hx, redirect, set, params }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "exchange");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     try {
       const exchange = await api.exchange.findById({ id });
       setFragmentHeaders(set);
@@ -604,14 +781,16 @@ export const webApp = new Elysia()
       });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "exchange not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "exchange", id: raw });
       }
       throw error;
     }
   })
-  .post("/exchanges/:id", async ({ hx, set, params, body }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .post("/exchanges/:id", async ({ hx, redirect, set, params, body }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "exchange");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     const fields = (body ?? {}) as Record<string, unknown>;
     const patch: Record<string, unknown> = {};
     for (const key of ["name", "slug"]) {
@@ -622,8 +801,7 @@ export const webApp = new Elysia()
       await api.exchange.update({ params: { id }, body: patch as { name?: string } });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "exchange not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "exchange", id: raw });
       }
       setFragmentHeaders(set);
       hx.retarget("#modal-slot");
@@ -646,18 +824,21 @@ export const webApp = new Elysia()
         return ErrorFragment({ message: errorMessage(error, "could not update exchange") });
       }
     }
-    const { rows, total } = await exchangeRows("");
+    const { rows, total, page: cur, pages } = await exchangeRows("", 1);
     setFragmentHeaders(set);
     return (
       <>
-        {ExchangesTableWrap({ rows, total }) as unknown as "safe"}
+        {ExchangesTableWrap({ rows, total, page: cur, pages, q: "" }) as unknown as "safe"}
         {CloseModalOob() as unknown as "safe"}
         {ToastOob({ kind: "success", message: "exchange saved" }) as unknown as "safe"}
       </>
     );
   })
-  .delete("/exchanges/:id", async ({ hx, set, params }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .delete("/exchanges/:id", async ({ hx, redirect, set, params }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "exchange");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     const assignments = await api.exchangeCryptocurrency.list({ exchangeId: id });
     if (assignments.length > 0) {
       setFragmentHeaders(set);
@@ -674,12 +855,11 @@ export const webApp = new Elysia()
       await api.exchange.remove({ id });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "exchange not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "exchange", id: raw });
       }
       throw error;
     }
-    const { total } = await exchangeRows("");
+    const { total } = await exchangeRows("", 1);
     setFragmentHeaders(set);
     return (
       <>
@@ -691,9 +871,11 @@ export const webApp = new Elysia()
     );
   })
   .get("/chains", async ({ hx, set, query }) => {
-    const q = str(((query ?? {}) as Record<string, unknown>)["q"], "");
-    const { rows, total } = await chainRows(q);
-    const body = ChainsPageBody({ rows, total, q });
+    const qq = (query ?? {}) as Record<string, unknown>;
+    const q = str(qq["q"], "");
+    const page = num(qq["page"], 1);
+    const { rows, total, page: cur, pages } = await chainRows(q, page);
+    const body = ChainsPageBody({ rows, total, q, page: cur, pages });
     if (wantsFragment(hx)) {
       setFragmentHeaders(set);
       return body;
@@ -701,10 +883,12 @@ export const webApp = new Elysia()
     return Layout({ title: "Chains", active: "/chains", children: body });
   })
   .get("/partials/chains", async ({ set, query }) => {
-    const q = str(((query ?? {}) as Record<string, unknown>)["q"], "");
-    const { rows, total } = await chainRows(q);
+    const qq = (query ?? {}) as Record<string, unknown>;
+    const q = str(qq["q"], "");
+    const page = num(qq["page"], 1);
+    const { rows, total, page: cur, pages } = await chainRows(q, page);
     setFragmentHeaders(set);
-    return ChainsTableWrap({ rows, total });
+    return ChainsTableWrap({ rows, total, page: cur, pages, q });
   })
   .get("/chains/new", ({ set }) => {
     setFragmentHeaders(set);
@@ -732,18 +916,21 @@ export const webApp = new Elysia()
         error: errorMessage(error, "could not create chain"),
       });
     }
-    const { rows, total } = await chainRows("");
+    const { rows, total, page: cur, pages } = await chainRows("", 1);
     setFragmentHeaders(set);
     return (
       <>
-        {ChainsTableWrap({ rows, total }) as unknown as "safe"}
+        {ChainsTableWrap({ rows, total, page: cur, pages, q: "" }) as unknown as "safe"}
         {CloseModalOob() as unknown as "safe"}
         {ToastOob({ kind: "success", message: name + " created" }) as unknown as "safe"}
       </>
     );
   })
-  .get("/chains/:id", async ({ hx, set, params }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .get("/chains/:id", async ({ hx, redirect, set, params }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "chain");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     try {
       const chain = await api.chain.findById({ id });
       const links = await api.exchangeCryptocurrencyChain.list({ chainId: id });
@@ -758,14 +945,16 @@ export const webApp = new Elysia()
       return Layout({ title: chain.name, active: "/chains", children: body });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "chain not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "chain", id: raw });
       }
       throw error;
     }
   })
-  .get("/chains/:id/edit", async ({ set, params }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .get("/chains/:id/edit", async ({ hx, redirect, set, params }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "chain");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     try {
       const chain = await api.chain.findById({ id });
       setFragmentHeaders(set);
@@ -776,14 +965,16 @@ export const webApp = new Elysia()
       });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "chain not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "chain", id: raw });
       }
       throw error;
     }
   })
-  .post("/chains/:id", async ({ hx, set, params, body }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .post("/chains/:id", async ({ hx, redirect, set, params, body }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "chain");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     const fields = (body ?? {}) as Record<string, unknown>;
     const patch: Record<string, unknown> = {};
     for (const key of ["name", "code"]) {
@@ -794,8 +985,7 @@ export const webApp = new Elysia()
       await api.chain.update({ params: { id }, body: patch as { name?: string } });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "chain not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "chain", id: raw });
       }
       setFragmentHeaders(set);
       hx.retarget("#modal-slot");
@@ -812,18 +1002,21 @@ export const webApp = new Elysia()
         return ErrorFragment({ message: errorMessage(error, "could not update chain") });
       }
     }
-    const { rows, total } = await chainRows("");
+    const { rows, total, page: cur, pages } = await chainRows("", 1);
     setFragmentHeaders(set);
     return (
       <>
-        {ChainsTableWrap({ rows, total }) as unknown as "safe"}
+        {ChainsTableWrap({ rows, total, page: cur, pages, q: "" }) as unknown as "safe"}
         {CloseModalOob() as unknown as "safe"}
         {ToastOob({ kind: "success", message: "chain saved" }) as unknown as "safe"}
       </>
     );
   })
-  .delete("/chains/:id", async ({ hx, set, params }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .delete("/chains/:id", async ({ hx, redirect, set, params }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "chain");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     const refs = await api.exchangeCryptocurrencyChain.list({ chainId: id });
     if (refs.length > 0) {
       setFragmentHeaders(set);
@@ -837,12 +1030,11 @@ export const webApp = new Elysia()
       await api.chain.remove({ id });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "chain not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "chain", id: raw });
       }
       throw error;
     }
-    const { total } = await chainRows("");
+    const { total } = await chainRows("", 1);
     setFragmentHeaders(set);
     return (
       <>
@@ -853,33 +1045,48 @@ export const webApp = new Elysia()
       </>
     );
   })
-  .get("/partials/coins/:id/drawer", async ({ set, params }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .get("/partials/coins/:id/drawer", async ({ hx, redirect, set, params }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "coin");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     try {
       const drawer = await renderDrawer(id);
       setFragmentHeaders(set);
       return drawer;
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "coin not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "coin", id: raw });
       }
       throw error;
     }
   })
-  .post("/partials/coins/:id/markets", async ({ hx, set, params, body }) => {
-    const coinId = Number((params as Record<string, unknown>)?.["id"]);
+  .post("/partials/coins/:id/markets", async ({ hx, redirect, set, params, body }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "coin");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const coinId = (parsed as { id: number }).id;
     const fields = (body ?? {}) as Record<string, unknown>;
+    const exchangeIdRaw = str(fields["exchangeId"], "");
     const exchangeId = Number(fields["exchangeId"]);
     const exchangeSymbol = str(fields["exchangeSymbol"]).trim() || "SYM";
+    const assignQuery = str(fields["q"], "");
     try {
       await api.cryptocurrency.findById({ id: coinId });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "coin not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "coin", id: raw });
       }
       throw error;
+    }
+    if (!Number.isFinite(exchangeId)) {
+      setFragmentHeaders(set);
+      return renderDrawerBody(coinId, {
+        assignError: "select an exchange",
+        assignExchangeId: exchangeIdRaw,
+        assignSymbol: str(fields["exchangeSymbol"], ""),
+        assignQuery,
+      });
     }
     try {
       await api.exchangeCryptocurrency.assign({
@@ -892,14 +1099,20 @@ export const webApp = new Elysia()
     } catch (error) {
       setFragmentHeaders(set);
       if (isConflict(error)) {
-        hx.retarget("#drawer-error");
-        hx.reswap("innerHTML");
-        return ErrorFragment({ message: errorMessage(error, "market assignment already exists") });
+        return renderDrawerBody(coinId, {
+          assignError: errorMessage(error, "market assignment already exists"),
+          assignExchangeId: exchangeIdRaw,
+          assignSymbol: str(fields["exchangeSymbol"], ""),
+          assignQuery,
+        });
       }
       if (isNotFound(error)) {
-        hx.retarget("#drawer-error");
-        hx.reswap("innerHTML");
-        return ErrorFragment({ message: errorMessage(error, "exchange or coin not found") });
+        return renderDrawerBody(coinId, {
+          assignError: errorMessage(error, "exchange or coin not found"),
+          assignExchangeId: exchangeIdRaw,
+          assignSymbol: str(fields["exchangeSymbol"], ""),
+          assignQuery,
+        });
       }
       throw error;
     }
@@ -911,13 +1124,15 @@ export const webApp = new Elysia()
       </>
     );
   })
-  .post("/partials/markets/:id/update", async ({ hx, set, params, body }) => {
-    const marketId = Number((params as Record<string, unknown>)?.["id"]);
+  .post("/partials/markets/:id/update", async ({ hx, redirect, set, params, body }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "market");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const marketId = (parsed as { id: number }).id;
     const fields = (body ?? {}) as Record<string, unknown>;
     const existing = await api.exchangeCryptocurrency.findById({ id: marketId }).catch(() => undefined);
     if (!existing) {
-      set.status = 404;
-      return ErrorFragment({ message: "market assignment not found" });
+      return redirectToNotFound(hx, redirect, set, { kind: "market", id: raw });
     }
     const patch: Record<string, unknown> = {
       listed: on(fields["listed"]),
@@ -944,12 +1159,14 @@ export const webApp = new Elysia()
       </>
     );
   })
-  .delete("/partials/markets/:id", async ({ set, params }) => {
-    const marketId = Number((params as Record<string, unknown>)?.["id"]);
+  .delete("/partials/markets/:id", async ({ hx, redirect, set, params }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "market");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const marketId = (parsed as { id: number }).id;
     const existing = await api.exchangeCryptocurrency.findById({ id: marketId }).catch(() => undefined);
     if (!existing) {
-      set.status = 404;
-      return ErrorFragment({ message: "market assignment not found" });
+      return redirectToNotFound(hx, redirect, set, { kind: "market", id: raw });
     }
     await api.exchangeCryptocurrency.unassign({ id: marketId });
     setFragmentHeaders(set);
@@ -960,16 +1177,30 @@ export const webApp = new Elysia()
       </>
     );
   })
-  .post("/partials/markets/:id/chains", async ({ hx, set, params, body }) => {
-    const marketId = Number((params as Record<string, unknown>)?.["id"]);
+  .post("/partials/markets/:id/chains", async ({ hx, redirect, set, params, body }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "market");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const marketId = (parsed as { id: number }).id;
     const market = await api.exchangeCryptocurrency.findById({ id: marketId }).catch(() => undefined);
     if (!market) {
-      set.status = 404;
-      return ErrorFragment({ message: "market assignment not found" });
+      return redirectToNotFound(hx, redirect, set, { kind: "market", id: raw });
     }
     const fields = (body ?? {}) as Record<string, unknown>;
+    const chainIdRaw = str(fields["chainId"], "");
     const chainId = Number(fields["chainId"]);
     const exchangeChainCode = str(fields["exchangeChainCode"]).trim() || "CODE";
+    const linkQuery = str(fields["q"], "");
+    if (!Number.isFinite(chainId)) {
+      setFragmentHeaders(set);
+      return renderDrawerBody(market.cryptocurrencyId, {
+        linkError: "select a chain",
+        linkMarketId: marketId,
+        linkChainId: chainIdRaw,
+        linkCode: str(fields["exchangeChainCode"], ""),
+        linkQuery,
+      });
+    }
     try {
       await api.exchangeCryptocurrencyChain.add({
         exchangeCryptocurrencyId: marketId,
@@ -981,9 +1212,13 @@ export const webApp = new Elysia()
       });
     } catch (error) {
       setFragmentHeaders(set);
-      hx.retarget("#drawer-error");
-      hx.reswap("innerHTML");
-      return ErrorFragment({ message: errorMessage(error, "could not add chain link") });
+      return renderDrawerBody(market.cryptocurrencyId, {
+        linkError: errorMessage(error, "could not add chain link"),
+        linkMarketId: marketId,
+        linkChainId: chainIdRaw,
+        linkCode: str(fields["exchangeChainCode"], ""),
+        linkQuery,
+      });
     }
     setFragmentHeaders(set);
     return (
@@ -993,12 +1228,14 @@ export const webApp = new Elysia()
       </>
     );
   })
-  .delete("/partials/chain-links/:id", async ({ set, params }) => {
-    const linkId = Number((params as Record<string, unknown>)?.["id"]);
+  .delete("/partials/chain-links/:id", async ({ hx, redirect, set, params }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "chain-link");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const linkId = (parsed as { id: number }).id;
     const existing = await api.exchangeCryptocurrencyChain.findById({ id: linkId }).catch(() => undefined);
     if (!existing) {
-      set.status = 404;
-      return ErrorFragment({ message: "chain link not found" });
+      return redirectToNotFound(hx, redirect, set, { kind: "chain-link", id: raw });
     }
     const parent = await api.exchangeCryptocurrency.findById({ id: existing.exchangeCryptocurrencyId }).catch(() => undefined);
     await api.exchangeCryptocurrencyChain.remove({ id: linkId });
@@ -1011,13 +1248,15 @@ export const webApp = new Elysia()
       </>
     );
   })
-  .post("/partials/chain-links/:id/toggle", async ({ set, params, query }) => {
-    const linkId = Number((params as Record<string, unknown>)?.["id"]);
+  .post("/partials/chain-links/:id/toggle", async ({ hx, redirect, set, params, query }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "chain-link");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const linkId = (parsed as { id: number }).id;
     const flag = str((query as Record<string, unknown>)?.["flag"], "withdraw");
     const existing = await api.exchangeCryptocurrencyChain.findById({ id: linkId }).catch(() => undefined);
     if (!existing) {
-      set.status = 404;
-      return ErrorFragment({ message: "chain link not found" });
+      return redirectToNotFound(hx, redirect, set, { kind: "chain-link", id: raw });
     }
     const parent = await api.exchangeCryptocurrency.findById({ id: existing.exchangeCryptocurrencyId }).catch(() => undefined);
     if (flag === "deposit") {
@@ -1041,49 +1280,135 @@ export const webApp = new Elysia()
       </>
     );
   })
-  .get("/coins/:id/routes", async ({ hx, set, params }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .get("/coins/:id/routes", async ({ hx, redirect, set, params }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "coin");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     try {
       const { coin, exchanges, cells } = await buildRouteCells(id);
       const body = RoutesMatrixBody({ coin, exchanges, cells });
       if (wantsFragment(hx)) {
         setFragmentHeaders(set);
-        return body;
+        return (
+          <>
+            {body as unknown as "safe"}
+            {CloseDrawerOob() as unknown as "safe"}
+          </>
+        );
       }
       return Layout({ title: "Routes " + coin.symbol, active: "/coins", children: body });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "coin not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "coin", id: raw });
       }
       throw error;
     }
   })
-  .get("/partials/coins/:id/routes", async ({ set, params }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .get("/partials/coins/:id/routes", async ({ hx, redirect, set, params }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "coin");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     try {
       const { coin, exchanges, cells } = await buildRouteCells(id);
       setFragmentHeaders(set);
-      return RoutesMatrixBody({ coin, exchanges, cells });
+      return (
+        <>
+          {RoutesMatrixBody({ coin, exchanges, cells }) as unknown as "safe"}
+          {CloseDrawerOob() as unknown as "safe"}
+        </>
+      );
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "coin not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "coin", id: raw });
       }
       throw error;
     }
   })
-  .get("/partials/coins/:id/routes/detail", async ({ set, params, query }) => {
-    const id = Number((params as Record<string, unknown>)?.["id"]);
+  .get("/not-found", async ({ hx, set, query }) => {
+    const qq = (query ?? {}) as Record<string, unknown>;
+    const from = str(qq["from"], "");
+    const kind = str(qq["kind"], "");
+    const id = str(qq["id"], "");
+    const body = NotFoundBody({
+      from: from || undefined,
+      kind: kind || undefined,
+      id: id || undefined,
+    });
+    set.status = 404;
+    if (wantsFragment(hx)) {
+      setFragmentHeaders(set);
+      return body;
+    }
+    return Layout({
+      title: "Not found",
+      active: "",
+      children: body,
+    });
+  })
+  .get("/partials/exchanges/options", async ({ set, query }) => {
+    const qq = (query ?? {}) as Record<string, unknown>;
+    const q = str(qq["q"], "");
+    const page = num(qq["page"], 1);
+    const target = str(qq["target"], "exchange-options") || "exchange-options";
+    const select = str(qq["select"], "exchangeId") || "exchangeId";
+    const selected = str(qq["selected"], "") || undefined;
+    const { options, total, page: cur, pages } = await exchangeOptions(q, page);
+    setFragmentHeaders(set);
+    return ExchangeOptionsFragment({
+      options,
+      total,
+      page: cur,
+      pages,
+      q,
+      targetId: target,
+      selectName: select,
+      selectedId: selected,
+    });
+  })
+  .get("/partials/chains/options", async ({ set, query }) => {
+    const qq = (query ?? {}) as Record<string, unknown>;
+    const q = str(qq["q"], "");
+    const page = num(qq["page"], 1);
+    const target = str(qq["target"], "chain-options") || "chain-options";
+    const select = str(qq["select"], "chainId") || "chainId";
+    const selected = str(qq["selected"], "") || undefined;
+    const { options, total, page: cur, pages } = await chainOptions(q, page);
+    setFragmentHeaders(set);
+    return ChainOptionsFragment({
+      options,
+      total,
+      page: cur,
+      pages,
+      q,
+      targetId: target,
+      selectName: select,
+      selectedId: selected,
+    });
+  })
+  .get("/partials/coins/:id/routes/detail", async ({ hx, redirect, set, params, query }) => {
+    const raw = rawId(params as Record<string, unknown>, "id");
+    const parsed = parseIdOrRedirect(raw, hx, redirect, set, "coin");
+    if (typeof (parsed as { id?: number }).id !== "number") return parsed;
+    const id = (parsed as { id: number }).id;
     const fromId = Number((query as Record<string, unknown>)?.["from"]);
     const toId = Number((query as Record<string, unknown>)?.["to"]);
+    if (!Number.isFinite(fromId) || !Number.isFinite(toId)) {
+      return redirectToNotFound(hx, redirect, set, {
+        kind: "route",
+        id: raw + ":" + String((query as Record<string, unknown>)?.["from"]) + "-" + String((query as Record<string, unknown>)?.["to"]),
+      });
+    }
     try {
       const metadata = await api.cryptocurrency.metadata({ id });
       const from = metadata.exchanges.find((market) => market.marketId === fromId);
       const to = metadata.exchanges.find((market) => market.marketId === toId);
       if (!from || !to) {
-        set.status = 404;
-        return ErrorFragment({ message: "route not found" });
+        return redirectToNotFound(hx, redirect, set, {
+          kind: "route",
+          id: String(fromId) + "-" + String(toId),
+        });
       }
       const fromLinks = metadataLinks(from);
       const toLinks = metadataLinks(to);
@@ -1123,9 +1448,23 @@ export const webApp = new Elysia()
       return RouteDetailFragment({ from: from.name, to: to.name, status, explanation, shared: sharedNames });
     } catch (error) {
       if (isNotFound(error)) {
-        set.status = 404;
-        return ErrorFragment({ message: "coin not found" });
+        return redirectToNotFound(hx, redirect, set, { kind: "coin", id: raw });
       }
       throw error;
     }
+  })
+  .get("/*", async ({ hx, redirect, set, request }) => {
+    const pathname = new URL(request.url).pathname;
+    if (
+      pathname.startsWith("/api/") ||
+      pathname === "/api" ||
+      pathname.startsWith("/static/") ||
+      pathname === "/openapi.json" ||
+      pathname === "/docs" ||
+      pathname === "/docs/"
+    ) {
+      set.status = 404;
+      return "Not found";
+    }
+    return redirectToNotFound(hx, redirect, set, { from: pathname });
   });

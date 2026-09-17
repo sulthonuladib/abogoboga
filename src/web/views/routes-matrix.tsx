@@ -64,8 +64,34 @@ export function RoutesMatrixBody({
         ),
       }) as unknown as "safe"}
       {exchanges.length < 2 ? (
-        <div class="alert alert-warning">
-          <span>At least two markets are required to render a matrix.</span>
+        <div class="card bg-base-100 shadow-sm">
+          <div class="flex flex-col items-center gap-2 px-6 py-10 text-center">
+            <p class="font-semibold">Not enough markets for routes</p>
+            <p class="text-sm opacity-60">
+              At least two markets are required to render a matrix for {coin.symbol}.
+              Assign another market to unlock transfer routes.
+            </p>
+            <div class="mt-2 flex flex-wrap items-center justify-center gap-2">
+              <button
+                class="btn btn-primary btn-sm"
+                hx-get={"/partials/coins/" + String(coin.id) + "/drawer"}
+                hx-target="#drawer-slot"
+                hx-swap="innerHTML"
+              >
+                Assign market
+              </button>
+              <a
+                class="btn btn-ghost btn-sm"
+                href="/coins"
+                hx-get="/coins"
+                hx-target="#main-content"
+                hx-swap="innerHTML show:top"
+                hx-push-url="true"
+              >
+                ← Back to Coins
+              </a>
+            </div>
+          </div>
         </div>
       ) : (
         <div>

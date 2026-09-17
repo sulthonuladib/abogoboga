@@ -39,13 +39,15 @@
   100% { transform: translateX(100%); }
 }
 
-/* Toast auto-dismiss. */
+/* Toast auto-dismiss via CSS only (no timer JS).
+   Fades out after ~4s and stays hidden; no removal from DOM needed. */
 #toasts .alert {
-  transition: opacity 300ms ease, transform 300ms ease;
+  animation: toast-fade 4.5s ease forwards;
 }
-#toasts .alert.toast-out {
-  opacity: 0;
-  transform: translateY(4px);
+@keyframes toast-fade {
+  0% { opacity: 1; transform: none; }
+  80% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(4px); visibility: hidden; }
 }
 
 /* Row removal sweep for hx-swap="... swap:150ms" deletes. */

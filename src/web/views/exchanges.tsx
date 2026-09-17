@@ -79,10 +79,17 @@ export function ExchangesFilterBar({ q }: { q: string }) {
 export function ExchangesTableWrap({
   rows,
   total,
+  page,
+  pages,
+  q,
 }: {
   rows: ExchangeRow[];
   total: number;
+  page: number;
+  pages: number;
+  q: string;
 }) {
+  const isFiltered = q.trim() !== "";
   return (
     <div id="exchanges-table-wrap">
       <div id="exchanges-error"></div>
@@ -90,13 +97,51 @@ export function ExchangesTableWrap({
         <span id="exchanges-count" class="badge badge-neutral">
           {String(total)} exchanges
         </span>
+        <span class="text-xs opacity-50">20 per page</span>
       </div>
       <div class="card bg-base-100 shadow-sm">
         {rows.length === 0 ? (
-          (EmptyState({
-            title: "No exchanges found",
-            hint: "Try a different search, or create a new exchange.",
-          }) as unknown as "safe")
+          isFiltered
+            ? (EmptyState({
+                title: "No exchanges match these filters",
+                hint: "Try a different search, or start fresh.",
+                actions: (
+                  <>
+                    <a
+                      class="btn btn-ghost btn-sm"
+                      href="/exchanges"
+                      hx-get="/exchanges"
+                      hx-target="#main-content"
+                      hx-swap="innerHTML show:top"
+                      hx-push-url="true"
+                    >
+                      Clear filters
+                    </a>
+                    <button
+                      class="btn btn-primary btn-sm"
+                      hx-get="/exchanges/new"
+                      hx-target="#modal-slot"
+                      hx-swap="innerHTML"
+                    >
+                      + New exchange
+                    </button>
+                  </>
+                ),
+              }) as unknown as "safe")
+            : (EmptyState({
+                title: "No exchanges yet",
+                hint: "Create your first exchange to start mapping markets.",
+                actions: (
+                  <button
+                    class="btn btn-primary btn-sm"
+                    hx-get="/exchanges/new"
+                    hx-target="#modal-slot"
+                    hx-swap="innerHTML"
+                  >
+                    + New exchange
+                  </button>
+                ),
+              }) as unknown as "safe")
         ) : (
           <div class="overflow-x-auto">
             <table class="table w-full table-sm">
@@ -187,7 +232,7 @@ export function ExchangesTableWrap({
                                 hx-get={"/exchanges/" + String(row.id) + "/edit"}
                                 hx-target="#modal-slot"
                                 hx-swap="innerHTML"
-                                onclick="this.closest('details').removeAttribute('open')"
+
                               >
                                 Edit exchange
                               </button>
@@ -201,7 +246,7 @@ export function ExchangesTableWrap({
                                 }
                                 hx-target="closest tr"
                                 hx-swap="outerHTML swap:150ms"
-                                onclick="this.closest('details').removeAttribute('open')"
+
                               >
                                 Delete
                               </button>
@@ -217,6 +262,140 @@ export function ExchangesTableWrap({
           </div>
         )}
       </div>
+      <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <span class="text-sm opacity-70">
+          Page {String(page)} of {String(pages)}
+        </span>
+        <div class="join">
+          <button
+            class="join-item btn btn-sm"
+            disabled={page <= 1}
+            hx-get={"/partials/exchanges?page=" + String(page - 1)}
+            hx-include="#exchanges-filter"
+            hx-target="#exchanges-table-wrap"
+            hx-swap="innerHTML show:top"
+            hx-indicator="#exchanges-loading"
+          >
+            « Prev
+          </button>
+          <button
+            class="join-item btn btn-sm"
+            disabled={page >= pages}
+            hx-get={"/partials/exchanges?page=" + String(page + 1)}
+            hx-include="#exchanges-filter"
+            hx-target="#exchanges-table-wrap"
+            hx-swap="innerHTML show:top"
+            hx-indicator="#exchanges-loading"
+          >
+            Next »
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Searchable + paginated exchange options for assignment forms.
+ * Target container owns its id so search/paging swaps in place. */
+export function ExchangeOptionsFragment({
+  options,
+  total,
+  page,
+  pages,
+  q,
+  targetId,
+  selectName,
+  selectedId,
+}: {
+  options: Array<{ id: number; name: string }>;
+  total: number;
+  page: number;
+  pages: number;
+  q: string;
+  targetId: string;
+  selectName: string;
+  selectedId?: string;
+}) {
+  return (
+    <div id={targetId}>
+      <div class="flex flex-wrap items-end gap-2">
+        <label class="form-control min-w-40 flex-1">
+          <div class="label py-1">
+            <span class="label-text text-xs font-semibold uppercase tracking-wide opacity-70">
+              Search exchanges
+            </span>
+          </div>
+          <input
+            type="search"
+            name="q"
+            value={q}
+            placeholder="Binance, bybit…"
+            autocomplete="off"
+            class="input input-bordered input-sm w-full"
+            hx-get={"/partials/exchanges/options?target=" + encodeURIComponent(targetId) + "&select=" + encodeURIComponent(selectName) + (selectedId ? "&selected=" + encodeURIComponent(selectedId) : "")}
+            hx-target={"#" + targetId}
+            hx-swap="outerHTML"
+            hx-trigger="input changed delay:300ms, change"
+            hx-indicator="#global-bar"
+          />
+        </label>
+      </div>
+      <div class="mt-2 flex items-center gap-2">
+        <select name={selectName} class="select select-bordered select-sm w-full">
+          {selectedId && !options.some((o) => String(o.id) === selectedId) ? (
+            <option value={selectedId} selected>
+              Selected #{selectedId}
+            </option>
+          ) : (
+            ""
+          )}
+          {options.map((opt) => (
+            <option value={String(opt.id)} selected={selectedId === String(opt.id)}>
+              {opt.name}
+            </option>
+          )) as unknown as "safe"}
+        </select>
+      </div>
+      {options.length === 0 ? (
+        <p class="mt-1 text-xs opacity-60">
+          No exchanges match — <button
+            class="link"
+            hx-get={"/partials/exchanges/options?target=" + encodeURIComponent(targetId) + "&select=" + encodeURIComponent(selectName)}
+            hx-target={"#" + targetId}
+            hx-swap="outerHTML"
+          >
+            clear the search
+          </button>.
+        </p>
+      ) : (
+        <div class="mt-1 flex flex-wrap items-center justify-between gap-2">
+          <span class="text-xs opacity-60">
+            {String(total)} matches · Page {String(page)} of {String(pages)}
+          </span>
+          <div class="join">
+            <button
+              type="button"
+              class="join-item btn btn-xs"
+              disabled={page <= 1}
+              hx-get={"/partials/exchanges/options?page=" + String(page - 1) + "&q=" + encodeURIComponent(q) + "&target=" + encodeURIComponent(targetId) + "&select=" + encodeURIComponent(selectName) + (selectedId ? "&selected=" + encodeURIComponent(selectedId) : "")}
+              hx-target={"#" + targetId}
+              hx-swap="outerHTML"
+            >
+              «
+            </button>
+            <button
+              type="button"
+              class="join-item btn btn-xs"
+              disabled={page >= pages}
+              hx-get={"/partials/exchanges/options?page=" + String(page + 1) + "&q=" + encodeURIComponent(q) + "&target=" + encodeURIComponent(targetId) + "&select=" + encodeURIComponent(selectName) + (selectedId ? "&selected=" + encodeURIComponent(selectedId) : "")}
+              hx-target={"#" + targetId}
+              hx-swap="outerHTML"
+            >
+              »
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -225,10 +404,14 @@ export function ExchangesPageBody({
   rows,
   total,
   q,
+  page,
+  pages,
 }: {
   rows: ExchangeRow[];
   total: number;
   q: string;
+  page: number;
+  pages: number;
 }) {
   return (
     <div>
@@ -248,7 +431,7 @@ export function ExchangesPageBody({
         ),
       }) as unknown as "safe"}
       {ExchangesFilterBar({ q }) as unknown as "safe"}
-      {ExchangesTableWrap({ rows, total }) as unknown as "safe"}
+      {ExchangesTableWrap({ rows, total, page, pages, q }) as unknown as "safe"}
     </div>
   );
 }
@@ -344,9 +527,11 @@ export function ExchangeFormFragment({
           : ""}
         <div class="modal-action mt-1">
           <button
-            type="button"
+            type="submit"
+            formmethod="dialog"
+            formnovalidate
             class="btn btn-ghost btn-sm"
-            onclick="document.getElementById('modal-slot').innerHTML=''"
+            aria-label="Cancel and close dialog"
           >
             Cancel
           </button>

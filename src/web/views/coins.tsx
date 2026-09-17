@@ -240,7 +240,6 @@ function CoinAvatar({ row }: { row: CoinStatsRow }) {
           alt=""
           loading="lazy"
           class="absolute inset-0 h-9 w-9 rounded-full object-cover ring-1 ring-base-300"
-          onerror="this.remove()"
         />
       ) : (
         ""
@@ -256,6 +255,7 @@ export function CoinsTableWrap({
   pages,
   sortBy,
   order,
+  filter,
 }: {
   rows: CoinStatsRow[];
   total: number;
@@ -263,7 +263,14 @@ export function CoinsTableWrap({
   pages: number;
   sortBy: string;
   order: string;
+  filter?: CoinFilterState;
 }) {
+  const hasFilter = filter
+    ? filter.q.trim() !== "" ||
+      filter.exchangeId !== "" ||
+      filter.chainId !== "" ||
+      filter.flag !== "all"
+    : false;
   return (
     <div id="coins-table-wrap">
       <div id="coins-error"></div>
@@ -275,10 +282,49 @@ export function CoinsTableWrap({
       </div>
       <div class="card bg-base-100 shadow-sm">
         {rows.length === 0 ? (
-          (EmptyState({
-            title: "No coins match these filters",
-            hint: "Try a different search, or clear the exchange / chain filters.",
-          }) as unknown as "safe")
+          hasFilter ? (
+            (EmptyState({
+              title: "No coins match these filters",
+              hint: "Try a different search, or clear the exchange / chain filters.",
+              actions: (
+                <>
+                  <a
+                    class="btn btn-ghost btn-sm"
+                    href="/coins"
+                    hx-get="/coins"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML show:top"
+                    hx-push-url="true"
+                  >
+                    Clear filters
+                  </a>
+                  <button
+                    class="btn btn-primary btn-sm"
+                    hx-get="/coins/new"
+                    hx-target="#modal-slot"
+                    hx-swap="innerHTML"
+                  >
+                    + New coin
+                  </button>
+                </>
+              ),
+            }) as unknown as "safe")
+          ) : (
+            (EmptyState({
+              title: "No coins yet",
+              hint: "Create your first coin to start mapping markets and routes.",
+              actions: (
+                <button
+                  class="btn btn-primary btn-sm"
+                  hx-get="/coins/new"
+                  hx-target="#modal-slot"
+                  hx-swap="innerHTML"
+                >
+                  + New coin
+                </button>
+              ),
+            }) as unknown as "safe")
+          )
         ) : (
           <div class="overflow-x-auto">
             <table class="table w-full table-sm">
@@ -375,7 +421,7 @@ export function CoinsTableWrap({
                                 hx-target="#main-content"
                                 hx-swap="innerHTML show:top"
                                 hx-push-url="true"
-                                onclick="this.closest('details').removeAttribute('open')"
+
                               >
                                 Transfer routes
                               </button>
@@ -385,7 +431,7 @@ export function CoinsTableWrap({
                                 hx-get={"/coins/" + String(row.id) + "/edit"}
                                 hx-target="#modal-slot"
                                 hx-swap="innerHTML"
-                                onclick="this.closest('details').removeAttribute('open')"
+
                               >
                                 Edit coin
                               </button>
@@ -397,7 +443,7 @@ export function CoinsTableWrap({
                                 hx-confirm={"Delete " + row.symbol + " permanently?"}
                                 hx-target="closest tr"
                                 hx-swap="outerHTML swap:150ms"
-                                onclick="this.closest('details').removeAttribute('open')"
+
                               >
                                 Delete
                               </button>
@@ -497,7 +543,7 @@ export function CoinsPageBody({
         ),
       }) as unknown as "safe"}
       {CoinsFilterBar({ filter, lists }) as unknown as "safe"}
-      {CoinsTableWrap({ rows, total, page, pages, sortBy: filter.sortBy, order: filter.order }) as unknown as "safe"}
+      {CoinsTableWrap({ rows, total, page, pages, sortBy: filter.sortBy, order: filter.order, filter }) as unknown as "safe"}
     </div>
   );
 }
@@ -599,23 +645,23 @@ export function CoinFormFragment({
                 src={coin?.logo ?? ""}
                 alt=""
                 class="h-8 w-8 shrink-0 rounded-full bg-base-200 object-cover ring-1 ring-base-300"
-                onerror="this.style.visibility='hidden'"
               />
               <input
                 name="logo"
                 placeholder="https://…/logo.png"
                 value={coin?.logo ?? ""}
                 class="input input-bordered input-sm w-full"
-                oninput="document.getElementById('coin-logo-preview').src=this.value"
               />
             </div>
           ),
         }) as unknown as "safe"}
         <div class="modal-action mt-1">
           <button
-            type="button"
+            type="submit"
+            formmethod="dialog"
+            formnovalidate
             class="btn btn-ghost btn-sm"
-            onclick="document.getElementById('modal-slot').innerHTML=''"
+            aria-label="Cancel and close dialog"
           >
             Cancel
           </button>

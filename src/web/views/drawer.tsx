@@ -2,6 +2,8 @@ import { Html } from "@elysiajs/html";
 import "@elysiajs/html/htmx";
 import type { CryptocurrencyMetadata } from "../../core/cryptocurrency/cryptocurrency.type";
 import { EmptyState } from "./ui";
+import { ExchangeOptionsFragment } from "./exchanges";
+import { ChainOptionsFragment } from "./chains";
 
 /** One market inside the drawer — straight from core metadata, no copy. */
 export type DrawerMarket = CryptocurrencyMetadata["exchanges"][number];
@@ -12,7 +14,7 @@ export type DrawerLists = {
   chains: Array<{ id: number; name: string; code: string }>;
 };
 
-const CLOSE_DRAWER_JS = "document.getElementById('drawer-slot').innerHTML=''";
+
 
 function flagBadge(enabled: boolean, label: string) {
   return enabled ? (
@@ -79,9 +81,19 @@ export function ChainLinkRow({ link }: { link: DrawerChainLink }) {
 export function MarketCard({
   market,
   chains,
+  linkError,
+  linkChainId,
+  linkCode,
+  linkQuery,
+  isLinkTarget,
 }: {
   market: DrawerMarket;
   chains: DrawerLists["chains"];
+  linkError?: string;
+  linkChainId?: string;
+  linkCode?: string;
+  linkQuery?: string;
+  isLinkTarget?: boolean;
 }) {
   const formId = "market-form-" + String(market.marketId);
   return (
@@ -171,37 +183,43 @@ export function MarketCard({
           hx-target="#drawer-body"
           hx-swap="outerHTML"
           hx-indicator="#global-bar"
-          class="flex flex-wrap items-end gap-2"
+          class="flex flex-col gap-2"
         >
-          <label class="form-control min-w-40 flex-1">
-            <div class="label py-1">
-              <span class="label-text text-xs font-semibold uppercase tracking-wide opacity-70">
-                Chain
-              </span>
+          {isLinkTarget && linkError ? (
+            <div class="alert alert-error py-2" role="alert">
+              <span class="text-sm">{linkError}</span>
             </div>
-            <select name="chainId" class="select select-bordered select-sm w-full">
-              {chains.map((chain) => (
-                <option value={String(chain.id)}>
-                  {chain.name} ({chain.code})
-                </option>
-              )) as unknown as "safe"}
-            </select>
-          </label>
-          <label class="form-control w-40">
-            <div class="label py-1">
-              <span class="label-text text-xs font-semibold uppercase tracking-wide opacity-70">
-                Exchange code
-              </span>
-            </div>
-            <input
-              name="exchangeChainCode"
-              placeholder="ERC20"
-              class="input input-bordered input-sm w-full font-mono"
-            />
-          </label>
-          <button type="submit" class="btn btn-sm">
-            + Link chain
-          </button>
+          ) : (
+            ""
+          )}
+          {ChainOptionsFragment({
+            options: chains.map((c) => ({ id: c.id, name: c.name, code: c.code })),
+            total: chains.length,
+            page: 1,
+            pages: 1,
+            q: isLinkTarget ? (linkQuery ?? "") : "",
+            targetId: "chain-options-" + String(market.marketId),
+            selectName: "chainId",
+            selectedId: isLinkTarget ? linkChainId : undefined,
+          }) as unknown as "safe"}
+          <div class="flex flex-wrap items-end gap-2">
+            <label class="form-control w-40">
+              <div class="label py-1">
+                <span class="label-text text-xs font-semibold uppercase tracking-wide opacity-70">
+                  Exchange code
+                </span>
+              </div>
+              <input
+                name="exchangeChainCode"
+                placeholder="ERC20"
+                value={isLinkTarget ? (linkCode ?? "") : ""}
+                class="input input-bordered input-sm w-full font-mono"
+              />
+            </label>
+            <button type="submit" class="btn btn-sm">
+              + Link chain
+            </button>
+          </div>
         </form>
       </div>
     </section>
@@ -217,10 +235,28 @@ export function DrawerBody({
   coinId,
   markets,
   lists,
+  assignError,
+  assignExchangeId,
+  assignSymbol,
+  assignQuery,
+  linkError,
+  linkMarketId,
+  linkChainId,
+  linkCode,
+  linkQuery,
 }: {
   coinId: number;
   markets: DrawerMarket[];
   lists: DrawerLists;
+  assignError?: string;
+  assignExchangeId?: string;
+  assignSymbol?: string;
+  assignQuery?: string;
+  linkError?: string;
+  linkMarketId?: number;
+  linkChainId?: string;
+  linkCode?: string;
+  linkQuery?: string;
 }) {
   return (
     <div id="drawer-body" class="flex flex-col gap-3">
@@ -233,7 +269,15 @@ export function DrawerBody({
           ) as unknown as "safe")
         : ""}
       {markets.map((market) =>
-        (MarketCard({ market, chains: lists.chains }) as unknown as "safe"),
+        (MarketCard({
+          market,
+          chains: lists.chains,
+          linkError,
+          linkChainId,
+          linkCode,
+          linkQuery,
+          isLinkTarget: linkMarketId === market.marketId,
+        }) as unknown as "safe"),
       ) as unknown as "safe"}
       <div class="card bg-base-200 shadow-sm">
         <div class="card-body gap-2 p-4">
@@ -243,35 +287,43 @@ export function DrawerBody({
             hx-target="#drawer-body"
             hx-swap="outerHTML"
             hx-indicator="#global-bar"
-            class="flex flex-wrap items-end gap-2"
+            class="flex flex-col gap-2"
           >
-            <label class="form-control min-w-40 flex-1">
-              <div class="label py-1">
-                <span class="label-text text-xs font-semibold uppercase tracking-wide opacity-70">
-                  Exchange
-                </span>
+            {assignError ? (
+              <div class="alert alert-error py-2" role="alert">
+                <span class="text-sm">{assignError}</span>
               </div>
-              <select name="exchangeId" class="select select-bordered select-sm w-full">
-                {lists.exchanges.map((exchange) => (
-                  <option value={String(exchange.id)}>{exchange.name}</option>
-                )) as unknown as "safe"}
-              </select>
-            </label>
-            <label class="form-control w-40">
-              <div class="label py-1">
-                <span class="label-text text-xs font-semibold uppercase tracking-wide opacity-70">
-                  Exchange symbol
-                </span>
-              </div>
-              <input
-                name="exchangeSymbol"
-                placeholder="BTCUSDT"
-                class="input input-bordered input-sm w-full font-mono"
-              />
-            </label>
-            <button type="submit" class="btn btn-primary btn-sm">
-              Assign
-            </button>
+            ) : (
+              ""
+            )}
+            {ExchangeOptionsFragment({
+              options: lists.exchanges,
+              total: lists.exchanges.length,
+              page: 1,
+              pages: 1,
+              q: assignQuery ?? "",
+              targetId: "exchange-assign-options",
+              selectName: "exchangeId",
+              selectedId: assignExchangeId,
+            }) as unknown as "safe"}
+            <div class="flex flex-wrap items-end gap-2">
+              <label class="form-control w-40">
+                <div class="label py-1">
+                  <span class="label-text text-xs font-semibold uppercase tracking-wide opacity-70">
+                    Exchange symbol
+                  </span>
+                </div>
+                <input
+                  name="exchangeSymbol"
+                  placeholder="BTCUSDT"
+                  value={assignSymbol ?? ""}
+                  class="input input-bordered input-sm w-full font-mono"
+                />
+              </label>
+              <button type="submit" class="btn btn-primary btn-sm">
+                Assign
+              </button>
+            </div>
           </form>
         </div>
       </div>
@@ -279,7 +331,11 @@ export function DrawerBody({
   );
 }
 
-/** Full drawer shell (#drawer-slot). Only the open-drawer endpoint returns this. */
+/** Full coin overlay drawer (#drawer-slot, #coin-drawer-toggle).
+ * Separate from the app nav drawer (#app-nav-toggle). Dismissal is native
+ * via label toggles + overlay; Escape closes the inner dialog-free panel
+ * via checkbox semantics where supported. Only the open-drawer endpoint
+ * returns this shell. */
 export function CoinDrawer({
   metadata,
   lists,
@@ -300,18 +356,18 @@ export function CoinDrawer({
           class="drawer-toggle"
           checked
         />
+        <div class="drawer-content"></div>
         <div class="drawer-side z-50">
           <label
             for="coin-drawer-toggle"
-            class="drawer-overlay"
-            onclick={CLOSE_DRAWER_JS}
             aria-label="Close drawer"
+            class="drawer-overlay"
           ></label>
           <div
             id="coin-drawer"
             role="dialog"
             aria-label={"Coin " + metadata.symbol}
-            class="drawer-content flex min-h-full w-full max-w-xl flex-col gap-3 bg-base-100 p-4"
+            class="flex min-h-full w-full max-w-xl flex-col gap-3 bg-base-100 p-4"
           >
             <div class="flex items-start gap-3">
               <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-neutral font-bold text-neutral-content">
@@ -329,14 +385,13 @@ export function CoinDrawer({
                   {String(chainIds.size)} chains
                 </p>
               </div>
-              <button
-                type="button"
-                class="btn btn-circle btn-ghost btn-sm ml-auto"
+              <label
+                for="coin-drawer-toggle"
                 aria-label="Close drawer"
-                onclick={CLOSE_DRAWER_JS}
+                class="btn btn-circle btn-ghost btn-sm ml-auto"
               >
                 ✕
-              </button>
+              </label>
             </div>
             <div class="divider my-0"></div>
             {DrawerBody({
@@ -352,17 +407,12 @@ export function CoinDrawer({
                 hx-target="#main-content"
                 hx-swap="innerHTML show:top"
                 hx-push-url="true"
-                onclick={CLOSE_DRAWER_JS}
               >
                 View transfer routes
               </a>
-              <button
-                type="button"
-                class="btn btn-ghost btn-sm"
-                onclick={CLOSE_DRAWER_JS}
-              >
+              <label for="coin-drawer-toggle" class="btn btn-ghost btn-sm">
                 Close
-              </button>
+              </label>
             </div>
           </div>
         </div>
