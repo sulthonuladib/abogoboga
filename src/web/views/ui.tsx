@@ -3,6 +3,13 @@ import "@elysiajs/html/htmx";
 
 export type ToastKind = "success" | "error" | "info" | "warning";
 
+const toastClass: Record<ToastKind, string> = {
+  success: "alert-success",
+  error: "alert-error",
+  info: "alert-info",
+  warning: "alert-warning",
+};
+
 const toastIcon: Record<ToastKind, string> = {
   success:
     "M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
@@ -23,7 +30,7 @@ export function ToastOob({
 }) {
   return (
     <div id="toasts" hx-swap-oob="beforeend">
-      <div class={"alert alert-" + kind + " shadow-lg"}>
+      <div class={"alert " + toastClass[kind] + " shadow-lg"}>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"

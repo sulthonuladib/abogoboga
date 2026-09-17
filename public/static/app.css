@@ -13,7 +13,6 @@
     --container-xs: 20rem;
     --container-xl: 36rem;
     --container-2xl: 42rem;
-    --container-6xl: 72rem;
     --container-7xl: 80rem;
     --text-xs: 0.75rem;
     --text-xs--line-height: calc(1 / 0.75);
@@ -29,11 +28,14 @@
     --text-2xl--line-height: calc(2 / 1.5);
     --text-3xl: 1.875rem;
     --text-3xl--line-height: calc(2.25 / 1.875);
+    --text-6xl: 3.75rem;
+    --text-6xl--line-height: 1;
     --font-weight-normal: 400;
     --font-weight-medium: 500;
     --font-weight-semibold: 600;
     --font-weight-bold: 700;
     --font-weight-extrabold: 800;
+    --font-weight-black: 900;
     --tracking-tight: -0.025em;
     --tracking-wide: 0.025em;
     --leading-tight: 1.25;
@@ -1429,9 +1431,6 @@
   .collapse {
     visibility: collapse;
   }
-  .visible {
-    visibility: visible;
-  }
   @layer daisyui.l1.l2.l3 {
     .list {
       display: flex;
@@ -2525,51 +2524,6 @@
     [dir="rtl"] .select select::picker(select) {
       translate: 0.5rem 0;
     }
-  }
-  @layer daisyui.l1.l2 {
-    .menu-horizontal {
-      display: inline-flex;
-      flex-direction: row;
-      align-items: flex-start;
-    }
-    .menu-horizontal > li:not(.menu-title) > details > :is(ul, menu) {
-      position: absolute;
-      margin-inline-start: 0px;
-      margin-top: calc(0.25rem * 4);
-      transform-origin: top;
-      border-radius: var(--radius-box);
-      background-color: var(--color-base-100);
-      padding-block: calc(0.25rem * 2);
-      padding-inline-end: calc(0.25rem * 2);
-      opacity: 0%;
-      scale: 95%;
-      box-shadow: 0 1px 3px 0 oklch(0% 0 0/0.1), 0 1px 2px -1px oklch(0% 0 0/0.1);
-    }
-    @media (prefers-reduced-motion: no-preference) {
-      @starting-style {
-        .menu-horizontal > li:not(.menu-title) > details > :is(ul, menu) {
-          scale: 95%;
-          opacity: 0;
-        }
-      }
-      .menu-horizontal > li:not(.menu-title) > details > :is(ul, menu) {
-        animation: menu 0.2s;
-        transition-property: opacity, scale, display;
-        transition-behavior: allow-discrete;
-        transition-duration: 0.2s;
-        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-      }
-    }
-    .menu-horizontal > li:not(.menu-title) > details[open] > :is(ul, menu) {
-      opacity: 100%;
-      scale: 100%;
-    }
-    .menu-horizontal > li > details > :is(ul, menu):before {
-      --tw-content: none;
-      content: var(--tw-content);
-    }
-  }
-  @layer daisyui.l1.l2.l3 {
     .checkbox {
       border: var(--border) solid var(--input-color, var(--color-base-content));
     }
@@ -3366,6 +3320,26 @@
     .stat-title {
       font-size: 0.75rem;
     }
+  }
+  .container {
+    width: 100%;
+    @media (width >= 40rem) {
+      max-width: 40rem;
+    }
+    @media (width >= 48rem) {
+      max-width: 48rem;
+    }
+    @media (width >= 64rem) {
+      max-width: 64rem;
+    }
+    @media (width >= 80rem) {
+      max-width: 80rem;
+    }
+    @media (width >= 96rem) {
+      max-width: 96rem;
+    }
+  }
+  @layer daisyui.l1.l2.l3 {
     .divider {
       display: flex;
       height: calc(0.25rem * 4);
@@ -3734,11 +3708,17 @@
   .mt-1 {
     margin-top: var(--spacing);
   }
+  .mt-2 {
+    margin-top: calc(var(--spacing) * 2);
+  }
   .mt-3 {
     margin-top: calc(var(--spacing) * 3);
   }
   .mt-4 {
     margin-top: calc(var(--spacing) * 4);
+  }
+  .mt-6 {
+    margin-top: calc(var(--spacing) * 6);
   }
   .mt-8 {
     margin-top: calc(var(--spacing) * 8);
@@ -3757,9 +3737,6 @@
   }
   .mb-5 {
     margin-bottom: calc(var(--spacing) * 5);
-  }
-  .ml-1 {
-    margin-left: var(--spacing);
   }
   .ml-auto {
     margin-left: auto;
@@ -3859,6 +3836,25 @@
       .stats-vertical .stat:not(:last-child) {
         border-block-end: var(--border) dashed color-mix(in oklab, currentColor 10%, #0000);
       }
+    }
+  }
+  @layer daisyui.l1.l2.l3 {
+    .navbar-end {
+      display: inline-flex;
+      align-items: center;
+      width: 50%;
+      justify-content: flex-end;
+    }
+    .navbar-start {
+      display: inline-flex;
+      align-items: center;
+      width: 50%;
+      justify-content: flex-start;
+    }
+    .navbar-center {
+      display: inline-flex;
+      align-items: center;
+      flex-shrink: 0;
     }
   }
   .alert {
@@ -4025,8 +4021,8 @@
   .w-48 {
     width: calc(var(--spacing) * 48);
   }
-  .w-52 {
-    width: calc(var(--spacing) * 52);
+  .w-64 {
+    width: calc(var(--spacing) * 64);
   }
   .w-full {
     width: 100%;
@@ -4057,9 +4053,6 @@
   }
   .flex-1 {
     flex: 1;
-  }
-  .flex-none {
-    flex: none;
   }
   .shrink-0 {
     flex-shrink: 0;
@@ -4123,6 +4116,9 @@
   }
   .justify-end {
     justify-content: flex-end;
+  }
+  .justify-start {
+    justify-content: flex-start;
   }
   .gap-1 {
     gap: var(--spacing);
@@ -4253,9 +4249,6 @@
       padding-block: calc(0.25rem * 2);
     }
   }
-  .px-1 {
-    padding-inline: var(--spacing);
-  }
   .px-2 {
     padding-inline: calc(var(--spacing) * 2);
   }
@@ -4300,6 +4293,10 @@
     font-size: var(--text-3xl);
     line-height: var(--tw-leading, var(--text-3xl--line-height));
   }
+  .text-6xl {
+    font-size: var(--text-6xl);
+    line-height: var(--tw-leading, var(--text-6xl--line-height));
+  }
   .text-base {
     font-size: var(--text-base);
     line-height: var(--tw-leading, var(--text-base--line-height));
@@ -4333,6 +4330,10 @@
   .leading-tight {
     --tw-leading: var(--leading-tight);
     line-height: var(--leading-tight);
+  }
+  .font-black {
+    --tw-font-weight: var(--font-weight-black);
+    font-weight: var(--font-weight-black);
   }
   .font-bold {
     --tw-font-weight: var(--font-weight-bold);
@@ -4387,6 +4388,9 @@
       --alert-color: var(--color-warning);
     }
   }
+  .text-base-content {
+    color: var(--color-base-content);
+  }
   .text-error {
     color: var(--color-error);
   }
@@ -4408,6 +4412,9 @@
   .antialiased {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  .opacity-20 {
+    opacity: 20%;
   }
   .opacity-30 {
     opacity: 30%;
@@ -4577,17 +4584,8 @@
     }
   }
   @media (width >= 40rem) {
-    .sm\:flex {
-      display: flex;
-    }
-    .sm\:hidden {
-      display: none;
-    }
     .sm\:inline {
       display: inline;
-    }
-    .sm\:inline-flex {
-      display: inline-flex;
     }
     .sm\:table-cell {
       display: table-cell;
@@ -4620,11 +4618,55 @@
     }
   }
   @media (width >= 48rem) {
+    .md\:flex {
+      display: flex;
+    }
     .md\:table-cell {
       display: table-cell;
     }
   }
   @media (width >= 64rem) {
+    @layer daisyui.l1.l2.l3 {
+      .lg\:drawer-open > .drawer-toggle:checked ~ .drawer-side {
+        scrollbar-color: revert-layer;
+      }
+      :root:has(.lg\:drawer-open > .drawer-toggle:checked) {
+        --page-scroll-lock: revert-layer;
+      }
+    }
+    @layer daisyui.l1.l2 {
+      .lg\:drawer-open > .drawer-side {
+        overflow-y: auto;
+      }
+      .lg\:drawer-open > .drawer-toggle {
+        display: none;
+      }
+      .lg\:drawer-open > .drawer-toggle  ~ .drawer-side {
+        pointer-events: auto;
+        visibility: visible;
+        position: sticky;
+        display: block;
+        width: auto;
+        overscroll-behavior: auto;
+        opacity: 100%;
+         > .drawer-overlay {
+          cursor: default;
+          background-color: transparent;
+        }
+      }
+      .lg\:drawer-open > .drawer-toggle:checked ~ .drawer-side {
+        pointer-events: auto;
+        visibility: visible;
+      }
+    }
+    @layer daisyui.l1 {
+      .lg\:drawer-open > .drawer-toggle ~ .drawer-side > :not(.drawer-overlay) {
+        translate: 0%;
+      }
+      [dir="rtl"] :is(.lg\:drawer-open > .drawer-toggle ~ .drawer-side > :not(.drawer-overlay)) {
+        translate: 0%;
+      }
+    }
     .lg\:table-cell {
       display: table-cell;
     }
@@ -4670,11 +4712,22 @@
   }
 }
 #toasts .alert {
-  transition: opacity 300ms ease, transform 300ms ease;
+  animation: toast-fade 4.5s ease forwards;
 }
-#toasts .alert.toast-out {
-  opacity: 0;
-  transform: translateY(4px);
+@keyframes toast-fade {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  80% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(4px);
+    visibility: hidden;
+  }
 }
 tr.htmx-swapping {
   opacity: 0;
