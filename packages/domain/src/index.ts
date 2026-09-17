@@ -12,3 +12,5 @@ export * from "./Cryptocurrency.ts"
 export * from "./Exchange.ts"
 
 export * from "./Market.ts"
+
+export * from "./transfer.ts"

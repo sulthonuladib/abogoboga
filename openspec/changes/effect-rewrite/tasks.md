@@ -26,8 +26,8 @@
 
 ## 5. JSON CRUD API
 
-- [ ] 5.1 Define `packages/control-plane-api` root `HttpApi` with the `cryptocurrency` group (list with extended filters/pagination, stats, metadata, add, findById, update, remove) and stable error codes, and verify `HttpApiTest` covers the full lifecycle plus the 409 duplicate-`cmcId` case
-- [ ] 5.2 Implement `Cryptocurrency` Application Service + narrow ports on the `Database` service with `Schema.TaggedError` errors, and verify service tests through `layerMemory` without HTTP
+- [x] 5.1 Define `packages/control-plane-api` root `HttpApi` with the `cryptocurrency` group (list with extended filters/pagination, stats, metadata, add, findById, update, remove) and stable error codes, and verify `HttpApiTest` covers the full lifecycle plus the 409 duplicate-`cmcId` case
+- [x] 5.2 Implement `Cryptocurrency` Application Service + narrow ports on the `Database` service with `Schema.TaggedError` errors, and verify service tests through `layerMemory` without HTTP
 - [ ] 5.3 Port `exchange`, `chain`, market-assignment, and chain-link groups with their handlers, and verify `HttpApiTest` covers each group's list/get/mutate paths
 - [ ] 5.4 Serve `/openapi.json` + `/docs` (Scalar) from the API definitions and verify every endpoint from 5.1/5.3 appears in the generated document
 
