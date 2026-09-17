@@ -32,7 +32,7 @@ Existing tables and query shapes are preserved; execution moves behind `PgDrizzl
 
 ### D3 JSON CRUD on `HttpApi`, one group per aggregate
 
-`Model.Class` derives DB + JSON variants from one field declaration; `SqlModel.makeRepository` + `SqlSchema` for reads; `HttpApiBuilder.group(Api, "<name>", ...)` handlers map domain errors to declared endpoint errors (reason-wrapper idiom); `HttpApiScalar` docs; `HttpApiTest.groups` + `layerMemory` for tests. Alternative (keep oRPC) rejected by owner; plain `HttpRouter` rejected (loses typed client + OpenAPI).
+`Model.Class` derives DB + JSON variants from one field declaration; JSON CRUD reads and writes go through narrow, application-owned store ports implemented as Drizzle adapters over the `Database` service handle. Raw rows decode into domain models at the port boundary, and Postgres unique violations translate into typed duplicate errors. `SqlModel.makeRepository`/`SqlSchema` were dropped because the Phase-4 `Database` service exposes only the Drizzle handle and task 5.2 requires ports on that service. `HttpApiBuilder.group(Api, "<name>", ...)` handlers map domain errors to declared endpoint errors (reason-wrapper idiom); request-decoding failures map to a 422 `InvalidRequest` through a schema-error-transform middleware; `HttpApiScalar` docs; `HttpApiTest.groups` + `layerMemory` for tests. Alternative (keep oRPC) rejected by owner; plain `HttpRouter` rejected (loses typed client + OpenAPI).
 
 ### D4 SSR on plain `HttpRouter`, same services as the API
 
@@ -69,7 +69,7 @@ HTML pages/partials return `HttpServerResponse.html(...)`; full-vs-fragment bran
 
 ## Migration Plan
 
-Strangler per capability, each phase independently shippable: foundation → one API group live beside oRPC (parametrize base path) → remaining groups → SSR cutover → supervisor cutover (keep old supervisor behind a flag for one release) → worker foldering move → dependency removal (`orpc`, `elysia`, `zod`, `ws`, `amqplib`) → archive change. Rollback at each step is reverting the phase commit; no data migration (same tables).
+Strangler per capability, each phase independently shippable: foundation → one API group live beside oRPC (parametrize base path) → remaining groups → SSR cutover → supervisor cutover (keep old supervisor behind a flag for one release) → worker foldering move → dependency removal (`orpc`, `elysia`, `zod`, `ws`, `amqplib`) → delete the remaining legacy implementation under `src/**` and the `tests/**` suites that cover it once every capability is ported → archive change. Rollback at each step is reverting the phase commit; no data migration (same tables).
 
 ## Open Questions
 

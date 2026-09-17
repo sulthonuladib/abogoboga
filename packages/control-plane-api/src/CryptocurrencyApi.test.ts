@@ -59,7 +59,7 @@ describe("cryptocurrency HttpApi", () => {
 
         const updated = yield* client.cryptocurrency.update({
           params: { id: created.id },
-          payload: { name: "Bitcoin (updated)" }
+          payload: { name: "Bitcoin (updated)", symbol: "BTC", slug: "bitcoin", cmcId: 1 }
         })
 
         const fetched = yield* client.cryptocurrency.findById({ params: { id: created.id } })

@@ -52,8 +52,9 @@
 ## 9. CLI and cutover
 
 - [ ] 9.1 Implement the Effect CLI (`seed`, `migrate`, `sweep`) replacing `src/seed/*` scripts, and verify each subcommand runs against Compose Postgres
-- [ ] 9.2 Delete oRPC routers, Elysia app, `src/queues/*`, old supervisor/reconciler, `zod`/`drizzle-zod`/`ws`/`amqplib` dependencies, and verify `bun test tests packages`, `bunx tsc --noEmit`, and `bunx oxlint --type-aware` are fully green
+- [ ] 9.2 Delete oRPC routers, Elysia app, `src/queues/*`, old supervisor/reconciler, the `tests/**` suites that cover them, and `zod`/`drizzle-zod`/`ws`/`amqplib` dependencies, and verify `bun test tests packages`, `bunx tsc --noEmit`, and `bunx oxlint --type-aware` are fully green
 - [ ] 9.3 Wire the single composition root (`Layer.launch` of API + SSR + supervisor + reconciler, OTLP provided last, `BunRuntime.runMain`), boot against Compose Postgres with no collector, and verify health, one CRUD flow, worker start/stop, and JSON log output end to end
+- [ ] 9.4 Delete the remaining legacy implementation under `src/**` (web UI, core modules, database connection, config helpers) and any remaining tests that cover it, once every capability is ported, and verify `bun test tests packages`, `bunx tsc --noEmit`, and `bunx oxlint --type-aware` are green with the legacy tree removed
 
 ## 10. Handoff verification
 

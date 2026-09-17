@@ -112,10 +112,24 @@ describe("Cryptocurrency application service", () => {
         const first = yield* service.add(bitcoin)
         const second = yield* service.add({ ...bitcoin, cmcId: 2, slug: "litecoin", symbol: "LTC" })
 
-        const updated = yield* service.update(first.id, { name: "Bitcoin (updated)" })
-        const cmcConflict = yield* Effect.flip(service.update(first.id, { cmcId: second.cmcId }))
-        const slugConflict = yield* Effect.flip(service.update(first.id, { slug: "litecoin" }))
-        const missing = yield* Effect.flip(service.update(coinId(999), { name: "missing" }))
+        const updated = yield* service.update(first.id, {
+          name: "Bitcoin (updated)",
+          symbol: "BTC",
+          slug: "bitcoin",
+          cmcId: 1
+        })
+
+        const cmcConflict = yield* Effect.flip(
+          service.update(first.id, { name: "Bitcoin", symbol: "BTC", slug: "bitcoin", cmcId: second.cmcId })
+        )
+
+        const slugConflict = yield* Effect.flip(
+          service.update(first.id, { name: "Bitcoin", symbol: "BTC", slug: "litecoin", cmcId: 1 })
+        )
+
+        const missing = yield* Effect.flip(
+          service.update(coinId(999), { name: "missing", symbol: "MISS", slug: "missing", cmcId: 999 })
+        )
 
         return { updated, cmcConflict, slugConflict, missing }
       })
