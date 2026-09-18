@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, PubSub, Ref, Schema, Stream } from "effect"
+import { Context, Effect, Layer, Option, PubSub, Ref, Schema, Stream } from "effect"
 
 /**
  * Per-shard state shown on the worker monitoring page.
@@ -118,6 +118,33 @@ export type WorkerControlService = {
   /** Recent worker lifecycle events followed by live events. */
   readonly events: Stream.Stream<WorkerEvent>
 }
+
+/**
+ * One exchange known to the control plane.
+ */
+export interface ExchangeDirectoryEntry {
+  /** Database exchange id. */
+  readonly exchangeId: number
+  /** Exchange slug used in worker argv and monitoring rows. */
+  readonly exchangeSlug: string
+}
+
+/**
+ * Persistence port listing the exchanges the control plane can manage.
+ */
+export type ExchangeDirectoryService = {
+  /** Every known exchange, in stable order. */
+  readonly list: () => Effect.Effect<ReadonlyArray<ExchangeDirectoryEntry>>
+  /** Look up one exchange, or `None` when the id does not exist. */
+  readonly find: (exchangeId: number) => Effect.Effect<Option.Option<ExchangeDirectoryEntry>>
+}
+
+/**
+ * Persistence port listing manageable exchanges.
+ */
+export class ExchangeDirectory extends Context.Service<ExchangeDirectory, ExchangeDirectoryService>()(
+  "lister/control-plane-api/ExchangeDirectory"
+) {}
 
 /**
  * Worker control-plane port.

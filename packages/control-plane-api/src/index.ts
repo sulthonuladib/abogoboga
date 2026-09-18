@@ -71,6 +71,8 @@ export * from "./RowDecoding.ts"
 
 export * from "./WorkerControl.ts"
 
+export { exchangeDirectoryLayer, layerLive as workerControlLiveLayer } from "./WorkerControlLive.ts"
+
 export * from "./WorkersApi.ts"
 
 export * from "./WorkersHandlers.ts"

@@ -39,14 +39,14 @@
 
 ## 7. Crawler supervision as Effect services
 
-- [ ] 7.1 Implement the `Supervisor` Effect service (`FiberMap` shards, `Scope`-bound `ChildProcessSpawner.spawn`, `Stream` tick decode, `Schedule` backoff respawn, boot sweep) preserving current observable behavior, and verify `bun test` covers crash-respawn, clean-exit drop, stop-cancels-respawn, and boot-sweep cases
-- [ ] 7.2 Implement the `Reconciler` Effect fiber plus `DomainEvents` PubSub (replacing `MemoryPublisher` and the global desired-state `Set`), recomputing eligibility from DB truth on every event, and verify add/remove-converge tests through the public interface
-- [ ] 7.3 Port the tick pipeline (`processTick`, quote conversion, snapshot upsert) with `TestClock`-deterministic tests and `annotateLogs({exchange, shard})` spans, and verify thin-book skip plus quote-math tests pass
+- [x] 7.1 Implement the `Supervisor` Effect service (`FiberMap` shards, `Scope`-bound `ChildProcessSpawner.spawn`, `Stream` tick decode, `Schedule` backoff respawn, boot sweep) preserving current observable behavior, and verify `bun test` covers crash-respawn, clean-exit drop, stop-cancels-respawn, and boot-sweep cases
+- [x] 7.2 Implement the `Reconciler` Effect fiber plus `DomainEvents` PubSub (replacing `MemoryPublisher` and the global desired-state `Set`), recomputing eligibility from DB truth on every event, and verify add/remove-converge tests through the public interface
+- [x] 7.3 Port the tick pipeline (`processTick`, quote conversion, snapshot upsert) with `TestClock`-deterministic tests and `annotateLogs({exchange, shard})` spans, and verify thin-book skip plus quote-math tests pass
 
 ## 8. Worker apps and control plane
 
 - [ ] 8.1 Move `src/crawl-workers/subprocesses/*` to `apps/workers/<exchange>` as thin `BunRuntime.runMain` entrypoints on the `worker-contract` Schemas (no behavior change), and verify the dummy worker boot/subscribe/unsubscribe flow still passes its tests
-- [ ] 8.2 Implement the `workers` HttpApi group (start, stop, status, SSE events stream) backed by the Supervisor, enforcing conflict-on-duplicate semantics with no event emission on rejection, and verify `HttpApiTest` covers start/stop/conflict/404/status
+- [x] 8.2 Implement the `workers` HttpApi group (start, stop, status, SSE events stream) backed by the Supervisor, enforcing conflict-on-duplicate semantics with no event emission on rejection, and verify `HttpApiTest` covers start/stop/conflict/404/status
 - [ ] 8.3 Build the `/workers` monitoring page (exchange badges, start/stop buttons, shard/restart detail, 2s HTMX polling, SSE tail) and verify status polling and event-stream delivery against a live supervisor
 
 ## 9. CLI and cutover

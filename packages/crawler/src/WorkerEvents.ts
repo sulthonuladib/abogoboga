@@ -91,7 +91,7 @@ const DomainEventsCapacity = 1024
  * @param input - The event fields except `at`.
  * @returns The event with its `at` timestamp filled in.
  */
-export const makeWorkerEvent = (input: Omit<WorkerEvent, "at">): Effect.Effect<WorkerEvent> =>
+export const workerEvent = (input: Omit<WorkerEvent, "at">): Effect.Effect<WorkerEvent> =>
   Effect.map(Clock.currentTimeMillis, (at) => ({ ...input, at }))
 
 /**
