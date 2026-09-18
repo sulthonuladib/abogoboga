@@ -45,7 +45,7 @@
 
 ## 8. Worker apps and control plane
 
-- [ ] 8.1 Move `src/crawl-workers/subprocesses/*` to `apps/workers/<exchange>` as thin `BunRuntime.runMain` entrypoints on the `worker-contract` Schemas (no behavior change), and verify the dummy worker boot/subscribe/unsubscribe flow still passes its tests
+- [x] 8.1 Move `src/crawl-workers/subprocesses/*` to `apps/workers/<exchange>` as thin `BunRuntime.runMain` entrypoints on the `worker-contract` Schemas (no behavior change), and verify the dummy worker boot/subscribe/unsubscribe flow still passes its tests
 - [x] 8.2 Implement the `workers` HttpApi group (start, stop, status, SSE events stream) backed by the Supervisor, enforcing conflict-on-duplicate semantics with no event emission on rejection, and verify `HttpApiTest` covers start/stop/conflict/404/status
 - [x] 8.3 Build the `/workers` monitoring page (exchange badges, start/stop buttons, shard/restart detail, 2s HTMX polling, SSE tail) and verify status polling and event-stream delivery against a live supervisor
 

@@ -99,6 +99,11 @@ export type ShardChangeError = SupervisorConflict | SupervisorSpawnError
 export interface SupervisorLayerOptions<R = never> {
   /** Absolute path of the worker entrypoint spawned for each shard. */
   readonly workerScript: string
+  /**
+   * Per-exchange worker entrypoint resolver. Defaults to always returning
+   * {@link workerScript}; set it to launch `apps/workers/<slug>` entrypoints.
+   */
+  readonly workerScriptFor?: ((exchangeSlug: string) => string) | undefined
   /** Maximum coins per shard. Defaults to {@link shardCapacity}. */
   readonly capacity?: number | undefined
   /**
@@ -277,6 +282,7 @@ export class Supervisor extends Context.Service<Supervisor, {
         const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
         const events = yield* DomainEvents
         const capacity = options.capacity ?? shardCapacity
+        const scriptFor = options.workerScriptFor ?? (() => options.workerScript)
         const workers = yield* FiberMap.make<string>()
         const state = yield* Ref.make(new Map<number, ExchangeState>())
         const log = options.onLog ?? (() => Effect.void)
@@ -294,7 +300,7 @@ export class Supervisor extends Context.Service<Supervisor, {
           shardId: string,
           coins: ReadonlyArray<BootstrapCoin>
         ): ChildProcess.Command =>
-          ChildProcess.make("bun", buildWorkerArgv(options.workerScript, exchangeSlug, shardId, coins).slice(1), {
+          ChildProcess.make("bun", buildWorkerArgv(scriptFor(exchangeSlug), exchangeSlug, shardId, coins).slice(1), {
             extendEnv: true
           })
 

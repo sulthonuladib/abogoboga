@@ -1,6 +1,14 @@
 /**
- * Control-plane entrypoint (JSON API + SSR).
+ * Control-plane process entrypoint.
  *
  * @module
  */
-export const placeholder = "control-plane" as const
+
+import { BunRuntime } from "@effect/platform-bun"
+import { ObservabilityLive } from "@lister/observability"
+import { Layer } from "effect"
+import { HttpLive } from "./Main.ts"
+
+BunRuntime.runMain(
+  Layer.launch(HttpLive.pipe(Layer.provide(ObservabilityLive)))
+)
