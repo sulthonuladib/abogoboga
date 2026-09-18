@@ -1,0 +1,19 @@
+{
+  "name": "@lister/cli",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "^4.0.0-rc.115",
+    "@lister/config": "workspace:*",
+    "@lister/crawler": "workspace:*",
+    "@lister/db": "workspace:*",
+    "@lister/domain": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.4",
+    "effect": "^4.0.0-rc.115"
+  }
+}

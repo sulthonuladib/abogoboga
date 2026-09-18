@@ -1,14 +1,14 @@
 # AGENTS.md
 
+# Agent workflow
+- Never spawn subagents or i will kill you!
+
 # Learning more about Effect
 
 This repository uses the Effect Typescript library.
 
 Before writing any Effect code, first read `node_modules/effect/AGENTS.md`
 **completely**, and follow the links in the file when required.
-
-If you need to learn more about particular Effect apis and concepts that the
-guide doesn't cover, search through the source code in `node_modules/effect/src`.
 
 When writing Effect code, inspect node_modules/effect for examples of idiomatic usage, tests, module structure, and API design. Treat it as the source of truth for Effect patterns.
 

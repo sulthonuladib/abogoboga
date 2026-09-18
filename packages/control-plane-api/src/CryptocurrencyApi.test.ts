@@ -12,6 +12,8 @@ import { CryptocurrencyHandlers } from "./CryptocurrencyHandlers.ts"
 import { CryptocurrencyCmcIdExists, CryptocurrencyNotFound } from "./CryptocurrencyErrors.ts"
 import { ExchangeHandlers } from "./ExchangeHandlers.ts"
 import { MarketHandlers } from "./MarketHandlers.ts"
+import { WorkerControl } from "./WorkerControl.ts"
+import { WorkersHandlers } from "./WorkersHandlers.ts"
 
 const DatabaseTestLayer = Database.layerMemory()
 
@@ -164,6 +166,11 @@ describe("cryptocurrency HttpApi request errors", () => {
       Layer.provide(ChainHandlers),
       Layer.provide(MarketHandlers),
       Layer.provide(ChainLinkHandlers),
+      Layer.provide(
+        WorkersHandlers.pipe(
+          Layer.provide(WorkerControl.layerTest([{ id: 1, slug: "indodax" }]))
+        )
+      ),
       Layer.provide(Database.layerMemory()),
       Layer.provide(HttpServer.layerServices)
     )

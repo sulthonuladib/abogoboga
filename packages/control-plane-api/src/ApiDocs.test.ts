@@ -10,6 +10,8 @@ import { ChainLinkHandlers } from "./ChainLinkHandlers.ts"
 import { CryptocurrencyHandlers } from "./CryptocurrencyHandlers.ts"
 import { ExchangeHandlers } from "./ExchangeHandlers.ts"
 import { MarketHandlers } from "./MarketHandlers.ts"
+import { WorkerControl } from "./WorkerControl.ts"
+import { WorkersHandlers } from "./WorkersHandlers.ts"
 
 /** Operation keys inspected on each documented path. */
 const EndpointItem = Schema.Struct({
@@ -45,7 +47,11 @@ const expectedEndpoints = {
   "/api/exchange-cryptocurrency/{id}": ["get", "patch", "delete"],
   "/api/exchange-cryptocurrency-chain/add": ["post"],
   "/api/exchange-cryptocurrency-chain/list": ["post"],
-  "/api/exchange-cryptocurrency-chain/{id}": ["get", "patch", "delete"]
+  "/api/exchange-cryptocurrency-chain/{id}": ["get", "patch", "delete"],
+  "/api/workers": ["get"],
+  "/api/workers/events": ["get"],
+  "/api/workers/{exchangeId}/start": ["post"],
+  "/api/workers/{exchangeId}/stop": ["post"]
 } as const
 
 const ApiLayer = HttpApiBuilder.layer(Api).pipe(
@@ -54,6 +60,11 @@ const ApiLayer = HttpApiBuilder.layer(Api).pipe(
   Layer.provide(ChainHandlers),
   Layer.provide(MarketHandlers),
   Layer.provide(ChainLinkHandlers),
+  Layer.provide(
+    WorkersHandlers.pipe(
+      Layer.provide(WorkerControl.layerTest([{ id: 1, slug: "indodax" }]))
+    )
+  ),
   Layer.provide(Database.layerMemory()),
   Layer.provide(HttpServer.layerServices)
 )

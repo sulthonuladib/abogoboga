@@ -41,6 +41,7 @@
     "src/**/*.tsx",
     "packages/*/src/**/*.ts",
     "apps/*/src/**/*.ts",
+    "apps/workers/*/src/**/*.ts",
     "tests/**/*.ts",
     "drizzle.config.ts"
   ],
