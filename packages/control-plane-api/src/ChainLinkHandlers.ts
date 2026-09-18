@@ -1,5 +1,7 @@
 import { Effect, Layer } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
+import type { ChainId } from "@lister/domain"
+import type { MarketId } from "@lister/domain"
 import { Api } from "./Api.ts"
 import { ChainLink } from "./ChainLink.ts"
 import { layer as ChainLinkStoreLive } from "./ChainLinkStore.ts"
@@ -29,7 +31,7 @@ export const ChainLinkHandlersNoDeps = HttpApiBuilder.group(
     /** Resolve the owning exchange/coin pair and publish the mutation. */
     const publish = (
       kind: "chain-added" | "chain-updated" | "chain-removed",
-      link: { readonly exchangeCryptocurrencyId: number, readonly chainId: number }
+      link: { readonly exchangeCryptocurrencyId: MarketId; readonly chainId: ChainId }
     ) =>
       Effect.gen(function*() {
         const parent = yield* market.getById(link.exchangeCryptocurrencyId).pipe(Effect.orDie)

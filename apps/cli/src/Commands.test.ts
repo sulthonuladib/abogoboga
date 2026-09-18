@@ -84,12 +84,27 @@ describe("lister cli", () => {
       }
     })
 
-    const result = await Effect.runPromise(
-      program.pipe(
-        Effect.provide(Layer.merge(Database.layerMemory(), BunServices.layer)),
-        Effect.scoped
-      )
-    )
+    // SAFETY: `Command.runWith` infers `unknown` for E/R on Effect v4 RC
+    // (`cli` unions four handlers with distinct stores). The provided
+    // `Database.layerMemory()` + `BunServices.layer` satisfy every concrete
+    // requirement (Database, FileSystem, Path, Terminal, Stdio,
+    // ChildProcessSpawner); runtime `bun test` passes. Narrow to `never`
+    // requirements so `runPromise` accepts the fully-provided program.
+    // Proper fix (explicit handler Return types) belongs to 9.x.
+    const provided = program.pipe(
+      Effect.provide(Layer.merge(Database.layerMemory(), BunServices.layer)),
+      Effect.scoped
+    ) as Effect.Effect<
+      {
+        readonly coins: ReadonlyArray<typeof cryptocurrencyTable.$inferSelect>
+        readonly exchanges: ReadonlyArray<typeof exchangeTable.$inferSelect>
+        readonly assignments: ReadonlyArray<typeof exchangeCryptocurrencyTable.$inferSelect>
+      },
+      unknown,
+      never
+    >
+
+    const result = await Effect.runPromise(provided)
 
     expect(result.coins).toHaveLength(2)
     expect(result.exchanges).toHaveLength(8)
@@ -115,12 +130,23 @@ describe("lister cli", () => {
       }
     })
 
-    const result = await Effect.runPromise(
-      program.pipe(
-        Effect.provide(Layer.merge(Database.layerMemory(), BunServices.layer)),
-        Effect.scoped
-      )
-    )
+    // SAFETY: Same `Command.runWith` unknown-inference as above; layers satisfy
+    // all concrete requirements and runtime passes. Narrow to `never` for
+    // `runPromise`. Proper fix belongs to 9.x.
+    const provided = program.pipe(
+      Effect.provide(Layer.merge(Database.layerMemory(), BunServices.layer)),
+      Effect.scoped
+    ) as Effect.Effect<
+      {
+        readonly coins: ReadonlyArray<typeof cryptocurrencyTable.$inferSelect>
+        readonly bitcoin: (typeof cryptocurrencyTable.$inferSelect) | undefined
+        readonly assignment: (typeof exchangeCryptocurrencyTable.$inferSelect) | undefined
+      },
+      unknown,
+      never
+    >
+
+    const result = await Effect.runPromise(provided)
 
     expect(result.coins).toHaveLength(2)
     expect(result.bitcoin?.name).toBe("Bitcoin Cash")
@@ -130,11 +156,14 @@ describe("lister cli", () => {
   })
 
   test("migrate applies migrations against the provided database", async () => {
-    await Effect.runPromise(
-      runCli(["migrate"]).pipe(
-        Effect.provide(Layer.merge(Database.layerMemory(), BunServices.layer)),
-        Effect.scoped
-      )
-    )
+    // SAFETY: Same `Command.runWith` unknown-inference as above; layers satisfy
+    // all concrete requirements and runtime passes. Narrow to `never` for
+    // `runPromise`. Proper fix belongs to 9.x.
+    const provided = runCli(["migrate"]).pipe(
+      Effect.provide(Layer.merge(Database.layerMemory(), BunServices.layer)),
+      Effect.scoped
+    ) as Effect.Effect<void, unknown, never>
+
+    await Effect.runPromise(provided)
   })
 })

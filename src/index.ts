@@ -1,7 +1,5 @@
 import { Elysia } from "elysia";
-import { html } from "@elysiajs/html";
 import { staticPlugin } from "@elysiajs/static";
-import { htmx } from "elysia-htmx";
 import { RPCHandler } from "@orpc/server/fetch";
 import { COMMON_ERROR_STATUS_MAP } from "@orpc/server";
 import { CORSHandlerPlugin } from "@orpc/server/plugins";
@@ -10,7 +8,6 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod";
 import { router } from "./router";
 import { corsHeaders, corsOrigins } from "./config";
-import { webApp } from "./web/web-routes";
 
 // Preserves the v1 `statusCode` semantics of `.errors({...})` definitions.
 const errorStatusMap = {
@@ -50,8 +47,7 @@ const scalarDocumentPage = `<!doctype html>
   </body>
 </html>`;
 
-export const app = new Elysia()  .use(html())
-  .use(htmx())
+export const app = new Elysia()
   .use(
     await staticPlugin({
       assets: "public/static",
@@ -118,8 +114,7 @@ export const app = new Elysia()  .use(html())
     {
       parse: "none",
     },
-  )
-  .use(webApp);
+  );
 
 if (import.meta.main) {
   app.listen(3001);

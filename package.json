@@ -22,7 +22,6 @@
     "prepare": "effect-tsgo patch --typescript --oxlint"
   },
   "dependencies": {
-    "@elysiajs/html": "^1.4.2",
     "@elysiajs/static": "^1.4.10",
     "@lister/db": "workspace:*",
     "@orpc/client": "^2.0.0-beta.36",
@@ -37,7 +36,6 @@
     "drizzle-zod": "^0.8.3",
     "effect": "^4.0.0-rc.115",
     "elysia": "^1.4.30",
-    "elysia-htmx": "^2.0.0",
     "tailwindcss": "^4",
     "zod": "^4.6.5"
   },

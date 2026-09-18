@@ -46,8 +46,7 @@ export const Modal = (options: {
   readonly error?: string | undefined
   readonly children: RawHtml
 }): RawHtml =>
-  html`<div id="modal-slot">
-    <dialog open id="app-modal" class="modal modal-bottom sm:modal-middle">
+  html`<dialog open id="app-modal" class="modal modal-bottom sm:modal-middle">
       <div class="modal-box">
         <div class="mb-4 flex items-start justify-between gap-4">
           <div>
@@ -62,8 +61,7 @@ export const Modal = (options: {
         ${options.children}
       </div>
       <form method="dialog" class="modal-backdrop"><button aria-label="Close dialog">close</button></form>
-    </dialog>
-  </div>`
+    </dialog>`
 
 /**
  * Labeled form field.

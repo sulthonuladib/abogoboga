@@ -33,9 +33,9 @@
 
 ## 6. SSR web UI
 
-- [ ] 6.1 Implement `apps/control-plane` `HttpRouter` HTML routes for `/dashboard`, `/coins`, `/exchanges`, `/chains` reusing the Phase-5 services, with full-vs-fragment branching and OOB toast/modal behavior, and verify `bun test` fragment assertions pass per page
-- [ ] 6.2 Implement drawer, routes-matrix, detail, option-search, and `/not-found` partials with delete guards and `HX-Redirect` semantics, and verify each partial has a route-level test
-- [ ] 6.3 Remove `@elysiajs/html` JSX views once all routes are implemented, and verify `bunx oxlint --type-aware` and `bunx tsc --noEmit` pass with the dependency uninstalled
+- [x] 6.1 Implement `apps/control-plane` `HttpRouter` HTML routes for `/dashboard`, `/coins`, `/exchanges`, `/chains` reusing the Phase-5 services, with full-vs-fragment branching and OOB toast/modal behavior, and verify `bun test` fragment assertions pass per page
+- [x] 6.2 Implement drawer, routes-matrix, detail, option-search, and `/not-found` partials with delete guards and `HX-Redirect` semantics, and verify each partial has a route-level test
+- [x] 6.3 Remove `@elysiajs/html` JSX views once all routes are implemented, and verify `bunx oxlint --type-aware` and `bunx tsc --noEmit` pass with the dependency uninstalled
 
 ## 7. Crawler supervision as Effect services
 

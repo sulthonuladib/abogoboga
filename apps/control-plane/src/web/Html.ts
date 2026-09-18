@@ -43,7 +43,22 @@ export const escapeHtml = (value: string): string =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;")
 
-const renderValue = (value: unknown): string => {
+/**
+ * A value that may be interpolated into an {@link html} template.
+ *
+ * Scalars are escaped; {@link RawHtml} is inserted verbatim; arrays are
+ * rendered recursively.
+ */
+export type Interpolated =
+  | RawHtml
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | ReadonlyArray<Interpolated>
+
+const renderValue = (value: Interpolated): string => {
   if (value instanceof RawHtml) return value.value
 
   if (Array.isArray(value)) return value.map((item) => renderValue(item)).join("")
@@ -71,7 +86,7 @@ export const raw = (value: string): RawHtml => new RawHtml(value)
  * @param values - Interpolated values.
  * @returns The rendered fragment.
  */
-export const html = (strings: TemplateStringsArray, ...values: ReadonlyArray<unknown>): RawHtml => {
+export const html = (strings: TemplateStringsArray, ...values: ReadonlyArray<Interpolated>): RawHtml => {
   let output = strings[0] ?? ""
 
   for (const [index, value] of values.entries()) {

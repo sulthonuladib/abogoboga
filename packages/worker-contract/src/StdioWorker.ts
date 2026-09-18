@@ -13,7 +13,7 @@
  *
  * @module
  */
-import { Cause, Effect, Inspectable, Layer, Logger, Schema, Stream } from "effect"
+import { Cause, Effect, Inspectable, Logger, Schema, Stream } from "effect"
 
 import {
   BootstrapCoinsFromString,
@@ -262,11 +262,9 @@ const workerProgram = (
     )
   }).pipe(
     Effect.annotateLogs({ exchangeSlug: identity.exchangeSlug, shardId: identity.shardId }),
-    Effect.provide(Layer.succeed(Logger.LogToStderr, true)),
+    Effect.provideService(Logger.LogToStderr, true),
     Effect.catchCause((cause) =>
-      Cause.hasInterruptsOnly(cause)
-        ? Effect.failCause(cause)
-        : exitWithReason(1, `worker: fatal error: ${Cause.pretty(cause)}`)
+      Cause.hasInterruptsOnly(cause) ? Effect.interrupt : exitWithReason(1, `worker: fatal error: ${Cause.pretty(cause)}`)
     )
   )
 

@@ -113,7 +113,7 @@ export class DomainEvents extends Context.Service<DomainEvents, {
    * History and subscription are read under one permit, so a subscriber never
    * observes a gap or a duplicate around the replay/live boundary.
    */
-  static readonly layer: Layer.Layer<DomainEvents> = Layer.scoped(
+  static readonly layer: Layer.Layer<DomainEvents> = Layer.effect(
     DomainEvents,
     Effect.gen(function*() {
       const pubsub = yield* PubSub.bounded<DomainEvent>(DomainEventsCapacity)

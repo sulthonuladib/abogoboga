@@ -9,7 +9,7 @@ import { Console, Effect } from "effect"
  * terminated.
  */
 export const runSweep = Effect.fn("runSweep")(function*() {
-  const killed = yield* sweepStaleWorkers
+  const killed = yield* sweepStaleWorkers()
 
   if (killed.length === 0) {
     yield* Console.log("No stale crawler worker processes found.")

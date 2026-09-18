@@ -88,6 +88,7 @@ export const sweepStaleWorkers = (
 
     for (const entry of entries) {
       if (entry.pid === selfPid) continue
+
       if (!entry.args.includes(workerArgvMarker)) continue
 
       yield* kill(entry.pid)

@@ -26,11 +26,13 @@ export class EntityMiss extends Schema.TaggedError<EntityMiss>()("EntityMiss", {
  * An expected failure rendered inline next to the control that caused it.
  *
  * `retarget` optionally names the element HTMX should swap instead of the
- * triggering element's default target.
+ * triggering element's default target, and `reswap` overrides the swap
+ * strategy (for example `innerHTML`).
  */
 export class InlineProblem extends Schema.TaggedError<InlineProblem>()("InlineProblem", {
   message: Schema.String,
-  retarget: Schema.optionalKey(Schema.String)
+  retarget: Schema.optionalKey(Schema.String),
+  reswap: Schema.optionalKey(Schema.String)
 }) {}
 
 /**
@@ -38,6 +40,22 @@ export class InlineProblem extends Schema.TaggedError<InlineProblem>()("InlinePr
  * it into a response.
  */
 export type RouteError = EntityMiss | InlineProblem | Schema.SchemaError | HttpServerError.HttpServerError
+
+/**
+ * Builds a handler for an application-service reason the calling route cannot
+ * produce.
+ *
+ * Such a reason means the workspace invariant behind the endpoint was violated,
+ * so it is a defect rather than a recoverable failure.
+ *
+ * @param service - Service name used in the diagnostic message.
+ * @param operation - Operation name used in the diagnostic message.
+ * @returns A handler that dies with a descriptive error.
+ */
+export const unexpectedReason =
+  (service: string, operation: string) =>
+  (reason: { readonly _tag: string }): Effect.Effect<never> =>
+    Effect.die(new Error(`${service}.${operation} reported unexpected reason ${reason._tag}`))
 
 /**
  * Returns whether the request came from HTMX without restoring history.
@@ -62,7 +80,9 @@ export const notFoundUrl = (options: {
   const params = new URLSearchParams()
 
   if (options.from !== undefined && options.from !== "") params.set("from", options.from)
+
   if (options.kind !== undefined && options.kind !== "") params.set("kind", options.kind)
+
   if (options.id !== undefined && options.id !== "") params.set("id", options.id)
 
   const query = params.toString()
@@ -76,7 +96,8 @@ export const notFoundUrl = (options: {
  * @param body - Complete document markup.
  * @returns The HTML response.
  */
-export const pageResponse = (body: RawHtml): HttpServerResponse => HttpServerResponse.html(body.value)
+export const pageResponse = (body: RawHtml): HttpServerResponse.HttpServerResponse =>
+  HttpServerResponse.html(body.value)
 
 /**
  * Renders an HTML fragment response.
@@ -96,11 +117,14 @@ export const fragmentResponse = (
     readonly retarget?: string | undefined
     readonly reswap?: string | undefined
   }
-): HttpServerResponse => {
-  const response = HttpServerResponse.html(body.value, {
-    status: options?.status ?? 200,
-    headers: { vary: "HX-Request" }
-  })
+): HttpServerResponse.HttpServerResponse => {
+  let response = HttpServerResponse.html(body.value).pipe(
+    HttpServerResponse.setHeader("vary", "HX-Request")
+  )
+
+  if (options?.status !== undefined) {
+    response = response.pipe(HttpServerResponse.setStatus(options.status))
+  }
 
   if (options?.retarget === undefined) return response
 
@@ -118,7 +142,7 @@ export const fragmentResponse = (
  * @param status - HTTP status; defaults to 200 so HTMX swaps it inline.
  * @returns The HTML response.
  */
-export const errorResponse = (message: string, status = 200): HttpServerResponse =>
+export const errorResponse = (message: string, status = 200): HttpServerResponse.HttpServerResponse =>
   fragmentResponse(ErrorFragment({ message }), { status })
 
 /**
@@ -132,7 +156,7 @@ export const errorResponse = (message: string, status = 200): HttpServerResponse
 export const missResponse = (
   request: HttpServerRequest.HttpServerRequest,
   miss: EntityMiss
-): HttpServerResponse => {
+): HttpServerResponse.HttpServerResponse => {
   const location = notFoundUrl({ kind: miss.kind, id: miss.id })
 
   if (isHtmxRequest(request)) {
@@ -160,21 +184,23 @@ export const missResponse = (
  */
 export const route = <R>(
   method: "GET" | "POST" | "DELETE",
-  path: string,
+  path: `/${string}`,
   handler: (
     request: HttpServerRequest.HttpServerRequest
   ) => Effect.Effect<HttpServerResponse.HttpServerResponse, RouteError, R>
 ) =>
   HttpRouter.add(method, path, (request) =>
     handler(request).pipe(
-      Effect.catchTag("EntityMiss", (miss) => Effect.succeed(missResponse(request, miss))),
-      Effect.catchTag("InlineProblem", (problem) =>
-        Effect.succeed(
-          fragmentResponse(ErrorFragment({ message: problem.message }), {
-            retarget: problem.retarget
-          })
-        )
-      ),
+      Effect.catchTags({
+        EntityMiss: (miss) => Effect.succeed(missResponse(request, miss)),
+        InlineProblem: (problem) =>
+          Effect.succeed(
+            fragmentResponse(ErrorFragment({ message: problem.message }), {
+              retarget: problem.retarget,
+              reswap: problem.reswap
+            })
+          )
+      }),
       Effect.catchIf(Schema.isSchemaError, (error) =>
         Effect.succeed(errorResponse(`invalid request: ${error.message}`, 400))
       ),
