@@ -7,15 +7,26 @@ import { cli } from "./Commands.ts"
 
 const databaseLayer = Database.layer().pipe(Layer.provide(AppConfig.layer))
 
-// The Database layer is built lazily, so `sweep` never opens a connection,
-// while `seed` and `migrate` read AppConfig and apply migrations on first use.
+// Only the `seed` and `migrate` commands touch Postgres. Selecting the layer by
+// subcommand keeps `sweep` (and `--help`) from opening a connection or applying
+// migrations. Help/version flags skip the database even under `seed`/`migrate`
+// so `lister seed --help` works offline. Commands stay layer-agnostic so tests
+// can provide `Database.layerMemory()` instead.
+const helpFlags = new Set(["--help", "-h", "--version", "-v", "--wizard", "--completions"])
+
+const wantsHelp = process.argv.slice(2).some((argument) => helpFlags.has(argument))
+
+const needsDatabase =
+  !wantsHelp && (process.argv[2] === "migrate" || process.argv[2] === "seed")
+
+const services = needsDatabase ? Layer.merge(databaseLayer, BunServices.layer) : BunServices.layer
+
 // SAFETY: `Command.run` infers `unknown` for E/R on Effect v4 RC (`cli` unions
-// four handlers). `databaseLayer` + `BunServices.layer` satisfy every concrete
-// requirement at runtime. Narrow to `never` requirements so `runMain` accepts
-// the fully-provided program. Proper fix (explicit handler Return types)
-// belongs to 9.x.
+// handlers with different service needs). `services` satisfies every concrete
+// requirement at runtime, so narrow to `never` for `runMain`. Proper fix
+// (explicit handler Return types) belongs to a later pass.
 const main = Command.run(cli, { version: "1.0.0" }).pipe(
-  Effect.provide(Layer.merge(databaseLayer, BunServices.layer))
+  Effect.provide(services)
 ) as Effect.Effect<void, unknown, never>
 
 BunRuntime.runMain(main)
