@@ -39,11 +39,184 @@
         "typescript-language-server": "^6.0.0",
       },
     },
+    "apps/cli": {
+      "name": "@lister/cli",
+      "version": "1.0.0",
+      "dependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+        "@lister/config": "workspace:*",
+        "@lister/crawler": "workspace:*",
+        "@lister/db": "workspace:*",
+        "@lister/domain": "workspace:*",
+        "drizzle-orm": "1.0.0-rc.4",
+        "effect": "^4.0.0-rc.115",
+      },
+    },
     "apps/control-plane": {
       "name": "@lister/control-plane",
       "version": "1.0.0",
       "dependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+        "@lister/config": "workspace:*",
+        "@lister/control-plane-api": "workspace:*",
+        "@lister/db": "workspace:*",
+        "@lister/domain": "workspace:*",
+        "@lister/observability": "workspace:*",
         "effect": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/binance": {
+      "name": "@lister/worker-binance",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/bitget": {
+      "name": "@lister/worker-bitget",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/bitmart": {
+      "name": "@lister/worker-bitmart",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/bittime": {
+      "name": "@lister/worker-bittime",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/bybit": {
+      "name": "@lister/worker-bybit",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/dummy": {
+      "name": "@lister/worker-dummy",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/gateio": {
+      "name": "@lister/worker-gateio",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/huobi": {
+      "name": "@lister/worker-huobi",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/indodax": {
+      "name": "@lister/worker-indodax",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/indodax-single": {
+      "name": "@lister/worker-indodax-single",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/kucoin": {
+      "name": "@lister/worker-kucoin",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/mexc": {
+      "name": "@lister/worker-mexc",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/okx": {
+      "name": "@lister/worker-okx",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
+      },
+    },
+    "apps/workers/reku": {
+      "name": "@lister/worker-reku",
+      "version": "1.0.0",
+      "dependencies": {
+        "@lister/worker-contract": "workspace:*",
+        "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
       },
     },
     "packages/config": {
@@ -67,7 +240,14 @@
       "name": "@lister/crawler",
       "version": "1.0.0",
       "dependencies": {
+        "@lister/db": "workspace:*",
+        "@lister/domain": "workspace:*",
+        "@lister/worker-contract": "workspace:*",
+        "drizzle-orm": "1.0.0-rc.4",
         "effect": "^4.0.0-rc.115",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "^4.0.0-rc.115",
       },
     },
     "packages/db": {
@@ -212,6 +392,8 @@
 
     "@kitajs/ts-html-plugin": ["@kitajs/ts-html-plugin@4.1.4", "", { "dependencies": { "chalk": "^5.6.2", "tslib": "^2.8.1", "yargs": "^18.0.0" }, "peerDependencies": { "@kitajs/html": "^4.2.10", "typescript": "^5.9.3" }, "bin": { "xss-scan": "dist/cli.js", "ts-html-plugin": "dist/cli.js" } }, "sha512-xK5mNrhnIy73kJFKx5yVGChJyWFRGmIaE0sjlVxVYllk5dyaEYVCrIh1N8AfnseEHka8gAqzPGW95HlkhDvnJA=="],
 
+    "@lister/cli": ["@lister/cli@workspace:apps/cli"],
+
     "@lister/config": ["@lister/config@workspace:packages/config"],
 
     "@lister/control-plane": ["@lister/control-plane@workspace:apps/control-plane"],
@@ -226,7 +408,35 @@
 
     "@lister/observability": ["@lister/observability@workspace:packages/observability"],
 
+    "@lister/worker-binance": ["@lister/worker-binance@workspace:apps/workers/binance"],
+
+    "@lister/worker-bitget": ["@lister/worker-bitget@workspace:apps/workers/bitget"],
+
+    "@lister/worker-bitmart": ["@lister/worker-bitmart@workspace:apps/workers/bitmart"],
+
+    "@lister/worker-bittime": ["@lister/worker-bittime@workspace:apps/workers/bittime"],
+
+    "@lister/worker-bybit": ["@lister/worker-bybit@workspace:apps/workers/bybit"],
+
     "@lister/worker-contract": ["@lister/worker-contract@workspace:packages/worker-contract"],
+
+    "@lister/worker-dummy": ["@lister/worker-dummy@workspace:apps/workers/dummy"],
+
+    "@lister/worker-gateio": ["@lister/worker-gateio@workspace:apps/workers/gateio"],
+
+    "@lister/worker-huobi": ["@lister/worker-huobi@workspace:apps/workers/huobi"],
+
+    "@lister/worker-indodax": ["@lister/worker-indodax@workspace:apps/workers/indodax"],
+
+    "@lister/worker-indodax-single": ["@lister/worker-indodax-single@workspace:apps/workers/indodax-single"],
+
+    "@lister/worker-kucoin": ["@lister/worker-kucoin@workspace:apps/workers/kucoin"],
+
+    "@lister/worker-mexc": ["@lister/worker-mexc@workspace:apps/workers/mexc"],
+
+    "@lister/worker-okx": ["@lister/worker-okx@workspace:apps/workers/okx"],
+
+    "@lister/worker-reku": ["@lister/worker-reku@workspace:apps/workers/reku"],
 
     "@openapi-spec/downgrader": ["@openapi-spec/downgrader@0.1.0", "", { "dependencies": { "@openapi-spec/types": "^0.1.0" } }, "sha512-za2h8wGa4BFy2+AiKJHutt8BS2ua7Fw7vgNMmAtLyFbreozWHkXRVBRVA86sczyLY1ZN9Gw4rITygs90ehztQg=="],
 

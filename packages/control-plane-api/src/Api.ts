@@ -4,6 +4,7 @@ import { ChainLinkApiGroup } from "./ChainLinkApi.ts"
 import { CryptocurrencyApiGroup } from "./CryptocurrencyApi.ts"
 import { ExchangeApiGroup } from "./ExchangeApi.ts"
 import { MarketApiGroup } from "./MarketApi.ts"
+import { WorkersApiGroup } from "./WorkersApi.ts"
 
 /**
  * Root HTTP API of the control plane.
@@ -17,6 +18,7 @@ export class Api extends HttpApi.make("control-plane-api")
   .add(ChainApiGroup)
   .add(MarketApiGroup)
   .add(ChainLinkApiGroup)
+  .add(WorkersApiGroup)
   .annotateMerge(
     OpenApi.annotations({
       title: "Control plane API",

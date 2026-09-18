@@ -27,6 +27,8 @@ export * from "./ChainLinkHandlers.ts"
 
 export { layer as chainLinkStoreLayer } from "./ChainLinkStore.ts"
 
+export * from "./CoinDetailEvents.ts"
+
 export * from "./Cryptocurrency.ts"
 
 export * from "./CryptocurrencyApi.ts"
@@ -66,3 +68,9 @@ export * from "./Pagination.ts"
 export * from "./RequestValidation.ts"
 
 export * from "./RowDecoding.ts"
+
+export * from "./WorkerControl.ts"
+
+export * from "./WorkersApi.ts"
+
+export * from "./WorkersHandlers.ts"

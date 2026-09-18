@@ -5,6 +5,13 @@
   "type": "module",
   "main": "src/index.ts",
   "dependencies": {
+    "@lister/db": "workspace:*",
+    "@lister/domain": "workspace:*",
+    "@lister/worker-contract": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.4",
     "effect": "^4.0.0-rc.115"
+  },
+  "devDependencies": {
+    "@effect/platform-bun": "^4.0.0-rc.115"
   }
 }

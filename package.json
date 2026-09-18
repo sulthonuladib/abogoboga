@@ -3,7 +3,7 @@
   "description": "Cryptocurrency, exchange, network, and metadata API.",
   "version": "1.0.0",
   "private": true,
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": ["packages/*", "apps/*", "apps/workers/*"],
   "type": "module",
   "module": "src/index.ts",
   "scripts": {

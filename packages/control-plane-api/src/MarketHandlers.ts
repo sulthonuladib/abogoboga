@@ -1,6 +1,7 @@
 import { Effect, Layer } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { Api } from "./Api.ts"
+import { CoinDetailEvents } from "./CoinDetailEvents.ts"
 import { Market } from "./Market.ts"
 import { layer as MarketStoreLive } from "./MarketStore.ts"
 import { RequestValidationLive } from "./RequestValidation.ts"
@@ -17,6 +18,7 @@ export const MarketHandlersNoDeps = HttpApiBuilder.group(
   "market",
   Effect.fn(function*(handlers) {
     const market = yield* Market
+    const events = yield* CoinDetailEvents
 
     const unexpectedReason = (operation: string) => (reason: { readonly _tag: string }) =>
       Effect.die(new Error(`Market.${operation} reported unexpected ${reason._tag}`))
@@ -30,7 +32,15 @@ export const MarketHandlersNoDeps = HttpApiBuilder.group(
             ExchangeNotFound: (reason) => Effect.fail(reason),
             CryptocurrencyNotFound: (reason) => Effect.fail(reason),
             MarketNotFound: unexpectedReason("assign")
-          })
+          }),
+          Effect.tap((assigned) =>
+            events.publish({
+              kind: "mapping-added",
+              exchangeId: assigned.exchangeId,
+              cryptocurrencyId: assigned.cryptocurrencyId,
+              exchangeCryptocurrencyId: assigned.id
+            })
+          )
         ),
       list: ({ payload }) => market.list(payload).pipe(Effect.orDie),
       count: ({ payload }) => market.count(payload).pipe(Effect.orDie),
@@ -52,7 +62,15 @@ export const MarketHandlersNoDeps = HttpApiBuilder.group(
             MarketExists: (reason) => Effect.fail(reason),
             ExchangeNotFound: (reason) => Effect.fail(reason),
             CryptocurrencyNotFound: (reason) => Effect.fail(reason)
-          })
+          }),
+          Effect.tap((updated) =>
+            events.publish({
+              kind: "mapping-updated",
+              exchangeId: updated.exchangeId,
+              cryptocurrencyId: updated.cryptocurrencyId,
+              exchangeCryptocurrencyId: updated.id
+            })
+          )
         ),
       unassign: ({ params }) =>
         market.unassign(params.id).pipe(
@@ -62,7 +80,15 @@ export const MarketHandlersNoDeps = HttpApiBuilder.group(
             MarketExists: unexpectedReason("unassign"),
             ExchangeNotFound: unexpectedReason("unassign"),
             CryptocurrencyNotFound: unexpectedReason("unassign")
-          })
+          }),
+          Effect.tap((removed) =>
+            events.publish({
+              kind: "mapping-removed",
+              exchangeId: removed.exchangeId,
+              cryptocurrencyId: removed.cryptocurrencyId,
+              exchangeCryptocurrencyId: removed.id
+            })
+          )
         )
     })
   })
@@ -75,5 +101,6 @@ export const MarketHandlersNoDeps = HttpApiBuilder.group(
 export const MarketHandlers = MarketHandlersNoDeps.pipe(
   Layer.provide(Market.layer),
   Layer.provide(MarketStoreLive),
+  Layer.provide(CoinDetailEvents.layerNoop),
   Layer.provideMerge(RequestValidationLive)
 )
