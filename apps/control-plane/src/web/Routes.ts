@@ -26,6 +26,7 @@ import { DrawerRoutes } from "./routes/Drawer.ts"
 import { ExchangesRoutes } from "./routes/Exchanges.ts"
 import { MiscRoutes } from "./routes/Misc.ts"
 import { RoutesMatrixRoutes } from "./routes/RoutesMatrix.ts"
+import { StaticRoutes } from "./routes/Static.ts"
 import { WorkersRoutes } from "./routes/Workers.ts"
 
 /**
@@ -38,6 +39,7 @@ export const WebRoutes = Layer.mergeAll(
   ChainsRoutes,
   DrawerRoutes,
   RoutesMatrixRoutes,
+  StaticRoutes,
   WorkersRoutes,
   MiscRoutes
 )

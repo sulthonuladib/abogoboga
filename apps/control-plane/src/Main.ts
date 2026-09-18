@@ -96,27 +96,35 @@ const coinDetailEventsLayer = Layer.effect(
   })
 )
 
-const appServicesLayer = Layer.mergeAll(
+const storesProvided = storesLayer.pipe(Layer.provide(databaseLayer))
+
+const supervisorProvided = supervisorLayer.pipe(
+  Layer.provide(Layer.mergeAll(DomainEvents.layer, BunServices.layer))
+)
+
+const appServicesProvided = Layer.mergeAll(
   Cryptocurrency.layer,
   Exchange.layer,
   Chain.layer,
   Market.layer,
   ChainLink.layer
-).pipe(Layer.provide(storesLayer))
+).pipe(Layer.provide(storesProvided))
 
-const reconcilerLayer = Reconciler.layer.pipe(Layer.provide(Layer.mergeAll(supervisorLayer, storesLayer, DomainEvents.layer)))
+const coinDetailEventsProvided = coinDetailEventsLayer.pipe(Layer.provide(DomainEvents.layer))
 
-const workerControlLayer = workerControlLiveLayer.pipe(
-  Layer.provide(Layer.mergeAll(supervisorLayer, storesLayer, DomainEvents.layer))
-)
+const crawlerBase = Layer.mergeAll(supervisorProvided, storesProvided, DomainEvents.layer)
+
+const reconcilerProvided = Reconciler.layer.pipe(Layer.provide(crawlerBase))
+
+const workerControlProvided = workerControlLiveLayer.pipe(Layer.provide(crawlerBase))
 
 const dependenciesLayer = Layer.mergeAll(
-  appServicesLayer,
-  coinDetailEventsLayer.pipe(Layer.provide(DomainEvents.layer)),
-  reconcilerLayer,
-  workerControlLayer,
-  supervisorLayer,
-  storesLayer,
+  appServicesProvided,
+  coinDetailEventsProvided,
+  reconcilerProvided,
+  workerControlProvided,
+  supervisorProvided,
+  storesProvided,
   DomainEvents.layer,
   databaseLayer,
   BunServices.layer,
@@ -138,11 +146,20 @@ const routeLayers = Layer.mergeAll(
   WebRoutes
 )
 
+const requestServices = Layer.mergeAll(appServicesProvided, workerControlProvided)
+
 /**
  * Every route, application service, and crawler runtime with all dependencies
  * provided.
+ *
+ * SSR routes read application services per request, so they are supplied
+ * through `HttpRouter.provideRequest`; remaining layer requirements
+ * (`Database`, worker control) are satisfied from `dependenciesLayer`.
  */
-export const ApplicationLive = routeLayers.pipe(Layer.provide(dependenciesLayer))
+export const ApplicationLive = routeLayers.pipe(
+  HttpRouter.provideRequest(requestServices),
+  Layer.provide(dependenciesLayer)
+)
 
 const serverLayer = Layer.unwrap(
   Effect.gen(function*() {

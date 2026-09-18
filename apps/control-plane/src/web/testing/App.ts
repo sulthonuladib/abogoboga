@@ -9,6 +9,7 @@
  */
 
 import { Database } from "@lister/db"
+import { BunHttpPlatform, BunServices } from "@effect/platform-bun"
 import {
   Chain,
   ChainLink,
@@ -89,7 +90,11 @@ export const withTestApp = <A, E>(use: (app: TestApp) => Effect.Effect<A, E>, op
       options?.workerControl === undefined ? AppServices : appServices(options.workerControl)
     )
 
-    const app = WebRoutes.pipe(HttpRouter.provideRequest(Layer.succeedContext(services)))
+    const app = WebRoutes.pipe(
+      HttpRouter.provideRequest(Layer.succeedContext(services)),
+      Layer.provide(Layer.mergeAll(BunServices.layer, BunHttpPlatform.layer))
+    )
+
     const { handler, dispose } = HttpRouter.toWebHandler(app, { disableLogger: true })
 
     const request = (path: string, init?: RequestInit) =>
