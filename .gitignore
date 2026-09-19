@@ -34,5 +34,5 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .DS_Store
 
 # openspec working results (local only)
-openspec/changes/
-openspec/specs/
+# openspec/changes/
+# openspec/specs/
