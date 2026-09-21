@@ -5,7 +5,7 @@ import { defineConfig } from "drizzle-kit";
 // Effect runtime. Keep the default in sync with `localDatabaseUrl` in
 // `packages/config/src/AppConfig.ts`.
 const databaseUrl = (): string => process.env.DATABASE_URL?.trim() ||
-  "postgres://orchestra:change-me-local@localhost:5432/orchestra";
+  "postgres://abogoboga:abogoboga@localhost:5432/abogoboga";
 
 export default defineConfig({
   schema: "./packages/db/src/schema.ts",

@@ -2,11 +2,11 @@ services:
   postgres:
     image: postgres:16.4-alpine
     restart: unless-stopped
-    container_name: personal-postgres
+    container_name: abogoboga-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-orchestra}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-local}
-      POSTGRES_DB: ${POSTGRES_DB:-orchestra}
+      POSTGRES_USER: ${POSTGRES_USER:-abogoboga}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-abogoboga}
+      POSTGRES_DB: ${POSTGRES_DB:-abogoboga}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
