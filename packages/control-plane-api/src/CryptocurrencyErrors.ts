@@ -9,7 +9,7 @@ import { Schema } from "effect"
  */
 export const CryptocurrencyLookup = Schema.Union([
   Schema.Struct({ by: Schema.Literal("id"), id: CryptocurrencyId }),
-  Schema.Struct({ by: Schema.Literal("slug"), slug: Schema.NonEmptyString })
+  Schema.Struct({ by: Schema.Literal("slug"), slug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))) })
 ])
 
 /**
@@ -40,7 +40,7 @@ export class CryptocurrencyCmcIdExists extends Schema.TaggedError<Cryptocurrency
  */
 export class CryptocurrencySlugExists extends Schema.TaggedError<CryptocurrencySlugExists>()(
   "CryptocurrencySlugExists",
-  { slug: Schema.NonEmptyString },
+  { slug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))) },
   { httpApiStatus: 409 }
 ) {}
 

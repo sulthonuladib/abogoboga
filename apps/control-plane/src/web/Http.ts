@@ -16,10 +16,13 @@ import type { RawHtml } from "./Html.ts"
  *
  * Full page loads redirect to `/not-found`; HTMX requests receive an
  * `HX-Redirect` header so the browser navigates without swapping a fragment.
+ *
+ * `id` allows empty strings because a missing path parameter decodes to
+ * `EntityMiss` with `id: ""`.
  */
 export class EntityMiss extends Schema.TaggedError<EntityMiss>()("EntityMiss", {
-  kind: Schema.String,
-  id: Schema.String
+  kind: Schema.String.pipe(Schema.check(Schema.isMaxLength(64))),
+  id: Schema.String.pipe(Schema.check(Schema.isMaxLength(64)))
 }) {}
 
 /**
@@ -30,9 +33,9 @@ export class EntityMiss extends Schema.TaggedError<EntityMiss>()("EntityMiss", {
  * strategy (for example `innerHTML`).
  */
 export class InlineProblem extends Schema.TaggedError<InlineProblem>()("InlineProblem", {
-  message: Schema.String,
-  retarget: Schema.optionalKey(Schema.String),
-  reswap: Schema.optionalKey(Schema.String)
+  message: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1024))),
+  retarget: Schema.optionalKey(Schema.String.pipe(Schema.check(Schema.isMaxLength(128)))),
+  reswap: Schema.optionalKey(Schema.String.pipe(Schema.check(Schema.isMaxLength(128))))
 }) {}
 
 /**

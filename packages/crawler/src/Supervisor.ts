@@ -73,7 +73,7 @@ export interface ExchangeSnapshot {
  */
 export class SupervisorConflict extends Schema.TaggedError<SupervisorConflict>()("SupervisorConflict", {
   exchangeId: Schema.Int,
-  message: Schema.String
+  message: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1024)))
 }) {}
 
 /**
@@ -81,8 +81,8 @@ export class SupervisorConflict extends Schema.TaggedError<SupervisorConflict>()
  */
 export class SupervisorSpawnError extends Schema.TaggedError<SupervisorSpawnError>()("SupervisorSpawnError", {
   exchangeId: Schema.Int,
-  shardId: Schema.String,
-  message: Schema.String,
+  shardId: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(64))),
+  message: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1024))),
   cause: Schema.optional(Schema.Defect())
 }) {}
 

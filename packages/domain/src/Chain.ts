@@ -20,8 +20,8 @@ export type ChainId = typeof ChainId.Type
  */
 export class Chain extends Model.Class<Chain>("Chain")({
   id: Model.GeneratedByDb(ChainId),
-  name: Schema.NonEmptyString,
-  code: Schema.NonEmptyString,
+  name: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  code: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   createdAt: Model.DateTimeInsertFromDate,
   updatedAt: Model.DateTimeUpdateFromDate
 }) {}

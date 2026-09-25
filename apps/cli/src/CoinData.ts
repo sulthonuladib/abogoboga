@@ -1,9 +1,4 @@
-import {
-  Database,
-  cryptocurrencyTable,
-  exchangeCryptocurrencyTable,
-  exchangeTable
-} from "@lister/db"
+import { Database, cryptocurrencyTable, exchangeCryptocurrencyTable, exchangeTable } from "@lister/db"
 import { sql } from "drizzle-orm"
 import { Effect, Schema } from "effect"
 
@@ -80,7 +75,7 @@ export type ExchangeKey = (typeof supportedExchanges)[number]["key"]
 
 const optionalBoolean = Schema.optional(Schema.NullOr(Schema.Boolean))
 
-const optionalSymbol = Schema.optional(Schema.NullOr(Schema.String))
+const optionalSymbol = Schema.optional(Schema.NullOr(Schema.String.pipe(Schema.check(Schema.isMaxLength(255)))))
 
 /**
  * One cryptocurrency row in the CMC export file.
@@ -90,10 +85,10 @@ const optionalSymbol = Schema.optional(Schema.NullOr(Schema.String))
  */
 export const coinSchema = Schema.Struct({
   cmcId: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1))),
-  name: Schema.NonEmptyString,
-  symbol: Schema.NonEmptyString,
-  slug: Schema.NonEmptyString,
-  logo: Schema.optional(Schema.NullOr(Schema.String)),
+  name: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  symbol: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  slug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  logo: Schema.optional(Schema.NullOr(Schema.String.pipe(Schema.check(Schema.isMaxLength(255))))),
   indodax: optionalBoolean,
   gateio: optionalBoolean,
   kucoin: optionalBoolean,

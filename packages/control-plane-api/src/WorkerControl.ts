@@ -4,7 +4,7 @@ import { Context, Effect, Layer, Option, PubSub, Ref, Schema, Stream } from "eff
  * Per-shard state shown on the worker monitoring page.
  */
 export const WorkerShardStatus = Schema.Struct({
-  shardId: Schema.String,
+  shardId: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(64))),
   size: Schema.Int,
   restarts: Schema.Int,
   pid: Schema.NullOr(Schema.Int)
@@ -20,7 +20,7 @@ export type WorkerShardStatus = typeof WorkerShardStatus.Type
  */
 export const WorkerStatus = Schema.Struct({
   exchangeId: Schema.Int,
-  exchangeSlug: Schema.String,
+  exchangeSlug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   desired: Schema.Literals(["started", "stopped"]),
   running: Schema.Boolean,
   shards: Schema.Array(WorkerShardStatus),
@@ -51,9 +51,9 @@ export const WorkerEventType = Schema.Literals([
 export const WorkerEvent = Schema.Struct({
   type: WorkerEventType,
   exchangeId: Schema.Int,
-  exchangeSlug: Schema.String,
-  shardId: Schema.NullOr(Schema.String),
-  message: Schema.String,
+  exchangeSlug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  shardId: Schema.NullOr(Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(64)))),
+  message: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1024))),
   at: Schema.Int
 })
 
@@ -73,7 +73,7 @@ export class WorkerConflict extends Schema.TaggedError<WorkerConflict>()(
   {
     exchangeId: Schema.Int,
     action: Schema.Literals(["start", "stop"]),
-    message: Schema.String
+    message: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1024)))
   },
   { httpApiStatus: 409 }
 ) {}
@@ -96,7 +96,7 @@ export class WorkerControlFailure extends Schema.TaggedError<WorkerControlFailur
   "WorkerControlFailure",
   {
     exchangeId: Schema.Int,
-    message: Schema.String
+    message: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1024)))
   },
   { httpApiStatus: 500 }
 ) {}

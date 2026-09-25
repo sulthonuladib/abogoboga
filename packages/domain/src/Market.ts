@@ -24,7 +24,7 @@ export class Market extends Model.Class<Market>("Market")({
   id: Model.GeneratedByDb(MarketId),
   exchangeId: ExchangeId,
   cryptocurrencyId: CryptocurrencyId,
-  exchangeSymbol: Schema.NonEmptyString,
+  exchangeSymbol: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   listed: Schema.Boolean,
   tradeEnabled: Schema.Boolean,
   createdAt: Model.DateTimeInsertFromDate,

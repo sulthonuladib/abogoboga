@@ -21,10 +21,10 @@ export type CryptocurrencyId = typeof CryptocurrencyId.Type
  */
 export class Cryptocurrency extends Model.Class<Cryptocurrency>("Cryptocurrency")({
   id: Model.GeneratedByDb(CryptocurrencyId),
-  name: Schema.NonEmptyString,
-  symbol: Schema.NonEmptyString,
-  slug: Schema.NonEmptyString,
-  logo: Schema.NonEmptyString,
+  name: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  symbol: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  slug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  logo: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   cmcId: Schema.Int,
   createdAt: Model.DateTimeInsertFromDate,
   updatedAt: Model.DateTimeUpdateFromDate

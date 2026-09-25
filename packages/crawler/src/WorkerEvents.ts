@@ -23,9 +23,9 @@ export type WorkerEventType = typeof WorkerEventType.Type
 export const WorkerEvent = Schema.Struct({
   type: WorkerEventType,
   exchangeId: Schema.Int,
-  exchangeSlug: Schema.String,
-  shardId: Schema.NullOr(Schema.String),
-  message: Schema.String,
+  exchangeSlug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  shardId: Schema.NullOr(Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(64)))),
+  message: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1024))),
   at: Schema.Int
 })
 

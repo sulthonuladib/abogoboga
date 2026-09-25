@@ -7,7 +7,7 @@ import { Effect, Option, Schema, SchemaIssue, SchemaTransformation } from "effec
  * rejected.
  */
 export const BootstrapCoin = Schema.Struct({
-  symbol: Schema.NonEmptyString,
+  symbol: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   cmcId: Schema.Int
 })
 
@@ -61,6 +61,7 @@ export const formatBootstrapCoins = (coins: ReadonlyArray<BootstrapCoin>): strin
  * Blank parts are skipped; any invalid part fails decoding instead of throwing.
  */
 export const BootstrapCoinsFromString = Schema.String.pipe(
+  Schema.check(Schema.isMaxLength(8192)),
   Schema.decodeTo(
     Schema.Array(BootstrapCoin),
     SchemaTransformation.transformEffect({

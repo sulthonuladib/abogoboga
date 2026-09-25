@@ -24,9 +24,9 @@ export type ExchangeId = typeof ExchangeId.Type
 export class Exchange extends Model.Class<Exchange>("Exchange")({
   id: Model.GeneratedByDb(ExchangeId),
   cmcId: Schema.Int,
-  name: Schema.NonEmptyString,
-  slug: Schema.NonEmptyString,
-  logo: Schema.NonEmptyString,
+  name: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  slug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  logo: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   registeredOnCmc: Schema.Boolean,
   baseCurrency: Schema.Literals(["usdt", "idr"]),
   createdAt: Model.DateTimeInsertFromDate,

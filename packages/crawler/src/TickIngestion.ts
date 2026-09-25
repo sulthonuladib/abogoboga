@@ -71,7 +71,7 @@ export class OrderbookSnapshots extends Context.Service<OrderbookSnapshots, Orde
  */
 export class TickMappingNotFound extends Schema.TaggedError<TickMappingNotFound>()("TickMappingNotFound", {
   exchangeId: Schema.Int,
-  exchangeSlug: Schema.String,
+  exchangeSlug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   cmcId: Schema.Int
 }) {}
 

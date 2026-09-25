@@ -33,7 +33,7 @@ import { decodeCommandLine } from "./WorkerCommand.ts"
  * underlying websocket/decoding defect.
  */
 export class WorkerSourceError extends Schema.TaggedError<WorkerSourceError>()("WorkerSourceError", {
-  message: Schema.optional(Schema.String),
+  message: Schema.optional(Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1024)))),
   cause: Schema.optional(Schema.Defect())
 }) {}
 

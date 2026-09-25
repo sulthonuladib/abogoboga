@@ -266,18 +266,18 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
 
     const CryptocurrencyListingRow = Schema.Struct({
       exchangeId: ExchangeId,
-      exchangeName: Schema.String,
-      exchangeSlug: Schema.String,
-      exchangeSymbol: Schema.String,
+      exchangeName: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+      exchangeSlug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+      exchangeSymbol: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
       marketId: MarketId,
       listed: Schema.Boolean,
       tradeEnabled: Schema.Boolean,
       chainId: Schema.NullOr(ChainId),
-      chainName: Schema.NullOr(Schema.String),
-      chainCode: Schema.NullOr(Schema.String),
+      chainName: Schema.NullOr(Schema.String.pipe(Schema.check(Schema.isMaxLength(255)))),
+      chainCode: Schema.NullOr(Schema.String.pipe(Schema.check(Schema.isMaxLength(255)))),
       linkId: Schema.NullOr(ChainLinkId),
-      exchangeChainCode: Schema.NullOr(Schema.String),
-      exchangeChainName: Schema.NullOr(Schema.String),
+      exchangeChainCode: Schema.NullOr(Schema.String.pipe(Schema.check(Schema.isMaxLength(255)))),
+      exchangeChainName: Schema.NullOr(Schema.String.pipe(Schema.check(Schema.isMaxLength(255)))),
       withdrawEnabled: Schema.NullOr(Schema.Boolean),
       depositEnabled: Schema.NullOr(Schema.Boolean)
     })

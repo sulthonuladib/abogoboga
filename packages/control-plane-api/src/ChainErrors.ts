@@ -15,7 +15,7 @@ export class ChainNotFound extends Schema.TaggedError<ChainNotFound>()(
  */
 export class ChainCodeExists extends Schema.TaggedError<ChainCodeExists>()(
   "ChainCodeExists",
-  { code: Schema.NonEmptyString },
+  { code: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))) },
   { httpApiStatus: 409 }
 ) {}
 

@@ -15,10 +15,10 @@ export const PaginationMeta = Schema.Struct({
   to: Schema.Int,
   hasNextPage: Schema.Boolean,
   hasPreviousPage: Schema.Boolean,
-  search: Schema.String,
-  searchBy: Schema.String,
-  order: Schema.String,
-  orderBy: Schema.String
+  search: Schema.String.pipe(Schema.check(Schema.isMaxLength(100))),
+  searchBy: Schema.String.pipe(Schema.check(Schema.isMaxLength(32))),
+  order: Schema.String.pipe(Schema.check(Schema.isMaxLength(32))),
+  orderBy: Schema.String.pipe(Schema.check(Schema.isMaxLength(32)))
 })
 
 /**
@@ -40,7 +40,10 @@ export const PaginationQueryFields = {
     Schema.check(Schema.isLessThanOrEqualTo(100)),
     Schema.withDecodingDefaultTypeKey(Effect.succeed(10))
   ),
-  search: Schema.String.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(""))),
+  search: Schema.String.pipe(
+    Schema.check(Schema.isMaxLength(100)),
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(""))
+  ),
   order: Schema.Literals(["asc", "desc"]).pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed("asc")))
 } as const
 

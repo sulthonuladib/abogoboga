@@ -17,8 +17,8 @@ export type PriceLevel = typeof PriceLevel.Type
  * integers.
  */
 export const CanonicalTick = Schema.Struct({
-  exchangeSlug: Schema.NonEmptyString,
-  symbol: Schema.NonEmptyString,
+  exchangeSlug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  symbol: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   cmcId: Schema.Int,
   bids: Schema.Array(PriceLevel),
   asks: Schema.Array(PriceLevel),

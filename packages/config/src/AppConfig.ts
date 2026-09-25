@@ -21,7 +21,7 @@ export const defaultServiceName = "control-plane" as const
 export class MissingDatabaseUrlError extends Schema.TaggedError<MissingDatabaseUrlError>()(
   "MissingDatabaseUrlError",
   {
-    environment: Schema.String
+    environment: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(64)))
   }
 ) {}
 
@@ -31,7 +31,7 @@ export class MissingDatabaseUrlError extends Schema.TaggedError<MissingDatabaseU
 export class InvalidDatabaseUrlError extends Schema.TaggedError<InvalidDatabaseUrlError>()(
   "InvalidDatabaseUrlError",
   {
-    reason: Schema.String
+    reason: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1024)))
   }
 ) {}
 

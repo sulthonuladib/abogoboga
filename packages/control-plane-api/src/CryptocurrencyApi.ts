@@ -59,7 +59,7 @@ export const CryptocurrencyStatsPayload = Schema.Struct({
  */
 export const CryptocurrencyMetadataPayload = Schema.Union([
   Schema.Struct({ id: CryptocurrencyId }),
-  Schema.Struct({ slug: Schema.NonEmptyString })
+  Schema.Struct({ slug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))) })
 ])
 
 /**
@@ -75,11 +75,11 @@ export const CryptocurrencyUpdatePayload = Schema.Struct(Struct.omit(Cryptocurre
  */
 export const CryptocurrencyChainListingResponse = Schema.Struct({
   id: ChainId,
-  name: Schema.NonEmptyString,
-  code: Schema.NonEmptyString,
+  name: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  code: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   linkId: ChainLinkId,
-  exchangeChainCode: Schema.NonEmptyString,
-  exchangeChainName: Schema.NullOr(Schema.String),
+  exchangeChainCode: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  exchangeChainName: Schema.NullOr(Schema.String.pipe(Schema.check(Schema.isMaxLength(255)))),
   withdrawEnabled: Schema.Boolean,
   depositEnabled: Schema.Boolean
 })
@@ -89,9 +89,9 @@ export const CryptocurrencyChainListingResponse = Schema.Struct({
  */
 export const CryptocurrencyMarketListingResponse = Schema.Struct({
   id: ExchangeId,
-  name: Schema.NonEmptyString,
-  slug: Schema.NonEmptyString,
-  symbol: Schema.NonEmptyString,
+  name: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  slug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  symbol: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   marketId: MarketId,
   listed: Schema.Boolean,
   tradeEnabled: Schema.Boolean,

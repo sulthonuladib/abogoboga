@@ -11,7 +11,7 @@ export class InvalidRequest extends Schema.TaggedError<InvalidRequest>()(
   "InvalidRequest",
   {
     kind: Schema.Literals(["params", "headers", "query", "payload"]),
-    message: Schema.String
+    message: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1024)))
   },
   { httpApiStatus: 422 }
 ) {}

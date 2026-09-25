@@ -24,7 +24,7 @@ export class ExchangeCmcIdExists extends Schema.TaggedError<ExchangeCmcIdExists>
  */
 export class ExchangeSlugExists extends Schema.TaggedError<ExchangeSlugExists>()(
   "ExchangeSlugExists",
-  { slug: Schema.NonEmptyString },
+  { slug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))) },
   { httpApiStatus: 409 }
 ) {}
 

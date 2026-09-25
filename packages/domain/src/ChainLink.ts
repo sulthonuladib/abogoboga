@@ -23,10 +23,10 @@ export type ChainLinkId = typeof ChainLinkId.Type
  */
 export class ChainLink extends Model.Class<ChainLink>("ChainLink")({
   id: Model.GeneratedByDb(ChainLinkId),
-  exchangeChainCode: Schema.NonEmptyString,
+  exchangeChainCode: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   exchangeCryptocurrencyId: MarketId,
   chainId: ChainId,
-  exchangeChainName: Schema.NullOr(Schema.String),
+  exchangeChainName: Schema.NullOr(Schema.String.pipe(Schema.check(Schema.isMaxLength(255)))),
   withdrawEnabled: Schema.Boolean,
   depositEnabled: Schema.Boolean,
   createdAt: Model.DateTimeInsertFromDate,
