@@ -3,7 +3,7 @@ import { Config, Context, Effect, Layer, Option, Redacted, Schema } from "effect
 /**
  * Local-dev Postgres URL used when `DATABASE_URL` is unset outside production.
  */
-export const localDatabaseUrl = "postgres://orchestra:change-me-local@localhost:5432/orchestra" as const
+export const localDatabaseUrl = "postgres://abogoboga:abogoboga@localhost:5432/abogoboga" as const
 
 /**
  * Default HTTP port, matching the existing `app.listen(3001)` behavior.

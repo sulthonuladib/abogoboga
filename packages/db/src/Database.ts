@@ -6,6 +6,7 @@ import { migrate } from "drizzle-orm/effect-postgres/migrator"
 import { Config, Context, Effect, Layer } from "effect"
 import type { SqlError } from "effect/unstable/sql/SqlError"
 import { fileURLToPath } from "node:url"
+import { postgresCodecs } from "./PostgresCodecs.ts"
 import { dbRelations } from "./relations.ts"
 
 /**
@@ -16,7 +17,7 @@ import { dbRelations } from "./relations.ts"
  */
 export const defaultMigrationsFolder = fileURLToPath(new URL("../../../drizzle", import.meta.url))
 
-const databaseHandle = makeWithDefaults({ relations: dbRelations })
+const databaseHandle = makeWithDefaults({ relations: dbRelations, codecs: postgresCodecs })
 
 /**
  * Drizzle database handle exposed by the `Database` service.

@@ -48,7 +48,7 @@ export const CoinDrawer = (options: {
   readonly markets: ReadonlyArray<DrawerMarket>
   readonly lists: DrawerLists
 }): RawHtml =>
-  html`<div class="drawer drawer-end drawer-open">
+  html`<div class="drawer drawer-end">
       <input id="coin-drawer" type="checkbox" class="drawer-toggle" checked />
       <div class="drawer-side z-40">
         <label for="coin-drawer" class="drawer-overlay" aria-label="Close drawer"></label>
