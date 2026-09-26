@@ -1,37 +1,30 @@
 import { Schema } from "effect"
 
 /**
- * Binance spot market-data wire types and endpoint constants.
+ * Binance Spot WebSocket market-data wire types and endpoint constants.
  *
- * These mirror the Binance spot WebSocket/REST documentation. Binance carries
- * prices and quantities as strings; the schemas below decode them to numbers so
- * nothing else in the worker touches stringly-typed levels.
+ * Binance carries prices and quantities as strings; the schemas below decode
+ * them to numbers so nothing else in the worker touches stringly-typed levels.
  *
  * @module
  */
 
 /**
- * Raw market-data WebSocket endpoint. The `/ws` path accepts live
- * `SUBSCRIBE`/`UNSUBSCRIBE` control messages over a single connection, which is
- * how this worker adds and removes pairs without reconnecting.
+ * Combined market-data WebSocket endpoint. It wraps each partial-depth payload
+ * with its stream name, identifying the pair because the payload itself does
+ * not contain a symbol.
  */
-export const wsUrl = "wss://data-stream.binance.vision/ws"
+export const wsUrl = "wss://data-stream.binance.vision/stream"
 
 /**
- * Market-data REST base used to fetch order-book snapshots.
+ * Number of top price levels provided on each partial-depth update.
  */
-export const restBaseUrl = "https://data-api.binance.vision"
+export const partialDepthLevels = 20 as const
 
 /**
- * Diff-depth stream suffix (1000ms updates) appended to a lowercased pair.
+ * Partial-depth stream update speed, chosen to match Binance's 100ms stream.
  */
-export const depthStreamSuffix = "@depth"
-
-/**
- * Number of levels requested from the depth snapshot endpoint. Binance accepts
- * up to 5000; 1000 keeps the local book deep without oversized responses.
- */
-export const snapshotLimit = 1000
+export const partialDepthUpdateSpeed = "100ms" as const
 
 /**
  * One Binance price level `[price, quantity]`, decoded from strings.
@@ -39,43 +32,34 @@ export const snapshotLimit = 1000
 const BinancePriceLevel = Schema.Tuple([Schema.FiniteFromString, Schema.FiniteFromString])
 
 /**
- * A depth snapshot returned by `GET /api/v3/depth`.
+ * Complete top-of-book snapshot carried by a Binance partial-depth event.
  */
-export const DepthSnapshot = Schema.Struct({
+export const PartialDepthBook = Schema.Struct({
   lastUpdateId: Schema.Int,
   bids: Schema.Array(BinancePriceLevel),
   asks: Schema.Array(BinancePriceLevel)
 })
 
 /**
- * A depth snapshot returned by `GET /api/v3/depth`.
+ * Complete top-of-book snapshot carried by a Binance partial-depth event.
  */
-export type DepthSnapshot = typeof DepthSnapshot.Type
+export type PartialDepthBook = typeof PartialDepthBook.Type
 
 /**
- * A diff-depth update pushed by the `<symbol>@depth` streams.
- *
- * `U`/`u` are the first/last update ids in the event; they drive the local-book
- * gap and staleness checks. `b`/`a` carry absolute quantities (zero removes the
- * level).
+ * One message from Binance's combined partial-depth WebSocket endpoint.
  */
-export const DepthUpdateEvent = Schema.Struct({
-  e: Schema.Literal("depthUpdate"),
-  E: Schema.Int,
-  s: Schema.String,
-  U: Schema.Int,
-  u: Schema.Int,
-  b: Schema.Array(BinancePriceLevel),
-  a: Schema.Array(BinancePriceLevel)
+export const PartialDepthMessage = Schema.Struct({
+  stream: Schema.NonEmptyString,
+  data: PartialDepthBook
 })
 
 /**
- * A diff-depth update pushed by the `<symbol>@depth` streams.
+ * One message from Binance's combined partial-depth WebSocket endpoint.
  */
-export type DepthUpdateEvent = typeof DepthUpdateEvent.Type
+export type PartialDepthMessage = typeof PartialDepthMessage.Type
 
 /**
- * A live control request sent over the raw `/ws` connection.
+ * A live control request sent over the combined WebSocket connection.
  */
 export const ControlRequest = Schema.Struct({
   method: Schema.Literals(["SUBSCRIBE", "UNSUBSCRIBE"]),
@@ -84,26 +68,31 @@ export const ControlRequest = Schema.Struct({
 })
 
 /**
- * A live control request sent over the raw `/ws` connection.
+ * A live control request sent over the combined WebSocket connection.
  */
 export type ControlRequest = typeof ControlRequest.Type
 
 /**
  * Normalize a bootstrap symbol to Binance pair form (`BTCUSDT`).
  *
- * Binance pairs are uppercase with no separator, while the symbol stored
- * elsewhere in the system may carry a separator (`BTC/USDT`, `BTC-USDT`) or be
- * lowercased. Strip every non-alphanumeric character and uppercase.
+ * Binance pairs are uppercase with no separator and use the USDT quote here.
+ * The symbol stored elsewhere in the system may be base-only (`BTC`), carry a
+ * separator (`BTC/USDT`, `BTC-USDT`), or already include the quote. Normalize
+ * those forms to exactly one `USDT` suffix.
  *
  * @param symbol - Trading symbol from a {@link BootstrapCoin}.
  */
-export const normalizeSymbol = (symbol: string): string =>
-  symbol.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
+export const normalizeSymbol = (symbol: string): string => {
+  const clean = symbol.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
+  const base = clean.endsWith("USDT") ? clean.slice(0, -4) : clean
+
+  return `${base}USDT`
+}
 
 /**
- * Stream name for a pair: `<symbol>@depth` in lowercase.
+ * Partial-depth stream name for a pair, using Binance's top-20 100ms feed.
  *
  * @param symbol - Trading symbol from a {@link BootstrapCoin}.
  */
-export const streamNameFor = (symbol: string): string =>
-  `${normalizeSymbol(symbol).toLowerCase()}${depthStreamSuffix}`
+export const partialDepthStreamFor = (symbol: string): string =>
+  `${normalizeSymbol(symbol).toLowerCase()}@depth${String(partialDepthLevels)}@${partialDepthUpdateSpeed}`

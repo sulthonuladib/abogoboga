@@ -8,7 +8,7 @@ export const WorkerEventType = Schema.Literals([
   "stopped",
   "shard-spawned",
   "shard-exited",
-  "respawn-scheduled",
+  "reconnecting",
   "reconciled"
 ])
 
@@ -26,6 +26,7 @@ export const WorkerEvent = Schema.Struct({
   exchangeSlug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   shardId: Schema.NullOr(Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(64)))),
   message: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1024))),
+  attempt: Schema.optional(Schema.Int),
   at: Schema.Int
 })
 
@@ -91,7 +92,9 @@ const DomainEventsCapacity = 1024
  * @param input - The event fields except `at`.
  * @returns The event with its `at` timestamp filled in.
  */
-export const workerEvent = (input: Omit<WorkerEvent, "at">): Effect.Effect<WorkerEvent> =>
+export const workerEvent = (
+  input: Omit<WorkerEvent, "at">
+): Effect.Effect<WorkerEvent> =>
   Effect.map(Clock.currentTimeMillis, (at) => ({ ...input, at }))
 
 /**
@@ -105,7 +108,7 @@ export class DomainEvents extends Context.Service<DomainEvents, {
   /** Publish one domain event; never fails, drops only when saturated. */
   readonly publish: (event: DomainEvent) => Effect.Effect<void>
   /** Replay recent events, then continue with live events. */
-  readonly subscribe: () => Stream.Stream<DomainEvent>
+  readonly subscribe: Stream.Stream<DomainEvent>
 }>()("lister/crawler/DomainEvents") {
   /**
    * Layer backed by a bounded `PubSub` plus a `Ref` replay history.
@@ -132,17 +135,16 @@ export class DomainEvents extends Context.Service<DomainEvents, {
         Effect.catchCause((cause) => Effect.logError("domain event publish failed", cause))
       )
 
-      const subscribe = (): Stream.Stream<DomainEvent> =>
-        Stream.unwrap(
-          gate.withPermits(1)(
-            Effect.gen(function*() {
-              const past = yield* Ref.get(history)
-              const subscription = yield* PubSub.subscribe(pubsub)
+      const subscribe = Stream.unwrap(
+        gate.withPermits(1)(
+          Effect.gen(function*() {
+            const past = yield* Ref.get(history)
+            const subscription = yield* PubSub.subscribe(pubsub)
 
-              return Stream.concat(Stream.fromIterable(past), Stream.fromSubscription(subscription))
-            })
-          )
+            return Stream.concat(Stream.fromIterable(past), Stream.fromSubscription(subscription))
+          })
         )
+      )
 
       return DomainEvents.of({ publish, subscribe })
     })

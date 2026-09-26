@@ -5,10 +5,12 @@
  */
 export * from "./BootstrapCoin.ts"
 
+export * from "./BootstrapContext.ts"
+
 export * from "./CanonicalTick.ts"
 
-export * from "./StdioWorker.ts"
-
-export * from "./WorkerCommand.ts"
+export * from "./RpcWorker.ts"
 
 export * from "./WorkerRpc.ts"
+
+export * from "./WorkerSource.ts"

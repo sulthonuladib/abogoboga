@@ -235,7 +235,7 @@ describe("tick ingestion", () => {
         )
 
         return yield* Ref.get(writes)
-      }).pipe(Effect.provide(ingestionLayer(entries, writes)), Effect.provide(TestClock.layer()))
+      }).pipe(Effect.provide(Layer.mergeAll(ingestionLayer(entries, writes), TestClock.layer())))
     )
 
     expect(result).toHaveLength(2)

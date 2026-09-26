@@ -3,7 +3,7 @@ import { Option, Schema } from "effect"
 /**
  * One price level: `[price, quantity]`.
  */
-export const PriceLevel = Schema.Tuple([Schema.Number, Schema.Number])
+export const PriceLevel = Schema.Tuple([Schema.Finite, Schema.Finite])
 
 /**
  * One price level: `[price, quantity]`.

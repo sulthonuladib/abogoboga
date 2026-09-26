@@ -111,12 +111,10 @@ const routeDetailRoute = route("GET", "/partials/coins/:id/routes/detail", (requ
     const toId = Number(text(params, "to"))
 
     if (!Number.isSafeInteger(fromId) || !Number.isSafeInteger(toId)) {
-      return yield* Effect.fail(
-        new EntityMiss({
-          kind: "route",
-          id: `${String(coinId)}:${text(params, "from")}-${text(params, "to")}`
-        })
-      )
+      return yield* new EntityMiss({
+        kind: "route",
+        id: `${String(coinId)}:${text(params, "from")}-${text(params, "to")}`
+      })
     }
 
     const cryptocurrency = yield* Cryptocurrency
@@ -135,7 +133,7 @@ const routeDetailRoute = route("GET", "/partials/coins/:id/routes/detail", (requ
     const to = metadata.exchanges.find((market) => market.marketId === toId)
 
     if (from === undefined || to === undefined) {
-      return yield* Effect.fail(new EntityMiss({ kind: "route", id: `${String(fromId)}-${String(toId)}` }))
+      return yield* new EntityMiss({ kind: "route", id: `${String(fromId)}-${String(toId)}` })
     }
 
     const codes = new Map<number, string>()

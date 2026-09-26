@@ -39,14 +39,14 @@ const sourceError = (message: string, cause?: unknown): WorkerSourceError =>
  * gateio worker owner hook.
  *
  * Keeps one raw WebSocket (`/ws/v4`) open and uses live `subscribe`/`unsubscribe`
- * control messages so the subscription set follows the host's stdin commands.
+ * control messages so the subscription set follows the host's live RPC commands.
  * Gate.io's `spot.order_book` channel pushes full limited-depth snapshots, so
  * each update is emitted as a tick directly with no local-book maintenance.
  *
  * - `initial` seeds the subscription set at boot.
  * - `subscribe`/`unsubscribe` mutate that set live.
- * - every `ticks` value is a `CanonicalTick`; the host writes each as one JSON
- *   line on stdout.
+ * - every `ticks` value is a `CanonicalTick`; the host forwards each as
+ *   one tick over the `Ticks` RPC.
  */
 export const source: WorkerSourceFactory = (initial, context) =>
   Effect.gen(function*() {

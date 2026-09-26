@@ -307,7 +307,7 @@ export const makeCoinGeckoLayer = (
         })
       ).pipe(
         Effect.flatMap((raw) =>
-          Schema.decodeUnknownEffect(Schema.Array(CoinListItem))(raw).pipe(
+          Schema.decodeEffect(Schema.Array(CoinListItem))(raw).pipe(
             Effect.mapError((cause) => responseError("listCoins", cause))
           )
         )
@@ -321,7 +321,7 @@ export const makeCoinGeckoLayer = (
           })
         )
 
-        const parsed = yield* Schema.decodeUnknownEffect(rawTickerPage)(raw).pipe(
+        const parsed = yield* Schema.decodeEffect(rawTickerPage)(raw).pipe(
           Effect.mapError((cause) => responseError("exchangeTickers", cause))
         )
 
@@ -351,7 +351,7 @@ export const makeCoinGeckoLayer = (
           })
         )
 
-        const search = yield* Schema.decodeUnknownEffect(rawSearch)(searchRaw).pipe(
+        const search = yield* Schema.decodeEffect(rawSearch)(searchRaw).pipe(
           Effect.mapError((cause) => responseError("exchangeLogo", cause))
         )
 
@@ -368,7 +368,7 @@ export const makeCoinGeckoLayer = (
           })
         )
 
-        const image = yield* Schema.decodeUnknownEffect(rawExchangeImage)(imageRaw).pipe(
+        const image = yield* Schema.decodeEffect(rawExchangeImage)(imageRaw).pipe(
           Effect.mapError((cause) => responseError("exchangeLogo", cause))
         )
 
@@ -391,7 +391,7 @@ export const makeCoinGeckoLayer = (
           })
         )
 
-        const parsed = yield* Schema.decodeUnknownEffect(Schema.Array(rawCoinImage))(raw).pipe(
+        const parsed = yield* Schema.decodeEffect(Schema.Array(rawCoinImage))(raw).pipe(
           Effect.mapError((cause) => responseError("coinImages", cause))
         )
 

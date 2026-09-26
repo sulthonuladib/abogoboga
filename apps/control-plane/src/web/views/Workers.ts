@@ -33,6 +33,23 @@ const transitionButton = (status: WorkerStatus): RawHtml =>
         Start
       </button>`
 
+const shardPhaseTone: Record<WorkerStatus["shards"][number]["phase"], string> = {
+  starting: "badge-ghost",
+  running: "badge-success",
+  reconnecting: "badge-warning"
+}
+
+const shardPhaseBadge = (phase: WorkerStatus["shards"][number]["phase"]): RawHtml =>
+  html`<span class="badge ${shardPhaseTone[phase]} badge-sm">${phase}</span>`
+
+const lastTickTime = (lastTickAt: number | null): RawHtml => {
+  if (lastTickAt === null) return html`<span class="opacity-60">No tick yet</span>`
+
+  const timestamp = new Date(lastTickAt).toISOString()
+
+  return html`<time datetime="${timestamp}">${timestamp}</time>`
+}
+
 const shardTable = (status: WorkerStatus): RawHtml =>
   status.shards.length === 0
     ? html`<p class="text-sm opacity-60">No shards running.</p>`
@@ -43,7 +60,9 @@ const shardTable = (status: WorkerStatus): RawHtml =>
               <th>Shard</th>
               <th>Coins</th>
               <th>Restarts</th>
-              <th>PID</th>
+              <th>Phase</th>
+              <th>Attempt</th>
+              <th>Last tick</th>
             </tr>
           </thead>
           <tbody>
@@ -53,7 +72,9 @@ const shardTable = (status: WorkerStatus): RawHtml =>
                   <td class="font-mono text-xs">${shard.shardId}</td>
                   <td>${shard.size}</td>
                   <td>${shard.restarts}</td>
-                  <td class="font-mono text-xs">${shard.pid === null ? "—" : String(shard.pid)}</td>
+                  <td>${shardPhaseBadge(shard.phase)}</td>
+                  <td>${shard.attempt === null ? "—" : String(shard.attempt)}</td>
+                  <td class="font-mono text-xs">${lastTickTime(shard.lastTickAt)}</td>
                 </tr>`
               )
             )}

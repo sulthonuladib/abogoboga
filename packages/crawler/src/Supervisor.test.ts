@@ -1,44 +1,50 @@
 import { describe, expect, test } from "bun:test"
-import { BunServices } from "@effect/platform-bun"
+import { BunWorker } from "@effect/platform-bun"
 import type { BootstrapCoin, CanonicalTick } from "@lister/worker-contract"
-import { workerArgvMarker } from "@lister/worker-contract"
-import { Duration, Effect, Layer, Ref } from "effect"
+import { Duration, Effect, Layer, Ref, Scope, Stream } from "effect"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { Supervisor, buildWorkerArgv, shardCapacityFor, shardCoins, type ExchangeSnapshot } from "./Supervisor.ts"
-import { DomainEvents } from "./WorkerEvents.ts"
-import { sweepStaleWorkers } from "./Sweep.ts"
+import {
+  Supervisor,
+  shardCapacityFor,
+  shardCoins,
+  type ExchangeSnapshot,
+  type SupervisorLayerOptions
+} from "./Supervisor.ts"
+import { DomainEvents, type WorkerEvent } from "./WorkerEvents.ts"
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url))
 
-const workerPath = (name: string): string =>
-  name === "dummy"
-    ? join(repoRoot, "packages/worker-contract/src/testing/dummy-worker.ts")
-    : fileURLToPath(new URL(`./testing/${name}-worker.ts`, import.meta.url))
+const workerFixture = (name: string): string =>
+  join(repoRoot, "packages/crawler/src/testing", `${name}-worker.ts`)
 
-const dummyWorker = workerPath("dummy")
+const dummyWorker = join(repoRoot, "packages/worker-contract/src/testing/dummy-rpc-worker.ts")
 
-const crashWorker = workerPath("crash")
+const throwingWorker = workerFixture("throwing")
 
-const cleanExitWorker = workerPath("clean-exit")
+const gracefulCloseWorker = workerFixture("graceful-close")
 
-const platformLayer = Layer.mergeAll(DomainEvents.layer, BunServices.layer)
+const reconnectingWorker = workerFixture("reconnecting")
+
+const platformLayer = Layer.mergeAll(DomainEvents.layer, BunWorker.layerPlatform)
 
 const coins = (count: number): ReadonlyArray<BootstrapCoin> =>
   Array.from({ length: count }, (_, index) => ({ symbol: `C${index + 1}`, coingeckoId: `coin-${index + 1}` }))
 
 const btc: BootstrapCoin = { symbol: "BTC", coingeckoId: "bitcoin" }
 
+const eth: BootstrapCoin = { symbol: "ETH", coingeckoId: "ethereum" }
+
 const runSupervisor = <A, E>(
-  workerScript: string,
-  program: (supervisor: Supervisor["Service"]) => Effect.Effect<A, E>
+  options: SupervisorLayerOptions,
+  program: (supervisor: Supervisor["Service"]) => Effect.Effect<A, E, DomainEvents | Scope.Scope>
 ): Promise<A> =>
   Effect.gen(function*() {
     const supervisor = yield* Supervisor
 
     return yield* program(supervisor)
   }).pipe(
-    Effect.provide(Supervisor.layer({ workerScript }).pipe(Layer.provide(platformLayer))),
+    Effect.provide(Supervisor.layer(options).pipe(Layer.provideMerge(platformLayer))),
     Effect.scoped,
     Effect.runPromise
   )
@@ -63,9 +69,9 @@ const shardOf = (
 
 describe("Supervisor shard placement", () => {
   test("chunks coins at capacity and drops tracking on stop", async () => {
-    await runSupervisor(dummyWorker, (supervisor) =>
+    await runSupervisor({ workerScript: dummyWorker }, (supervisor) =>
       Effect.gen(function*() {
-        yield* supervisor.start(1, "dummy-ex", coins(45))
+        yield* supervisor.start(1, "dummy-ex", coins(45)).pipe(Effect.orDie)
 
         const started = yield* supervisor.snapshot
 
@@ -80,162 +86,285 @@ describe("Supervisor shard placement", () => {
   })
 
   test("first-fit fills spare capacity before spawning a shard", async () => {
-    await runSupervisor(dummyWorker, (supervisor) =>
+    await runSupervisor({ workerScript: dummyWorker }, (supervisor) =>
       Effect.gen(function*() {
-        yield* supervisor.start(2, "dummy-ex", coins(39))
-        yield* supervisor.addCoins(2, [{ symbol: "NEW", coingeckoId: "new-coin" }])
+        yield* supervisor.start(2, "dummy-ex", coins(39)).pipe(Effect.orDie)
+        yield* supervisor.addCoins(2, [{ symbol: "NEW", coingeckoId: "new-coin" }]).pipe(Effect.orDie)
 
         expect((yield* supervisor.snapshot)[0]?.shards.map((shard) => shard.coins.length)).toEqual([20, 20])
 
-        yield* supervisor.addCoins(2, [{ symbol: "EXTRA", coingeckoId: "extra-coin" }])
+        yield* supervisor.addCoins(2, [{ symbol: "EXTRA", coingeckoId: "extra-coin" }]).pipe(Effect.orDie)
 
         expect((yield* supervisor.snapshot)[0]?.shards.map((shard) => shard.coins.length)).toEqual([20, 20, 1])
       }))
   })
 
   test("removing the last coin of a shard terminates it", async () => {
-    await runSupervisor(dummyWorker, (supervisor) =>
+    await runSupervisor({ workerScript: dummyWorker }, (supervisor) =>
       Effect.gen(function*() {
         const all = coins(21)
 
-        yield* supervisor.start(3, "dummy-ex", all)
+        yield* supervisor.start(3, "dummy-ex", all).pipe(Effect.orDie)
 
         const last = all[20]
 
         if (last === undefined) return yield* Effect.die(new Error("missing coin"))
 
-        yield* supervisor.removeCoins(3, [last])
+        yield* supervisor.removeCoins(3, [last]).pipe(Effect.orDie)
 
         expect((yield* supervisor.snapshot)[0]?.shards.map((shard) => shard.coins.length)).toEqual([20])
-      }))
-  })
-})
-
-describe("Supervisor lifecycle", () => {
-  test("crash respawn replays the coin set and increments restarts", async () => {
-    await runSupervisor(crashWorker, (supervisor) =>
-      Effect.gen(function*() {
-        yield* supervisor.start(10, "crash-ex", [btc])
-
-        yield* waitUntil(
-          Effect.map(supervisor.snapshot, (snapshot) => (shardOf(snapshot, 10)?.restarts ?? 0) >= 1),
-          "shard respawn"
-        )
-
-        const shard = shardOf(yield* supervisor.snapshot, 10)
-
-        expect(shard?.coins).toEqual([btc])
-        expect(shard?.phase).toBe("backoff")
-        expect(shard?.restarts).toBeGreaterThanOrEqual(1)
+        yield* supervisor.stop(3)
       }))
   })
 
-  test("clean exit drops shard tracking", async () => {
-    await runSupervisor(cleanExitWorker, (supervisor) =>
-      Effect.gen(function*() {
-        yield* supervisor.start(11, "clean-exit-ex", [btc])
-
-        yield* waitUntil(supervisor.isRunning(11).pipe(Effect.map((running) => !running)), "clean exit drop")
-
-        expect(yield* supervisor.snapshot).toEqual([])
-      }))
-  })
-
-  test("stop on a crash-looping shard cancels further respawns", async () => {
-    await runSupervisor(crashWorker, (supervisor) =>
-      Effect.gen(function*() {
-        yield* supervisor.start(12, "crash-ex", [btc])
-
-        yield* waitUntil(
-          Effect.map(supervisor.snapshot, (snapshot) => (shardOf(snapshot, 12)?.restarts ?? 0) >= 1),
-          "first respawn"
-        )
-
-        yield* supervisor.stop(12)
-
-        expect(yield* supervisor.snapshot).toEqual([])
-
-        yield* Effect.sleep(Duration.millis(400))
-
-        expect(yield* supervisor.snapshot).toEqual([])
-      }))
-  })
-})
-
-describe("Supervisor tick forwarding", () => {
-  test("decoded stdout ticks reach the handler", async () => {
+  test("live subscription commands update the worker's tick stream", async () => {
     const ticks = Ref.makeUnsafe<ReadonlyArray<CanonicalTick>>([])
 
-    const layer = Supervisor.layer({
-      workerScript: dummyWorker,
-      onTick: (tick: CanonicalTick) => Ref.update(ticks, (received) => [...received, tick])
-    }).pipe(Layer.provide(platformLayer))
+    await runSupervisor(
+      {
+        workerScript: dummyWorker,
+        onTick: (tick) => Ref.update(ticks, (received) => [...received, tick])
+      },
+      (supervisor) =>
+        Effect.gen(function*() {
+          yield* supervisor.start(4, "dummy-ex", [btc]).pipe(Effect.orDie)
 
-    const program: Effect.Effect<void, never, Supervisor> = Effect.gen(function*() {
-      const supervisor = yield* Supervisor
+          yield* waitUntil(
+            Effect.map(Ref.get(ticks), (received) => received.some((tick) => tick.symbol === "BTC")),
+            "bootstrap BTC tick"
+          )
 
-      yield* supervisor.start(20, "dummy-ex", [btc]).pipe(Effect.orDie)
+          yield* supervisor.addCoins(4, [eth]).pipe(Effect.orDie)
 
-      yield* waitUntil(
-        Effect.map(Ref.get(ticks), (received) => received.some((tick) => tick.symbol === "BTC")),
-        "BTC tick"
-      )
+          yield* waitUntil(
+            Effect.map(Ref.get(ticks), (received) => received.some((tick) => tick.symbol === "ETH")),
+            "live ETH subscription"
+          )
 
-      yield* supervisor.stop(20)
-    })
+          yield* supervisor.removeCoins(4, [eth]).pipe(Effect.orDie)
+          yield* Effect.sleep(Duration.millis(200))
 
-    await Effect.runPromise(Effect.scoped(program.pipe(Effect.provide(layer))))
+          const afterUnsubscribe = yield* Ref.get(ticks).pipe(
+            Effect.map((received) => received.filter((tick) => tick.symbol === "ETH").length)
+          )
+
+          yield* Effect.sleep(Duration.millis(200))
+
+          const later = yield* Ref.get(ticks).pipe(
+            Effect.map((received) => received.filter((tick) => tick.symbol === "ETH").length)
+          )
+
+          expect(later).toBe(afterUnsubscribe)
+          yield* supervisor.stop(4)
+        })
+    )
   })
 })
 
-describe("Supervisor boot sweep", () => {
-  test("sweep terminates argv-signature orphans only", async () => {
-    const orphan = Bun.spawn(
-      ["bun", dummyWorker, workerArgvMarker, "orphan-ex", "shard-9", "BTC:bitcoin"],
-      { stdin: "pipe", stdout: "ignore", stderr: "ignore" }
+describe("Supervisor worker lifecycle", () => {
+  test("safety-net recovery resumes streams with the current coin set", async () => {
+    const spawned: Array<string> = []
+    const ticks = Ref.makeUnsafe<ReadonlyArray<CanonicalTick>>([])
+
+    const result = await runSupervisor(
+      {
+        workerScript: throwingWorker,
+        workerScriptFor: () => {
+          const script = spawned.length === 0 ? throwingWorker : dummyWorker
+
+          spawned.push(script)
+
+          return script
+        },
+        onTick: (tick) => Ref.update(ticks, (received) => [...received, tick])
+      },
+      (supervisor) =>
+        Effect.gen(function*() {
+          yield* supervisor.start(10, "defect-ex", [btc]).pipe(Effect.orDie)
+
+          yield* waitUntil(
+            Effect.map(supervisor.snapshot, (snapshot) => (shardOf(snapshot, 10)?.restarts ?? 0) >= 1),
+            "first safety-net recovery"
+          )
+
+          yield* supervisor.addCoins(10, [eth]).pipe(Effect.orDie)
+
+          yield* waitUntil(
+            Effect.gen(function*() {
+              const received = yield* Ref.get(ticks)
+              const shard = shardOf(yield* supervisor.snapshot, 10)
+
+              return shard?.phase === "running" && received.some((tick) => tick.symbol === "ETH")
+            }),
+            "ticks after worker recovery"
+          )
+
+          const snapshot = yield* supervisor.snapshot
+          const received = yield* Ref.get(ticks)
+
+          yield* supervisor.stop(10)
+
+          return { snapshot, received }
+        })
     )
 
-    try {
-      await Bun.sleep(250)
-
-      const killed = await Effect.runPromise(
-        sweepStaleWorkers().pipe(Effect.provide(BunServices.layer))
-      )
-
-      expect(killed).toContain(orphan.pid)
-
-      await Promise.race([
-        orphan.exited,
-        Bun.sleep(5_000).then(() => {
-          throw new Error("planted orphan was not swept")
-        })
-      ])
-    } finally {
-      try {
-        orphan.kill(9)
-      } catch {
-        // Already reaped.
-      }
-    }
+    expect(spawned).toEqual([throwingWorker, dummyWorker])
+    expect(shardOf(result.snapshot, 10)?.coins).toEqual([btc, eth])
+    expect(result.received.some((tick) => tick.symbol === "ETH")).toBe(true)
   })
 
-  test("sweep matches marker argv and skips the current process", async () => {
-    const killed: Array<number> = []
+  test("stopping during worker recovery prevents another spawn", async () => {
+    let spawnCount = 0
 
-    const result = await Effect.runPromise(
-      sweepStaleWorkers({
-        list: Effect.succeed([
-          { pid: 4242, args: `bun /worker.ts ${workerArgvMarker} ex shard-1 BTC:bitcoin` },
-          { pid: 4343, args: "bun /server.ts" },
-          { pid: 5555, args: `bun /worker.ts ${workerArgvMarker} self shard-1` }
-        ]),
-        kill: (pid) => Effect.sync(() => killed.push(pid)),
-        selfPid: 5555
-      }).pipe(Effect.provide(BunServices.layer))
+    await runSupervisor(
+      {
+        workerScript: throwingWorker,
+        workerScriptFor: () => {
+          spawnCount += 1
+
+          return throwingWorker
+        }
+      },
+      (supervisor) =>
+        Effect.gen(function*() {
+          yield* supervisor.start(11, "crash-loop-ex", [btc]).pipe(Effect.orDie)
+
+          yield* waitUntil(
+            Effect.map(supervisor.snapshot, (snapshot) => (shardOf(snapshot, 11)?.restarts ?? 0) >= 1),
+            "pending worker recovery"
+          )
+
+          yield* supervisor.stop(11)
+          const spawnsAtStop = spawnCount
+
+          expect(yield* supervisor.snapshot).toEqual([])
+
+          yield* Effect.sleep(Duration.millis(1_100))
+
+          expect(spawnCount).toBe(spawnsAtStop)
+        })
     )
+  })
 
-    expect(result).toEqual([4242])
-    expect(killed).toEqual([4242])
+  test("reports worker reconnecting status and resumes ticks", async () => {
+    const ticks = Ref.makeUnsafe<ReadonlyArray<CanonicalTick>>([])
+
+    await runSupervisor(
+      {
+        workerScript: reconnectingWorker,
+        onTick: (tick) => Ref.update(ticks, (received) => [...received, tick])
+      },
+      (supervisor) =>
+        Effect.gen(function*() {
+          const events = yield* DomainEvents
+          const reconnectingEvents = Ref.makeUnsafe<ReadonlyArray<WorkerEvent>>([])
+
+          yield* Effect.forkScoped(
+            events.subscribe.pipe(
+              Stream.filter((event): event is WorkerEvent => event.type === "reconnecting"),
+              Stream.runForEach((event) =>
+                Ref.update(reconnectingEvents, (received) => [...received, event])
+              )
+            )
+          )
+
+          yield* supervisor.start(12, "reconnecting-ex", [btc]).pipe(Effect.orDie)
+
+          yield* waitUntil(
+            Effect.map(supervisor.snapshot, (snapshot) => {
+              const shard = shardOf(snapshot, 12)
+
+              return shard?.phase === "reconnecting" && (shard.attempt ?? 0) >= 1
+            }),
+            "worker reconnecting status"
+          )
+
+          yield* waitUntil(
+            Effect.map(Ref.get(reconnectingEvents), (received) => received.length > 0),
+            "reconnecting lifecycle event"
+          )
+
+          yield* waitUntil(
+            Effect.gen(function*() {
+              const shard = shardOf(yield* supervisor.snapshot, 12)
+              const received = yield* Ref.get(ticks)
+
+              return shard?.phase === "running" && received.some((tick) => tick.symbol === "BTC")
+            }),
+            "ticks after worker reconnect"
+          )
+
+          const event = (yield* Ref.get(reconnectingEvents))[0]
+
+          expect(event?.attempt).toBeGreaterThanOrEqual(1)
+          yield* supervisor.stop(12)
+        })
+    )
+  })
+
+  test("gracefully closes a worker when an exchange stops", async () => {
+    const ticks = Ref.makeUnsafe<ReadonlyArray<CanonicalTick>>([])
+
+    await runSupervisor(
+      {
+        workerScript: gracefulCloseWorker,
+        onTick: (tick) => Ref.update(ticks, (received) => [...received, tick])
+      },
+      (supervisor) =>
+        Effect.gen(function*() {
+          yield* supervisor.start(13, "graceful-close", [btc]).pipe(Effect.orDie)
+          yield* waitUntil(
+            Effect.map(Ref.get(ticks), (received) => received.some((tick) => tick.symbol === "BTC")),
+            "graceful-close worker tick"
+          )
+          yield* supervisor.stop(13)
+
+          expect(yield* supervisor.snapshot).toEqual([])
+        })
+    )
+  })
+
+  test("tracks the local receipt time of shard ticks", async () => {
+    await runSupervisor({ workerScript: dummyWorker }, (supervisor) =>
+      Effect.gen(function*() {
+        yield* supervisor.start(14, "dummy-ex", [btc]).pipe(Effect.orDie)
+
+        yield* waitUntil(
+          Effect.map(supervisor.snapshot, (snapshot) => {
+            const lastTickAt = shardOf(snapshot, 14)?.lastTickAt
+
+            return lastTickAt !== undefined && lastTickAt !== null
+          }),
+          "first shard tick receipt time"
+        )
+
+        const firstReceipt = shardOf(yield* supervisor.snapshot, 14)?.lastTickAt
+
+        if (firstReceipt === undefined || firstReceipt === null) {
+          return yield* Effect.die(new Error("missing first shard tick receipt time"))
+        }
+
+        yield* waitUntil(
+          Effect.map(supervisor.snapshot, (snapshot) => {
+            const lastTickAt = shardOf(snapshot, 14)?.lastTickAt
+
+            return lastTickAt !== undefined && lastTickAt !== null && lastTickAt > firstReceipt
+          }),
+          "newer shard tick receipt time"
+        )
+
+        const latestReceipt = shardOf(yield* supervisor.snapshot, 14)?.lastTickAt
+
+        if (latestReceipt === undefined || latestReceipt === null) {
+          return yield* Effect.die(new Error("missing latest shard tick receipt time"))
+        }
+
+        expect(firstReceipt).toBeGreaterThan(0)
+        expect(latestReceipt).toBeGreaterThan(firstReceipt)
+
+        yield* supervisor.stop(14)
+      })
+    )
   })
 })
 
@@ -251,16 +380,5 @@ describe("Supervisor pure helpers", () => {
     expect(shardCapacityFor("gateio")).toBe(50)
     expect(shardCapacityFor("kucoin")).toBe(20)
     expect(shardCapacityFor("unknown")).toBe(20)
-  })
-
-  test("buildWorkerArgv carries the marker signature and bootstrap coins", () => {
-    expect(buildWorkerArgv("worker.ts", "indodax", "shard-3", [{ symbol: "BTC", coingeckoId: "bitcoin" }])).toEqual([
-      "bun",
-      "worker.ts",
-      workerArgvMarker,
-      "indodax",
-      "shard-3",
-      "BTC:bitcoin"
-    ])
   })
 })

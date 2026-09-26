@@ -5,9 +5,10 @@
  */
 
 import { describe, expect, test } from "bun:test"
-import { WorkerControl } from "@lister/control-plane-api"
+import { WorkerControl, type WorkerStatus } from "@lister/control-plane-api"
 import { Effect } from "effect"
 import { bodyOf, htmxRequest, withTestApp, type TestApp } from "./testing/App.ts"
+import { WorkersList } from "./views/Workers.ts"
 
 const registry = [
   { id: 1, slug: "dummy-ex" },
@@ -18,6 +19,40 @@ const withWorkersApp = <A, E>(use: (app: TestApp) => Effect.Effect<A, E>): Promi
   Effect.runPromise(withTestApp(use, { workerControl: WorkerControl.layerTest(registry) }))
 
 describe("workers page", () => {
+  test("renders the latest tick time or an explicit no-tick state", () => {
+    const shard = {
+      shardId: "shard-1",
+      size: 1,
+      restarts: 0,
+      phase: "running" as const,
+      attempt: null,
+      lastTickAt: null
+    }
+
+    const status: WorkerStatus = {
+      exchangeId: 1,
+      exchangeSlug: "dummy-ex",
+      desired: "started",
+      running: true,
+      shards: [shard],
+      restarts: 0,
+      eligibleCoins: 1
+    }
+
+    const noTickBody = String(WorkersList([status]))
+
+    const tickAt = 1_700_000_000_000
+
+    const tickBody = String(WorkersList([{
+      ...status,
+      shards: [{ ...shard, lastTickAt: tickAt }]
+    }]))
+
+    expect(noTickBody).toContain("No tick yet")
+    expect(tickBody).toContain("<th>Last tick</th>")
+    expect(tickBody).toContain("2023-11-14T22:13:20.000Z")
+  })
+
   test("full load renders the shell, badges, shard slots, polling, and SSE wiring", () =>
     withWorkersApp((app) =>
       Effect.gen(function*() {
@@ -70,6 +105,10 @@ describe("workers page", () => {
         expect(startedBody).toContain("started")
         expect(startedBody).toContain("worker start accepted")
         expect(startedBody).toContain("hx-post=\"/workers/1/stop\"")
+        expect(startedBody).toContain("<th>Phase</th>")
+        expect(startedBody).toContain("<th>Attempt</th>")
+        expect(startedBody).toContain("running")
+        expect(startedBody).not.toContain("PID")
 
         const duplicate = yield* htmxRequest(app, "/workers/1/start", { method: "POST" })
         const duplicateBody = yield* bodyOf(duplicate)

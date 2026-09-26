@@ -53,9 +53,7 @@ const loggedProgram = Effect.gen(function*() {
   yield* Effect.sleep("1 millis").pipe(Effect.withSpan("observability.smoke"))
 }).pipe(Effect.provide(ObservabilityLive))
 
-const loggerProgram = Effect.gen(function*() {
-  yield* Effect.logInfo("logger smoke test")
-}).pipe(Effect.provide(LoggerLive))
+const loggerProgram = Effect.logInfo("logger smoke test").pipe(Effect.provide(LoggerLive))
 
 describe("Observability", () => {
   test("LoggerLive builds and logs outside production", async () => {

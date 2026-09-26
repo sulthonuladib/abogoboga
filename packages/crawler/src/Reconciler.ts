@@ -136,7 +136,7 @@ export class Reconciler extends Context.Service<Reconciler, {
         })
 
       yield* Effect.forkScoped(
-        events.subscribe().pipe(
+        events.subscribe.pipe(
           Stream.runForEach(handle),
           Effect.catchCause((cause) => Effect.logError("reconciler: event handling failed", cause))
         )

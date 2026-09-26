@@ -1,19 +1,22 @@
 /**
- * Test fixture: a runnable worker subprocess built on
- * {@link runStdioWorker} with a synthetic in-memory source.
+ * Test fixture: a runnable RPC worker built on {@link runRpcWorker} with a
+ * synthetic in-memory source.
  *
- * `StdioWorker.test.ts` spawns this file directly. Real exchange apps instead
- * call `BunRuntime.runMain(runStdioWorker(...))` from `@effect/platform-bun`;
- * this fixture uses `Effect.runPromise` to keep the contract package free of
- * the platform runtime.
+ * Spawned as a Bun worker by `RpcSpike.test.ts` and the crawler supervisor
+ * tests. Real exchange apps instead call
+ * `BunRuntime.runMain(Layer.launch(runRpcWorker({ exchangeSlug, source }).pipe(Layer.provide(BunWorkerRunner.layer))))`
+ * from `@effect/platform-bun`.
  *
  * Not exported from the package entrypoint.
  */
-import { Clock, Deferred, Effect, Ref, Stream } from "effect"
+import { BunRuntime, BunWorkerRunner } from "@effect/platform-bun"
+import { Clock, Effect, Layer, Ref, Stream } from "effect"
+import { RpcServer } from "effect/unstable/rpc"
 
 import type { BootstrapCoin } from "../BootstrapCoin.ts"
 import type { CanonicalTick } from "../CanonicalTick.ts"
-import { runStdioWorker, type WorkerSourceFactory } from "../StdioWorker.ts"
+import { runRpcWorker } from "../RpcWorker.ts"
+import type { WorkerSourceFactory } from "../WorkerSource.ts"
 
 /**
  * Subscription identity for the synthetic source.
@@ -45,7 +48,7 @@ const basePrice = (coingeckoId: string): number => {
  * Builds one synthetic book around a deterministic base price.
  *
  * @param coin - Coin the tick belongs to.
- * @param exchangeSlug - Exchange identity from argv.
+ * @param exchangeSlug - Exchange identity from the bootstrap context.
  * @param millis - Emission time in epoch milliseconds (Clock-driven).
  */
 const tickFor = (coin: BootstrapCoin, exchangeSlug: string, millis: number): CanonicalTick => {
@@ -69,15 +72,13 @@ const tickFor = (coin: BootstrapCoin, exchangeSlug: string, millis: number): Can
 
 /**
  * Synthetic source: emits a tick for every subscribed coin every 50ms until
- * `close` completes.
+ * `close` completes. Subscriptions follow live subscribe/unsubscribe calls.
  */
 const source: WorkerSourceFactory = (initial, context) =>
   Effect.gen(function*() {
     const subscriptions = yield* Ref.make<ReadonlyMap<string, BootstrapCoin>>(
       new Map(initial.map((coin): [string, BootstrapCoin] => [keyOf(coin), coin]))
     )
-
-    const closed = yield* Deferred.make<void>()
 
     const ticks = Stream.tick("50 millis").pipe(
       Stream.mapEffect(() =>
@@ -88,8 +89,7 @@ const source: WorkerSourceFactory = (initial, context) =>
           return [...coins.values()].map((coin) => tickFor(coin, context.exchangeSlug, millis))
         })
       ),
-      Stream.flatMap((coins) => Stream.fromIterable(coins)),
-      Stream.interruptWhen(Deferred.await(closed))
+      Stream.flatMap(Stream.fromIterable)
     )
 
     return {
@@ -114,8 +114,13 @@ const source: WorkerSourceFactory = (initial, context) =>
           return next
         }),
       ticks,
-      close: Deferred.succeed(closed, undefined).pipe(Effect.asVoid)
+      close: Effect.void
     }
   })
 
-void Effect.runPromise(runStdioWorker({ exchangeSlug: "dummy", source }))
+BunRuntime.runMain(
+  runRpcWorker({ exchangeSlug: "dummy", source }).pipe(
+    Effect.scoped,
+    Effect.provide(RpcServer.layerProtocolWorkerRunner.pipe(Layer.provideMerge(BunWorkerRunner.layer)))
+  )
+)

@@ -16,25 +16,25 @@ const row = {
 
 describe("Exchange", () => {
   test("database roundtrip", () => {
-    const decoded = Schema.decodeUnknownSync(Exchange)(row)
+    const decoded = Schema.decodeSync(Exchange)(row)
 
     const encoded = Schema.encodeSync(Exchange)(decoded)
 
-    expect(Schema.decodeUnknownSync(Exchange)(encoded)).toEqual(decoded)
+    expect(Schema.decodeSync(Exchange)(encoded)).toEqual(decoded)
   })
 
   test("json roundtrip", () => {
-    const decoded = Schema.decodeUnknownSync(Exchange)(row)
+    const decoded = Schema.decodeSync(Exchange)(row)
 
     const json = Schema.encodeSync(Exchange.json)(decoded)
 
     expect(json.createdAt).toBe("2026-01-01T00:00:00.000Z")
     expect(json.updatedAt).toBe("2026-01-02T00:00:00.000Z")
-    expect(Schema.decodeUnknownSync(Exchange.json)(json)).toEqual(decoded)
+    expect(Schema.decodeSync(Exchange.json)(json)).toEqual(decoded)
   })
 
   test("empty logo decodes as a no-logo state", () => {
-    const decoded = Schema.decodeUnknownSync(Exchange)({ ...row, logo: "" })
+    const decoded = Schema.decodeSync(Exchange)({ ...row, logo: "" })
 
     expect(decoded.logo).toBe("")
   })

@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test"
 import { AppConfig } from "@lister/config"
 import { eq } from "drizzle-orm"
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { Database } from "./Database.ts"
 import { exchangeTable } from "./schema.ts"
 
 const databaseUrl = process.env.DATABASE_URL
+
+const databaseLayer = Database.layer().pipe(Layer.provide(AppConfig.layer))
 
 describe("Database", () => {
   test.skipIf(!databaseUrl)("builds against the configured Postgres and applies migrations", async () => {
@@ -16,7 +18,7 @@ describe("Database", () => {
     })
 
     const rows = await Effect.runPromise(
-      program.pipe(Effect.provide(Database.layer()), Effect.provide(AppConfig.layer), Effect.scoped)
+      program.pipe(Effect.provide(databaseLayer), Effect.scoped)
     )
 
     expect(rows).toBeArray()
@@ -49,7 +51,7 @@ describe("Database", () => {
     })
 
     const { inserted, selected } = await Effect.runPromise(
-      program.pipe(Effect.provide(Database.layer()), Effect.provide(AppConfig.layer), Effect.scoped)
+      program.pipe(Effect.provide(databaseLayer), Effect.scoped)
     )
 
     expect(inserted?.baseCurrency).toBe("idr")

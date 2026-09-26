@@ -5,21 +5,21 @@ import { Clock, Deferred, Effect, Ref, Stream } from "effect"
  * Dummy worker owner hook: the runnable reference implementation of
  * {@link WorkerSourceFactory}.
  *
- * The shared stdio host (`runStdioWorker` in `@lister/worker-contract`) drives
+ * The shared RPC host (`runRpcWorker` in `@lister/worker-contract`) drives
  * this hook exactly like a real exchange:
  *
- * - `initial` carries the bootstrap coins already decoded from argv, and
- *   `context` carries the argv `exchangeSlug`/`shardId`.
- * - `subscribe`/`unsubscribe` arrive as live stdin commands; this source keeps
+ * - `initial` carries the bootstrap coins from the worker's initial message,
+ *   and `context` carries the bootstrap `exchangeSlug`/`shardId`.
+ * - `subscribe`/`unsubscribe` arrive as live RPC commands; this source keeps
  *   the subscription set in a `Ref`, so live changes take effect on the next
  *   tick.
- * - every `ticks` value must be a `CanonicalTick`; the host writes each one as
- *   a single JSON line on stdout.
+ * - every `ticks` value must be a `CanonicalTick`; the host forwards each one
+ *   through the `Ticks` stream RPC.
  *
  * This source fabricates an order book around a deterministic base price for
  * every subscribed coin every 50ms and stops emitting when the host closes it.
  * Real exchange apps replace the synthetic tick stream with their websocket
- * logic (foldered from `src/crawl-workers/subprocesses/<exchange>.ts`).
+ * logic.
  */
 
 /**
@@ -52,7 +52,7 @@ const basePrice = (coingeckoId: string): number => {
  * Builds one synthetic book around a deterministic base price.
  *
  * @param coin - Coin the tick belongs to.
- * @param exchangeSlug - Exchange identity from argv.
+ * @param exchangeSlug - Exchange identity from the bootstrap context.
  * @param millis - Emission time in epoch milliseconds (Clock-driven).
  */
 const tickFor = (coin: BootstrapCoin, exchangeSlug: string, millis: number): CanonicalTick => {
@@ -77,8 +77,8 @@ const tickFor = (coin: BootstrapCoin, exchangeSlug: string, millis: number): Can
 /**
  * Synthetic worker source.
  *
- * @param initial - Bootstrap coins decoded from argv.
- * @param context - Worker identity parsed from argv.
+ * @param initial - Bootstrap coins from the bootstrap context.
+ * @param context - Worker identity from the bootstrap context.
  */
 export const source: WorkerSourceFactory = (initial, context) =>
   Effect.gen(function*() {
