@@ -17,7 +17,7 @@ describe("Database.layerMemory", () => {
       const [exchange] = yield* db
         .insert(exchangeTable)
         .values({
-          cmcId: 270,
+          coingeckoId: "binance",
           name: "Binance",
           slug: "binance",
           logo: "binance.svg",
@@ -28,7 +28,7 @@ describe("Database.layerMemory", () => {
       const [coin] = yield* db
         .insert(cryptocurrencyTable)
         .values({
-          cmcId: 1,
+          coingeckoId: "bitcoin",
           name: "Bitcoin",
           symbol: "BTC",
           slug: "bitcoin",

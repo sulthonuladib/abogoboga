@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test"
 import { BunServices } from "@effect/platform-bun"
 import {
   Database,
+  chainTable,
   cryptocurrencyTable,
+  exchangeCryptocurrencyChainTable,
   exchangeCryptocurrencyTable,
   exchangeTable
 } from "@lister/db"
@@ -11,94 +13,97 @@ import { Command } from "effect/unstable/cli"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { CoinGecko } from "./CoinGecko.ts"
 import { cli } from "./Commands.ts"
-import type { CoinFile } from "./CoinData.ts"
+import type { Snapshot } from "./Scanner.ts"
 
 const runCli = Command.runWith(cli, { version: "1.0.0" })
 
-const writePayload = (fileName: string, payload: CoinFile): string => {
-  const directory = mkdtempSync(join(tmpdir(), "lister-cli-"))
-  const file = join(directory, fileName)
+/**
+ * Stub CoinGecko service so `scan import` (which never calls the network) can
+ * satisfy the command tree's service requirements in tests.
+ */
+const coinGeckoStub = Layer.succeed(
+  CoinGecko,
+  CoinGecko.of({
+    listCoins: Effect.die(new Error("CoinGecko is not used by scan import")),
+    exchangeTickers: () => Effect.die(new Error("CoinGecko is not used by scan import"))
+  })
+)
 
-  writeFileSync(file, JSON.stringify(payload))
+const testServices = Layer.mergeAll(Database.layerMemory(), BunServices.layer, coinGeckoStub)
+
+const snapshot: Snapshot = {
+  version: 1,
+  fetchedAt: "2026-01-01T00:00:00.000Z",
+  exchanges: [
+    {
+      slug: "binance",
+      coingeckoId: "binance",
+      name: "Binance",
+      baseCurrency: "usdt",
+      tickers: [
+        { base: "BTC", target: "USDT", coinId: "bitcoin", targetCoinId: "tether" },
+        { base: "ETH", target: "USDT", coinId: "ethereum", targetCoinId: "tether" }
+      ]
+    },
+    {
+      slug: "gateio",
+      coingeckoId: "gate",
+      name: "Gate.io",
+      baseCurrency: "usdt",
+      tickers: [{ base: "BTC", target: "USDT", coinId: "bitcoin", targetCoinId: "tether" }]
+    }
+  ],
+  coins: [
+    { id: "bitcoin", name: "Bitcoin", symbol: "btc", platforms: {} },
+    { id: "ethereum", name: "Ethereum", symbol: "eth", platforms: { ethereum: "0x0000000000000000000000000000000000000000" } }
+  ]
+}
+
+const writeSnapshot = (name: string, value: Snapshot): string => {
+  const directory = mkdtempSync(join(tmpdir(), "lister-scan-"))
+  const file = join(directory, name)
+
+  writeFileSync(file, JSON.stringify(value))
 
   return file
 }
 
-const firstPayload: CoinFile = {
-  data: [
-    {
-      cmcId: 1,
-      name: "Bitcoin",
-      symbol: "BTC",
-      slug: "bitcoin",
-      binance: true,
-      binanceAlternateSymbol: "BTCUSDT"
-    },
-    {
-      cmcId: 2,
-      name: "Ethereum",
-      symbol: "ETH",
-      slug: "ethereum",
-      binance: true,
-      binanceAlternateSymbol: "ETHUSDT"
-    }
-  ]
-}
-
-const updatedPayload: CoinFile = {
-  data: [
-    {
-      cmcId: 1,
-      name: "Bitcoin Cash",
-      symbol: "BCH",
-      slug: "bitcoin-cash",
-      binance: true,
-      binanceAlternateSymbol: "BCHUSDT"
-    },
-    {
-      cmcId: 2,
-      name: "Ethereum",
-      symbol: "ETH",
-      slug: "ethereum",
-      binance: true,
-      binanceAlternateSymbol: "ETHUSDT"
-    }
-  ]
-}
-
 describe("lister cli", () => {
-  test("seed coin-data upserts idempotently through the Database service", async () => {
-    const file = writePayload("cmc.json", firstPayload)
+  test("scan import upserts snapshot rows idempotently through the Database service", async () => {
+    const file = writeSnapshot("snapshot.json", snapshot)
 
     const program = Effect.gen(function*() {
-      yield* runCli(["seed", "coin-data", "--file", file])
-      yield* runCli(["seed", "coin-data", "--file", file])
+      yield* runCli(["scan", "import", "--file", file])
+      yield* runCli(["scan", "import", "--file", file])
 
       const { db } = yield* Database
 
       return {
         coins: yield* db.select().from(cryptocurrencyTable),
         exchanges: yield* db.select().from(exchangeTable),
-        assignments: yield* db.select().from(exchangeCryptocurrencyTable)
+        markets: yield* db.select().from(exchangeCryptocurrencyTable),
+        chains: yield* db.select().from(chainTable),
+        links: yield* db.select().from(exchangeCryptocurrencyChainTable)
       }
     })
 
     // SAFETY: `Command.runWith` infers `unknown` for E/R on Effect v4 RC
-    // (`cli` unions four handlers with distinct stores). The provided
-    // `Database.layerMemory()` + `BunServices.layer` satisfy every concrete
-    // requirement (Database, FileSystem, Path, Terminal, Stdio,
-    // ChildProcessSpawner); runtime `bun test` passes. Narrow to `never`
-    // requirements so `runPromise` accepts the fully-provided program.
-    // Proper fix (explicit handler Return types) belongs to 9.x.
+    // (`cli` unions handlers with distinct service needs). The provided
+    // `Database.layerMemory()` + `BunServices.layer` satisfy the `scan import`
+    // handler at runtime. Narrow to `never` requirements so `runPromise`
+    // accepts the fully-provided program.
     const provided = program.pipe(
-      Effect.provide(Layer.merge(Database.layerMemory(), BunServices.layer)),
+      Effect.provide(testServices),
       Effect.scoped
     ) as Effect.Effect<
       {
         readonly coins: ReadonlyArray<typeof cryptocurrencyTable.$inferSelect>
         readonly exchanges: ReadonlyArray<typeof exchangeTable.$inferSelect>
-        readonly assignments: ReadonlyArray<typeof exchangeCryptocurrencyTable.$inferSelect>
+        readonly markets: ReadonlyArray<typeof exchangeCryptocurrencyTable.$inferSelect>
+        readonly chains: ReadonlyArray<typeof chainTable.$inferSelect>
+        readonly links: ReadonlyArray<typeof exchangeCryptocurrencyChainTable.$inferSelect>
       },
       unknown,
       never
@@ -107,40 +112,41 @@ describe("lister cli", () => {
     const result = await Effect.runPromise(provided)
 
     expect(result.coins).toHaveLength(2)
-    expect(result.exchanges).toHaveLength(8)
-    expect(result.assignments).toHaveLength(2)
+    expect(result.exchanges).toHaveLength(2)
+    expect(result.markets).toHaveLength(3)
+    expect(result.chains).toHaveLength(1)
+    expect(result.chains[0]?.code).toBe("UNMAPPED")
+    expect(result.links).toHaveLength(3)
+    expect(result.links.every((link) => link.exchangeChainCode === "UNMAPPED")).toBe(true)
+
+    expect(result.exchanges.find((exchange) => exchange.slug === "gateio")?.coingeckoId).toBe("gate")
+    expect(result.coins.find((coin) => coin.slug === "bitcoin")?.coingeckoId).toBe("bitcoin")
   })
 
-  test("seed coin-data refreshes conflicting rows without duplicating them", async () => {
-    const firstFile = writePayload("first.json", firstPayload)
-    const updatedFile = writePayload("updated.json", updatedPayload)
+  test("scan import honors fallback chain name and code overrides", async () => {
+    const file = writeSnapshot("override.json", snapshot)
 
     const program = Effect.gen(function*() {
-      yield* runCli(["seed", "coin-data", "--file", firstFile])
-      yield* runCli(["seed", "coin-data", "--file", updatedFile])
+      yield* runCli(["scan", "import", "--file", file, "--unmapped-name", "Mystery", "--unmapped-code", "MYSTERY"])
 
       const { db } = yield* Database
-      const coins = yield* db.select().from(cryptocurrencyTable)
-      const assignments = yield* db.select().from(exchangeCryptocurrencyTable)
 
       return {
-        coins,
-        bitcoin: coins.find((coin) => coin.cmcId === 1),
-        assignment: assignments.find((assignment) => assignment.cryptocurrencyId === 1)
+        chains: yield* db.select().from(chainTable),
+        links: yield* db.select().from(exchangeCryptocurrencyChainTable)
       }
     })
 
-    // SAFETY: Same `Command.runWith` unknown-inference as above; layers satisfy
-    // all concrete requirements and runtime passes. Narrow to `never` for
-    // `runPromise`. Proper fix belongs to 9.x.
+    // SAFETY: Same `Command.runWith` unknown-inference as above; `testServices`
+    // satisfies all concrete requirements and runtime passes. Narrow to
+    // `never` for `runPromise`.
     const provided = program.pipe(
-      Effect.provide(Layer.merge(Database.layerMemory(), BunServices.layer)),
+      Effect.provide(testServices),
       Effect.scoped
     ) as Effect.Effect<
       {
-        readonly coins: ReadonlyArray<typeof cryptocurrencyTable.$inferSelect>
-        readonly bitcoin: (typeof cryptocurrencyTable.$inferSelect) | undefined
-        readonly assignment: (typeof exchangeCryptocurrencyTable.$inferSelect) | undefined
+        readonly chains: ReadonlyArray<typeof chainTable.$inferSelect>
+        readonly links: ReadonlyArray<typeof exchangeCryptocurrencyChainTable.$inferSelect>
       },
       unknown,
       never
@@ -148,19 +154,17 @@ describe("lister cli", () => {
 
     const result = await Effect.runPromise(provided)
 
-    expect(result.coins).toHaveLength(2)
-    expect(result.bitcoin?.name).toBe("Bitcoin Cash")
-    expect(result.bitcoin?.symbol).toBe("BCH")
-    expect(result.bitcoin?.slug).toBe("bitcoin-cash")
-    expect(result.assignment?.exchangeSymbol).toBe("BCHUSDT")
+    expect(result.chains[0]?.name).toBe("Mystery")
+    expect(result.chains[0]?.code).toBe("MYSTERY")
+    expect(result.links.every((link) => link.exchangeChainCode === "MYSTERY")).toBe(true)
   })
 
   test("migrate applies migrations against the provided database", async () => {
     // SAFETY: Same `Command.runWith` unknown-inference as above; layers satisfy
     // all concrete requirements and runtime passes. Narrow to `never` for
-    // `runPromise`. Proper fix belongs to 9.x.
+    // `runPromise`.
     const provided = runCli(["migrate"]).pipe(
-      Effect.provide(Layer.merge(Database.layerMemory(), BunServices.layer)),
+      Effect.provide(testServices),
       Effect.scoped
     ) as Effect.Effect<void, unknown, never>
 

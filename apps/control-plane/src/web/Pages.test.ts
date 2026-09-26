@@ -63,7 +63,7 @@ describe("SSR pages", () => {
           const exchange = yield* seedExchange(app.services, {
             name: "Binance",
             slug: "binance",
-            cmcId: 270,
+            coingeckoId: "binance",
             logo: "https://example.com/exchange.png",
             registeredOnCmc: true,
             baseCurrency: "usdt"
@@ -76,7 +76,7 @@ describe("SSR pages", () => {
             name: "Bitcoin",
             slug: "bitcoin",
             logo: "https://example.com/btc.png",
-            cmcId: 1
+            coingeckoId: "bitcoin"
           })
 
           const exchangeFull = yield* bodyOf(yield* app.request(`/exchanges/${String(exchange.id)}`))

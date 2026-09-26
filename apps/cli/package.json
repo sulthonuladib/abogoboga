@@ -9,6 +9,7 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
+    "@coingecko/coingecko-typescript": "8.1.0",
     "@effect/platform-bun": "^4.0.0-rc.115",
     "@lister/config": "workspace:*",
     "@lister/crawler": "workspace:*",

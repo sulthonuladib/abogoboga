@@ -17,7 +17,7 @@ import {
   type CryptocurrencyStatsSort
 } from "./Cryptocurrency.ts"
 import {
-  CryptocurrencyCmcIdExists,
+  CryptocurrencyCoingeckoIdExists,
   CryptocurrencyNotFound,
   CryptocurrencySlugExists
 } from "./CryptocurrencyErrors.ts"
@@ -33,7 +33,7 @@ export const CryptocurrencyListPayload = Schema.Struct({
     Schema.withDecodingDefaultTypeKey(Effect.succeed("symbol" satisfies CryptocurrencySearchFieldType))
   ),
   orderBy: CryptocurrencyOrderField.pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed("cmcId" satisfies CryptocurrencyOrderFieldType))
+    Schema.withDecodingDefaultTypeKey(Effect.succeed("coingeckoId" satisfies CryptocurrencyOrderFieldType))
   ),
   exchangeId: Schema.optional(ExchangeId),
   chainId: Schema.optional(ChainId)
@@ -149,9 +149,9 @@ export class CryptocurrencyApiGroup extends HttpApiGroup.make("cryptocurrency")
     HttpApiEndpoint.post("add", "/cryptocurrency/add", {
       payload: CryptocurrencyModel.jsonCreate,
       success: CryptocurrencyModel.json,
-      error: [CryptocurrencyCmcIdExists, CryptocurrencySlugExists]
+      error: [CryptocurrencyCoingeckoIdExists, CryptocurrencySlugExists]
     }).annotateMerge(
-      documented("cryptocurrency.add", "Add cryptocurrency", "Create a cryptocurrency, rejecting duplicate cmcId or slug.")
+      documented("cryptocurrency.add", "Add cryptocurrency", "Create a cryptocurrency, rejecting duplicate coingeckoId or slug.")
     ),
     HttpApiEndpoint.post("list", "/cryptocurrency/list", {
       payload: CryptocurrencyListPayload,
@@ -195,12 +195,12 @@ export class CryptocurrencyApiGroup extends HttpApiGroup.make("cryptocurrency")
       params: { id: CryptocurrencyId },
       payload: CryptocurrencyUpdatePayload,
       success: CryptocurrencyModel.json,
-      error: [CryptocurrencyCmcIdExists, CryptocurrencySlugExists, CryptocurrencyNotFound]
+      error: [CryptocurrencyCoingeckoIdExists, CryptocurrencySlugExists, CryptocurrencyNotFound]
     }).annotateMerge(
       documented(
         "cryptocurrency.update",
         "Update cryptocurrency",
-        "Update a cryptocurrency, rejecting duplicate cmcId or slug."
+        "Update a cryptocurrency, rejecting duplicate coingeckoId or slug."
       )
     ),
     HttpApiEndpoint.delete("remove", "/cryptocurrency/:id", {

@@ -161,17 +161,17 @@ export const buildWorkerArgv = (
   workerArgvMarker,
   exchangeSlug,
   shardId,
-  coins.map((coin) => `${coin.symbol}:${coin.cmcId}`).join(",")
+  coins.map((coin) => `${coin.symbol}:${coin.coingeckoId}`).join(",")
 ]
 
 /**
- * Subscription identity of one coin: `SYMBOL:cmcId`.
+ * Subscription identity of one coin: `SYMBOL:coingeckoId`.
  *
  * @param coin - Coin to key.
  * @returns The stable subscription key.
  */
-export const coinKey = (coin: Pick<BootstrapCoin, "symbol" | "cmcId">): string =>
-  `${coin.symbol}:${coin.cmcId}`
+export const coinKey = (coin: Pick<BootstrapCoin, "symbol" | "coingeckoId">): string =>
+  `${coin.symbol}:${coin.coingeckoId}`
 
 /**
  * Mutable per-shard state owned by the supervisor fiber for that shard.

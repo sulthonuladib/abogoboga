@@ -14,13 +14,13 @@ export interface ExchangeCryptocurrencyRef {
 }
 
 /**
- * Persistence port resolving a tick's `(exchangeId, cmcId)` into a mapping.
+ * Persistence port resolving a tick's `(exchangeId, coingeckoId)` into a mapping.
  */
 export type MarketMappingsService = {
-  /** Look up the mapping for one exchange and CoinMarketCap id. */
+  /** Look up the mapping for one exchange and CoinGecko id. */
   readonly lookup: (
     exchangeId: number,
-    cmcId: number
+    coingeckoId: string
   ) => Effect.Effect<Option.Option<ExchangeCryptocurrencyRef>>
 }
 
@@ -72,7 +72,7 @@ export class OrderbookSnapshots extends Context.Service<OrderbookSnapshots, Orde
 export class TickMappingNotFound extends Schema.TaggedError<TickMappingNotFound>()("TickMappingNotFound", {
   exchangeId: Schema.Int,
   exchangeSlug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
-  cmcId: Schema.Int
+  coingeckoId: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255)))
 }) {}
 
 /**
@@ -104,13 +104,13 @@ export class TickIngestion extends Context.Service<TickIngestion, {
 
       const ingest = (tick: CanonicalTick, context: TickContext): Effect.Effect<void, TickMappingNotFound> =>
         Effect.gen(function*() {
-          const ref = yield* mappings.lookup(context.exchangeId, tick.cmcId)
+          const ref = yield* mappings.lookup(context.exchangeId, tick.coingeckoId)
 
           if (Option.isNone(ref)) {
             return yield* new TickMappingNotFound({
               exchangeId: context.exchangeId,
               exchangeSlug: context.exchangeSlug,
-              cmcId: tick.cmcId
+              coingeckoId: tick.coingeckoId
             })
           }
 

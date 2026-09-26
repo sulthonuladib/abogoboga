@@ -1,7 +1,7 @@
 import { Exchange as ExchangeModel, type ExchangeId } from "@lister/domain"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import {
-  ExchangeCmcIdExists,
+  ExchangeCoingeckoIdExists,
   ExchangeError,
   ExchangeNotFound,
   ExchangeSlugExists
@@ -21,7 +21,7 @@ export type ExchangeUpdate = typeof ExchangeModel.jsonUpdate.Type
 /**
  * Exchange fields that text search can target.
  */
-export const ExchangeSearchField = Schema.Literals(["id", "name", "slug", "cmcId"])
+export const ExchangeSearchField = Schema.Literals(["id", "name", "slug", "coingeckoId"])
 
 /**
  * Decoded exchange search field.
@@ -31,7 +31,7 @@ export type ExchangeSearchField = typeof ExchangeSearchField.Type
 /**
  * Exchange fields that list results can be ordered by.
  */
-export const ExchangeOrderField = Schema.Literals(["id", "cmcId", "name", "slug", "createdAt", "updatedAt"])
+export const ExchangeOrderField = Schema.Literals(["id", "coingeckoId", "name", "slug", "createdAt", "updatedAt"])
 
 /**
  * Decoded exchange order field.
@@ -78,18 +78,18 @@ export type ExchangeStoreService = {
   /** Find an exchange by primary key. */
   readonly findById: (id: ExchangeId) => Effect.Effect<Option.Option<ExchangeModel>>
   /** Find an exchange by CoinMarketCap id. */
-  readonly findByCmcId: (cmcId: number) => Effect.Effect<Option.Option<ExchangeModel>>
+  readonly findByCoingeckoId: (coingeckoId: string) => Effect.Effect<Option.Option<ExchangeModel>>
   /** Find an exchange by slug. */
   readonly findBySlug: (slug: string) => Effect.Effect<Option.Option<ExchangeModel>>
   /** Insert an exchange, translating unique violations into conflicts. */
   readonly insert: (
     input: ExchangeCreate
-  ) => Effect.Effect<ExchangeModel, ExchangeCmcIdExists | ExchangeSlugExists>
+  ) => Effect.Effect<ExchangeModel, ExchangeCoingeckoIdExists | ExchangeSlugExists>
   /** Update an exchange, returning `none` when it no longer exists. */
   readonly update: (
     id: ExchangeId,
     input: ExchangeUpdate
-  ) => Effect.Effect<Option.Option<ExchangeModel>, ExchangeCmcIdExists | ExchangeSlugExists>
+  ) => Effect.Effect<Option.Option<ExchangeModel>, ExchangeCoingeckoIdExists | ExchangeSlugExists>
   /** Delete an exchange, returning the deleted row when it existed. */
   readonly remove: (id: ExchangeId) => Effect.Effect<Option.Option<ExchangeModel>>
 }
@@ -114,9 +114,9 @@ export class Exchange extends Context.Service<
     readonly list: (query: ExchangeListQuery) => Effect.Effect<ExchangePage, ExchangeError>
     /** Fetch an exchange by id. */
     readonly getById: (id: ExchangeId) => Effect.Effect<ExchangeModel, ExchangeError>
-    /** Create an exchange, rejecting duplicate `cmcId` and `slug`. */
+    /** Create an exchange, rejecting duplicate `coingeckoId` and `slug`. */
     readonly add: (input: ExchangeCreate) => Effect.Effect<ExchangeModel, ExchangeError>
-    /** Update an exchange, rejecting duplicate `cmcId` and `slug`. */
+    /** Update an exchange, rejecting duplicate `coingeckoId` and `slug`. */
     readonly update: (id: ExchangeId, input: ExchangeUpdate) => Effect.Effect<ExchangeModel, ExchangeError>
     /** Delete an exchange, failing when it does not exist. */
     readonly remove: (id: ExchangeId) => Effect.Effect<ExchangeModel, ExchangeError>
@@ -132,7 +132,7 @@ export class Exchange extends Context.Service<
 
       const notFound = (id: ExchangeId) => new ExchangeError({ reason: new ExchangeNotFound({ id }) })
 
-      const fromStoreError = (reason: ExchangeCmcIdExists | ExchangeSlugExists) => new ExchangeError({ reason })
+      const fromStoreError = (reason: ExchangeCoingeckoIdExists | ExchangeSlugExists) => new ExchangeError({ reason })
 
       const list = Effect.fn("Exchange.list")(function*(
         query: ExchangeListQuery
@@ -168,10 +168,10 @@ export class Exchange extends Context.Service<
       const add = Effect.fn("Exchange.add")(function*(
         input: ExchangeCreate
       ): Effect.fn.Return<ExchangeModel, ExchangeError> {
-        const byCmcId = yield* store.findByCmcId(input.cmcId)
+        const byCoingeckoId = yield* store.findByCoingeckoId(input.coingeckoId)
 
-        if (Option.isSome(byCmcId)) {
-          return yield* new ExchangeError({ reason: new ExchangeCmcIdExists({ cmcId: input.cmcId }) })
+        if (Option.isSome(byCoingeckoId)) {
+          return yield* new ExchangeError({ reason: new ExchangeCoingeckoIdExists({ coingeckoId: input.coingeckoId }) })
         }
 
         const bySlug = yield* store.findBySlug(input.slug)
@@ -193,11 +193,11 @@ export class Exchange extends Context.Service<
           return yield* notFound(id)
         }
 
-        if (input.cmcId !== undefined) {
-          const byCmcId = yield* store.findByCmcId(input.cmcId)
+        if (input.coingeckoId !== undefined) {
+          const byCoingeckoId = yield* store.findByCoingeckoId(input.coingeckoId)
 
-          if (Option.isSome(byCmcId) && byCmcId.value.id !== id) {
-            return yield* new ExchangeError({ reason: new ExchangeCmcIdExists({ cmcId: input.cmcId }) })
+          if (Option.isSome(byCoingeckoId) && byCoingeckoId.value.id !== id) {
+            return yield* new ExchangeError({ reason: new ExchangeCoingeckoIdExists({ coingeckoId: input.coingeckoId }) })
           }
         }
 

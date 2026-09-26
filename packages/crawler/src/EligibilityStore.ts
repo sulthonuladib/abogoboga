@@ -31,7 +31,7 @@ export const layer: Layer.Layer<Eligibility, never, Database> = Layer.effect(
       const rows = yield* db
         .selectDistinct({
           symbol: cryptocurrencyTable.symbol,
-          cmcId: cryptocurrencyTable.cmcId
+          coingeckoId: cryptocurrencyTable.coingeckoId
         })
         .from(exchangeCryptocurrencyTable)
         .innerJoin(

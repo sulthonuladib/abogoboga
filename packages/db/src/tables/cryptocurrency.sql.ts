@@ -7,6 +7,6 @@ export const cryptocurrencyTable = pg.pgTable("cryptocurrency", {
   symbol: pg.varchar({ length: 255 }).notNull(),
   slug: pg.varchar({ length: 255 }).notNull().unique(),
   logo: pg.varchar({ length: 255 }).notNull(),
-  cmcId: pg.integer().notNull().unique(),
+  coingeckoId: pg.varchar({ length: 255 }).notNull().unique(),
   ...addDefaultTimestampFields(),
 });

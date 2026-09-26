@@ -14,7 +14,7 @@ export type ExchangeRow = {
   readonly id: number
   readonly name: string
   readonly slug: string
-  readonly cmcId: number
+  readonly coingeckoId: string
   readonly baseCurrency: string
   readonly registeredOnCmc: boolean
   readonly coins: number
@@ -70,7 +70,7 @@ export const ExchangesTableWrap = (options: {
                     html`<tr id="exchange-row-${String(row.id)}" class="hover">
                       <td>
                         <div class="font-bold">${row.name}</div>
-                        <div class="text-xs opacity-60">CMC ${String(row.cmcId)}</div>
+                        <div class="text-xs opacity-60">CoinGecko ${row.coingeckoId}</div>
                       </td>
                       <td class="hidden font-mono text-xs opacity-70 md:table-cell">${row.slug}</td>
                       <td class="hidden md:table-cell">
@@ -180,7 +180,7 @@ export const ExchangesPageBody = (options: {
  */
 export const ExchangeFormFragment = (options: {
   readonly mode: "create" | "edit"
-  readonly exchange?: { readonly id: number; readonly name: string; readonly slug: string; readonly cmcId: number; readonly baseCurrency: string } | undefined
+  readonly exchange?: { readonly id: number; readonly name: string; readonly slug: string; readonly coingeckoId: string; readonly baseCurrency: string } | undefined
   readonly error?: string | undefined
   readonly action: string
 }): RawHtml =>
@@ -192,11 +192,11 @@ export const ExchangeFormFragment = (options: {
       ${Field({ label: "Name *", children: TextInput({ name: "name", placeholder: "Binance", required: true, value: options.exchange?.name ?? "" }) })}
       ${Field({ label: "Slug", children: TextInput({ name: "slug", placeholder: "binance", value: options.exchange?.slug ?? "" }) })}
       ${Field({
-        label: "CMC id",
+        label: "CoinGecko id",
         children: TextInput({
-          name: "cmcId",
-          placeholder: "270",
-          value: options.exchange === undefined ? "" : String(options.exchange.cmcId)
+          name: "coingeckoId",
+          placeholder: "binance",
+          value: options.exchange === undefined ? "" : options.exchange.coingeckoId
         })
       })}
       ${Field({
@@ -224,13 +224,13 @@ export const ExchangeFormFragment = (options: {
  * @returns The detail fragment.
  */
 export const ExchangeDetailBody = (options: {
-  readonly exchange: { readonly id: number; readonly name: string; readonly slug: string; readonly cmcId: number; readonly baseCurrency: string; readonly registeredOnCmc: boolean }
+  readonly exchange: { readonly id: number; readonly name: string; readonly slug: string; readonly coingeckoId: string; readonly baseCurrency: string; readonly registeredOnCmc: boolean }
   readonly coins: number
 }): RawHtml =>
   html`<div>
     ${PageHeader({
       title: options.exchange.name,
-      subtitle: `Slug ${options.exchange.slug} · CMC ${String(options.exchange.cmcId)} · ${String(options.coins)} coins`,
+      subtitle: `Slug ${options.exchange.slug} · CoinGecko ${options.exchange.coingeckoId} · ${String(options.coins)} coins`,
       actions: html`<button
           class="btn btn-ghost btn-sm"
           hx-get="/exchanges/${String(options.exchange.id)}/edit"

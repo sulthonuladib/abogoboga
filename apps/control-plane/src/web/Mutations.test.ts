@@ -4,25 +4,25 @@ import { bodyOf, formBody, htmxRequest, withTestApp } from "./testing/App.ts"
 import { seedChain, seedCoin, seedExchange, seedMarket } from "./testing/fixtures.ts"
 
 describe("SSR coin mutations", () => {
-  test("create validates input, succeeds, and rejects a duplicate CMC id", async () => {
+  test("create validates input, succeeds, and rejects a duplicate CoinGecko id", async () => {
     const result = await Effect.runPromise(
       withTestApp((app) =>
         Effect.gen(function*() {
           const invalid = yield* htmxRequest(app, "/coins", {
             method: "POST",
-            body: formBody({ symbol: "", cmcId: "1" })
+            body: formBody({ symbol: "", coingeckoId: "bitcoin" })
           })
 
           const created = yield* htmxRequest(app, "/coins", {
             method: "POST",
-            body: formBody({ symbol: "BTC", name: "Bitcoin", slug: "bitcoin", cmcId: "1", logo: "" })
+            body: formBody({ symbol: "BTC", name: "Bitcoin", slug: "bitcoin", coingeckoId: "bitcoin", logo: "" })
           })
 
           const listed = yield* htmxRequest(app, "/partials/coins")
 
           const duplicate = yield* htmxRequest(app, "/coins", {
             method: "POST",
-            body: formBody({ symbol: "BTC2", name: "Bitcoin Cash", slug: "bitcoin-cash", cmcId: "1", logo: "" })
+            body: formBody({ symbol: "BTC2", name: "Bitcoin Cash", slug: "bitcoin-cash", coingeckoId: "bitcoin", logo: "" })
           })
 
           return {
@@ -53,12 +53,12 @@ describe("SSR coin mutations", () => {
             name: "Bitcoin",
             slug: "bitcoin",
             logo: "https://example.com/btc.png",
-            cmcId: 1
+            coingeckoId: "bitcoin"
           })
 
           const updated = yield* htmxRequest(app, `/coins/${String(coin.id)}`, {
             method: "POST",
-            body: formBody({ symbol: "WBTC", name: "Wrapped Bitcoin", slug: "wrapped-bitcoin", cmcId: "1" })
+            body: formBody({ symbol: "WBTC", name: "Wrapped Bitcoin", slug: "wrapped-bitcoin", coingeckoId: "bitcoin" })
           })
 
           const afterUpdate = yield* htmxRequest(app, "/partials/coins")
@@ -93,13 +93,13 @@ describe("SSR exchange mutations", () => {
             name: "Bitcoin",
             slug: "bitcoin",
             logo: "https://example.com/btc.png",
-            cmcId: 1
+            coingeckoId: "bitcoin"
           })
 
           const guarded = yield* seedExchange(app.services, {
             name: "Binance",
             slug: "binance",
-            cmcId: 270,
+            coingeckoId: "binance",
             logo: "https://example.com/exchange.png",
             registeredOnCmc: true,
             baseCurrency: "usdt"
@@ -108,7 +108,7 @@ describe("SSR exchange mutations", () => {
           const free = yield* seedExchange(app.services, {
             name: "Kraken",
             slug: "kraken",
-            cmcId: 24,
+            coingeckoId: "kraken",
             logo: "https://example.com/exchange.png",
             registeredOnCmc: true,
             baseCurrency: "usdt"
@@ -133,7 +133,7 @@ describe("SSR exchange mutations", () => {
 
           const created = yield* htmxRequest(app, "/exchanges", {
             method: "POST",
-            body: formBody({ name: "Coinbase", slug: "coinbase", cmcId: "89", baseCurrency: "usdt" })
+            body: formBody({ name: "Coinbase", slug: "coinbase", coingeckoId: "coinbase", baseCurrency: "usdt" })
           })
 
           const afterCreate = yield* htmxRequest(app, "/partials/exchanges")
@@ -172,13 +172,13 @@ describe("SSR chain mutations", () => {
             name: "Bitcoin",
             slug: "bitcoin",
             logo: "https://example.com/btc.png",
-            cmcId: 1
+            coingeckoId: "bitcoin"
           })
 
           const exchange = yield* seedExchange(app.services, {
             name: "Binance",
             slug: "binance",
-            cmcId: 270,
+            coingeckoId: "binance",
             logo: "https://example.com/exchange.png",
             registeredOnCmc: true,
             baseCurrency: "usdt"
@@ -230,13 +230,13 @@ describe("SSR drawer mutations", () => {
             name: "Bitcoin",
             slug: "bitcoin",
             logo: "https://example.com/btc.png",
-            cmcId: 1
+            coingeckoId: "bitcoin"
           })
 
           const exchange = yield* seedExchange(app.services, {
             name: "Binance",
             slug: "binance",
-            cmcId: 270,
+            coingeckoId: "binance",
             logo: "https://example.com/exchange.png",
             registeredOnCmc: true,
             baseCurrency: "usdt"

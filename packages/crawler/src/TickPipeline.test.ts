@@ -26,7 +26,7 @@ const context: TickContext = { exchangeId: 1, exchangeSlug: "indodax", shardId: 
 const tick = (over: Partial<CanonicalTick> = {}): CanonicalTick => ({
   exchangeSlug: "indodax",
   symbol: btcSymbol,
-  cmcId: 1,
+  coingeckoId: "bitcoin",
   bids: [],
   asks: [],
   timestamp: 1_700_000_000_000,
@@ -39,9 +39,9 @@ const mappingsLayer = (entries: ReadonlyMap<string, ExchangeCryptocurrencyRef>):
   Layer.succeed(
     MarketMappings,
     MarketMappings.of({
-      lookup: (exchangeId, cmcId) =>
+      lookup: (exchangeId, coingeckoId) =>
         Effect.sync(() => {
-          const ref = entries.get(`${exchangeId}:${cmcId}`)
+          const ref = entries.get(`${exchangeId}:${coingeckoId}`)
 
           return ref === undefined ? Option.none() : Option.some(ref)
         })
@@ -131,7 +131,7 @@ describe("tick ingestion", () => {
     const writes = Ref.makeUnsafe<ReadonlyArray<OrderbookSnapshotWrite>>([])
 
     const entries = new Map<string, ExchangeCryptocurrencyRef>([
-      ["1:1", { exchangeCryptocurrencyId: 42, quoteCurrency: "idr" }]
+      ["1:bitcoin", { exchangeCryptocurrencyId: 42, quoteCurrency: "idr" }]
     ])
 
     const result = await Effect.runPromise(
@@ -167,7 +167,7 @@ describe("tick ingestion", () => {
     const writes = Ref.makeUnsafe<ReadonlyArray<OrderbookSnapshotWrite>>([])
 
     const entries = new Map<string, ExchangeCryptocurrencyRef>([
-      ["1:1", { exchangeCryptocurrencyId: 42, quoteCurrency: "idr" }]
+      ["1:bitcoin", { exchangeCryptocurrencyId: 42, quoteCurrency: "idr" }]
     ])
 
     const result = await Effect.runPromise(
@@ -201,7 +201,7 @@ describe("tick ingestion", () => {
     )
 
     expect(result.error).toBeInstanceOf(TickMappingNotFound)
-    expect(result.error).toMatchObject({ exchangeId: 1, exchangeSlug: "indodax", cmcId: 1 })
+    expect(result.error).toMatchObject({ exchangeId: 1, exchangeSlug: "indodax", coingeckoId: "bitcoin" })
     expect(result.writes).toEqual([])
   })
 
@@ -209,7 +209,7 @@ describe("tick ingestion", () => {
     const writes = Ref.makeUnsafe<ReadonlyArray<OrderbookSnapshotWrite>>([])
 
     const entries = new Map<string, ExchangeCryptocurrencyRef>([
-      ["1:1", { exchangeCryptocurrencyId: 42, quoteCurrency: "idr" }]
+      ["1:bitcoin", { exchangeCryptocurrencyId: 42, quoteCurrency: "idr" }]
     ])
 
     const result = await Effect.runPromise(

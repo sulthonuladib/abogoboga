@@ -17,8 +17,9 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed:coins": "bun run apps/cli/src/index.ts seed coin-data",
     "db:seed:tester": "bun run apps/cli/src/index.ts seed tester",
+    "scan:fetch": "bun run apps/cli/src/index.ts scan fetch",
+    "scan:import": "bun run apps/cli/src/index.ts scan import",
     "prepare": "effect-tsgo patch --typescript --oxlint"
   },
   "dependencies": {

@@ -47,7 +47,7 @@ const marketId = (value: number): MarketId => Schema.decodeSync(MarketId)(value)
 const chainId = (value: number): ChainId => Schema.decodeSync(ChainId)(value)
 
 const binance = {
-  cmcId: 270,
+  coingeckoId: "binance",
   name: "Binance",
   slug: "binance",
   logo: "binance.svg",
@@ -59,7 +59,7 @@ const bitcoin = {
   symbol: "BTC",
   slug: "bitcoin",
   logo: "bitcoin.svg",
-  cmcId: 1
+  coingeckoId: "bitcoin"
 } as const
 
 const setup = Effect.gen(function*() {

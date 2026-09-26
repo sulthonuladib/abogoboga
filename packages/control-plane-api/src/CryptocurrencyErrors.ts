@@ -27,11 +27,11 @@ export class CryptocurrencyNotFound extends Schema.TaggedError<CryptocurrencyNot
 ) {}
 
 /**
- * Expected failure: another cryptocurrency already uses the given `cmcId`.
+ * Expected failure: another cryptocurrency already uses the given `coingeckoId`.
  */
-export class CryptocurrencyCmcIdExists extends Schema.TaggedError<CryptocurrencyCmcIdExists>()(
-  "CryptocurrencyCmcIdExists",
-  { cmcId: Schema.Int },
+export class CryptocurrencyCoingeckoIdExists extends Schema.TaggedError<CryptocurrencyCoingeckoIdExists>()(
+  "CryptocurrencyCoingeckoIdExists",
+  { coingeckoId: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))) },
   { httpApiStatus: 409 }
 ) {}
 
@@ -49,7 +49,7 @@ export class CryptocurrencySlugExists extends Schema.TaggedError<CryptocurrencyS
  */
 export const CryptocurrencyReason = Schema.Union([
   CryptocurrencyNotFound,
-  CryptocurrencyCmcIdExists,
+  CryptocurrencyCoingeckoIdExists,
   CryptocurrencySlugExists
 ])
 

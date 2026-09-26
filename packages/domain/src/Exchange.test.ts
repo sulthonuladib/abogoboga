@@ -4,7 +4,7 @@ import { Exchange } from "./Exchange.ts"
 
 const row = {
   id: 1,
-  cmcId: 1027,
+  coingeckoId: "binance",
   name: "Binance",
   slug: "binance",
   logo: "https://example.com/binance.png",

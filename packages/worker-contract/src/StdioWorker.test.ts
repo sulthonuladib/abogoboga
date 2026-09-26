@@ -137,7 +137,7 @@ describe("runStdioWorker", () => {
   test(
     "boots on argv coins, emits canonical ticks on stdout, and logs on stderr",
     async () => {
-      const worker = spawnWorker([workerArgvMarker, "dummy", "shard-1", "BTC:1,ETH:1027"])
+      const worker = spawnWorker([workerArgvMarker, "dummy", "shard-1", "BTC:bitcoin,ETH:ethereum"])
 
       try {
         await waitFor(
@@ -153,7 +153,7 @@ describe("runStdioWorker", () => {
         expect(worker.stdoutLines.every((line) => decodeTickLine(line) !== null)).toBe(true)
 
         await waitFor(() => worker.stderrText().includes("worker: boot"), "boot log on stderr")
-        expect(worker.stderrText()).toContain("BTC:1,ETH:1027")
+        expect(worker.stderrText()).toContain("BTC:bitcoin,ETH:ethereum")
         expect(worker.stdoutLines.some((line) => line.includes("worker: boot"))).toBe(false)
       } finally {
         worker.process.kill()
@@ -165,23 +165,23 @@ describe("runStdioWorker", () => {
   test(
     "applies live subscribe and unsubscribe and ignores malformed lines",
     async () => {
-      const worker = spawnWorker([workerArgvMarker, "dummy", "shard-1", "BTC:1"])
+      const worker = spawnWorker([workerArgvMarker, "dummy", "shard-1", "BTC:bitcoin"])
 
       try {
         await waitFor(() => worker.ticks.some((tick) => tick.symbol === "BTC"), "initial BTC tick")
 
         const btcBeforeSubscribe = worker.ticks.filter((tick) => tick.symbol === "BTC").length
 
-        await worker.writeLine(`{"type":"subscribe","coins":[{"symbol":"SOL","cmcId":5426}]}`)
+        await worker.writeLine(`{"type":"subscribe","coins":[{"symbol":"SOL","coingeckoId":"solana"}]}`)
         await waitFor(() => worker.ticks.some((tick) => tick.symbol === "SOL"), "SOL tick")
         await waitFor(
           () => worker.ticks.filter((tick) => tick.symbol === "BTC").length > btcBeforeSubscribe,
           "BTC ticks continuing after subscribe"
         )
 
-        await worker.writeLine(`{"type":"unsubscribe","coins":[{"symbol":"SOL","cmcId":5426}]}`)
+        await worker.writeLine(`{"type":"unsubscribe","coins":[{"symbol":"SOL","coingeckoId":"solana"}]}`)
         await waitFor(
-          () => worker.stderrText().includes("worker: unsubscribed SOL:5426"),
+          () => worker.stderrText().includes("worker: unsubscribed SOL:solana"),
           "unsubscribe log"
         )
         await Bun.sleep(200)
@@ -217,7 +217,7 @@ describe("runStdioWorker", () => {
   test(
     "closing stdin makes the worker exit 0",
     async () => {
-      const worker = spawnWorker([workerArgvMarker, "dummy", "shard-1", "BTC:1"])
+      const worker = spawnWorker([workerArgvMarker, "dummy", "shard-1", "BTC:bitcoin"])
 
       try {
         await waitFor(() => worker.ticks.some((tick) => tick.symbol === "BTC"), "BTC tick")
@@ -235,7 +235,7 @@ describe("runStdioWorker", () => {
   test(
     "invalid argv marker exits 2 with the reason on stderr",
     async () => {
-      const worker = spawnWorker(["not-the-worker-marker", "dummy", "shard-1", "BTC:1"])
+      const worker = spawnWorker(["not-the-worker-marker", "dummy", "shard-1", "BTC:bitcoin"])
 
       try {
         expect(await worker.process.exited).toBe(2)
@@ -253,7 +253,7 @@ describe("runStdioWorker", () => {
   test(
     "invalid bootstrap coins exit 2 with the reason on stderr",
     async () => {
-      const worker = spawnWorker([workerArgvMarker, "dummy", "shard-1", "BTC:not-a-number"])
+      const worker = spawnWorker([workerArgvMarker, "dummy", "shard-1", "BTC"])
 
       try {
         expect(await worker.process.exited).toBe(2)

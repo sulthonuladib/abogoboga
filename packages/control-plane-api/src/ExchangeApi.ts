@@ -7,7 +7,7 @@ import {
   ExchangeSearchField,
   type ExchangeSearchField as ExchangeSearchFieldType
 } from "./Exchange.ts"
-import { ExchangeCmcIdExists, ExchangeNotFound, ExchangeSlugExists } from "./ExchangeErrors.ts"
+import { ExchangeCoingeckoIdExists, ExchangeNotFound, ExchangeSlugExists } from "./ExchangeErrors.ts"
 import { PaginationQueryFields, paginated } from "./Pagination.ts"
 import { RequestValidation } from "./RequestValidation.ts"
 
@@ -63,9 +63,9 @@ export class ExchangeApiGroup extends HttpApiGroup.make("exchange")
     HttpApiEndpoint.post("add", "/exchange/add", {
       payload: ExchangeCreatePayload,
       success: ExchangeModel.json,
-      error: [ExchangeCmcIdExists, ExchangeSlugExists]
+      error: [ExchangeCoingeckoIdExists, ExchangeSlugExists]
     }).annotateMerge(
-      documented("exchange.add", "Add exchange", "Create an exchange, rejecting duplicate cmcId or slug.")
+      documented("exchange.add", "Add exchange", "Create an exchange, rejecting duplicate coingeckoId or slug.")
     ),
     HttpApiEndpoint.post("list", "/exchange/list", {
       payload: ExchangeListPayload,
@@ -82,9 +82,9 @@ export class ExchangeApiGroup extends HttpApiGroup.make("exchange")
       params: { id: ExchangeId },
       payload: ExchangeModel.jsonUpdate,
       success: ExchangeModel.json,
-      error: [ExchangeCmcIdExists, ExchangeSlugExists, ExchangeNotFound]
+      error: [ExchangeCoingeckoIdExists, ExchangeSlugExists, ExchangeNotFound]
     }).annotateMerge(
-      documented("exchange.update", "Update exchange", "Update an exchange, rejecting duplicate cmcId or slug.")
+      documented("exchange.update", "Update exchange", "Update an exchange, rejecting duplicate coingeckoId or slug.")
     ),
     HttpApiEndpoint.delete("remove", "/exchange/:id", {
       params: { id: ExchangeId },

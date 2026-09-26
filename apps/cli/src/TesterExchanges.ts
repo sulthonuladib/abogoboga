@@ -12,14 +12,14 @@ import { Effect } from "effect"
 type TesterExchange = {
   readonly slug: string
   readonly name: string
-  readonly cmcId: number
+  readonly coingeckoId: string
   readonly logo: string
   readonly baseCurrency: "usdt" | "idr"
   readonly symbols: Readonly<Record<"BTC" | "ETH", string>>
 }
 
 type TesterCoin = {
-  readonly cmcId: number
+  readonly coingeckoId: string
   readonly name: string
   readonly symbol: string
   readonly slug: string
@@ -30,7 +30,7 @@ const testerExchanges: ReadonlyArray<TesterExchange> = [
   {
     slug: "exchange-tester-a",
     name: "Exchange Tester A",
-    cmcId: 910001,
+    coingeckoId: "exchange-tester-a",
     logo: "",
     baseCurrency: "usdt",
     symbols: { BTC: "BTCUSDT", ETH: "ETHUSDT" }
@@ -38,7 +38,7 @@ const testerExchanges: ReadonlyArray<TesterExchange> = [
   {
     slug: "exchange-tester-b",
     name: "Exchange Tester B",
-    cmcId: 910002,
+    coingeckoId: "exchange-tester-b",
     logo: "",
     baseCurrency: "idr",
     symbols: { BTC: "BTCIDR", ETH: "ETHIDR" }
@@ -46,8 +46,8 @@ const testerExchanges: ReadonlyArray<TesterExchange> = [
 ]
 
 const testerCoins: Array<TesterCoin> = [
-  { cmcId: 1, name: "Bitcoin", symbol: "BTC", slug: "bitcoin", logo: "" },
-  { cmcId: 1027, name: "Ethereum", symbol: "ETH", slug: "ethereum", logo: "" }
+  { coingeckoId: "bitcoin", name: "Bitcoin", symbol: "BTC", slug: "bitcoin", logo: "" },
+  { coingeckoId: "ethereum", name: "Ethereum", symbol: "ETH", slug: "ethereum", logo: "" }
 ]
 
 const testerChains: Array<{ readonly code: string; readonly name: string }> = [
@@ -92,7 +92,7 @@ export const seedTesterExchanges = Effect.fn("seedTesterExchanges")(function*() 
         .insert(cryptocurrencyTable)
         .values(testerCoins)
         .onConflictDoUpdate({
-          target: cryptocurrencyTable.cmcId,
+          target: cryptocurrencyTable.coingeckoId,
           set: {
             name: sql`excluded.name`,
             symbol: sql`excluded.symbol`,
@@ -108,7 +108,7 @@ export const seedTesterExchanges = Effect.fn("seedTesterExchanges")(function*() 
           testerExchanges.map((exchange) => ({
             slug: exchange.slug,
             name: exchange.name,
-            cmcId: exchange.cmcId,
+            coingeckoId: exchange.coingeckoId,
             logo: exchange.logo,
             baseCurrency: exchange.baseCurrency
           }))
@@ -116,7 +116,7 @@ export const seedTesterExchanges = Effect.fn("seedTesterExchanges")(function*() 
         .onConflictDoUpdate({
           target: exchangeTable.slug,
           set: {
-            cmcId: sql`excluded."cmcId"`,
+            coingeckoId: sql`excluded."coingeckoId"`,
             name: sql`excluded.name`,
             logo: sql`excluded.logo`,
             baseCurrency: sql`excluded."baseCurrency"`

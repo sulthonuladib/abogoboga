@@ -1,23 +1,28 @@
 import { Effect, Option, Schema, SchemaIssue, SchemaTransformation } from "effect"
 
 /**
- * A coin subscription identity: trading symbol plus CoinMarketCap id.
+ * A coin subscription identity: trading symbol plus CoinGecko id.
  *
- * `cmcId` is a strict integer; numeric strings and fractional numbers are
- * rejected.
+ * `coingeckoId` is a non-empty CoinGecko slug; a numeric-looking id is still a
+ * valid string, so no numeric coercion happens.
  */
 export const BootstrapCoin = Schema.Struct({
   symbol: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
-  cmcId: Schema.Int
+  coingeckoId: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255)))
 })
 
 /**
- * A coin subscription identity: trading symbol plus CoinMarketCap id.
+ * A coin subscription identity: trading symbol plus CoinGecko id.
  */
 export type BootstrapCoin = typeof BootstrapCoin.Type
 
 /**
- * Parse one non-blank `SYMBOL:cmcId` part of a bootstrap argument.
+ * CoinGecko ids are lowercase slugs (`bitcoin`, `usd-coin`, `binance-smart-chain`).
+ */
+const coingeckoIdPattern = /^[a-z0-9][a-z0-9-]*$/
+
+/**
+ * Parse one non-blank `SYMBOL:coingeckoId` part of a bootstrap argument.
  *
  * @param trimmed - The trimmed comma-separated part (never blank).
  * @returns The parsed coin, or `None` when the part is invalid.
@@ -30,32 +35,26 @@ const parseCoinPart = (trimmed: string): Option.Option<BootstrapCoin> => {
   }
 
   const symbol = trimmed.slice(0, separator)
-  const cmcIdText = trimmed.slice(separator + 1)
+  const coingeckoId = trimmed.slice(separator + 1)
 
-  if (symbol === "" || !/^-?\d+$/.test(cmcIdText)) {
+  if (symbol === "" || !coingeckoIdPattern.test(coingeckoId)) {
     return Option.none()
   }
 
-  const cmcId = Number(cmcIdText)
-
-  if (!Number.isSafeInteger(cmcId)) {
-    return Option.none()
-  }
-
-  return Schema.decodeUnknownOption(BootstrapCoin)({ symbol, cmcId })
+  return Schema.decodeUnknownOption(BootstrapCoin)({ symbol, coingeckoId })
 }
 
 /**
- * Format coins as a bootstrap argument: `SYMBOL:cmcId,...` (empty for none).
+ * Format coins as a bootstrap argument: `SYMBOL:coingeckoId,...` (empty for none).
  *
  * @param coins - The coins to format.
  * @returns The comma-separated bootstrap string.
  */
 export const formatBootstrapCoins = (coins: ReadonlyArray<BootstrapCoin>): string =>
-  coins.map((coin) => `${coin.symbol}:${coin.cmcId}`).join(",")
+  coins.map((coin) => `${coin.symbol}:${coin.coingeckoId}`).join(",")
 
 /**
- * Codec between the argv bootstrap string (`SYMBOL:cmcId,...`, empty means no
+ * Codec between the argv bootstrap string (`SYMBOL:coingeckoId,...`, empty means no
  * coins) and coin arrays.
  *
  * Blank parts are skipped; any invalid part fails decoding instead of throwing.

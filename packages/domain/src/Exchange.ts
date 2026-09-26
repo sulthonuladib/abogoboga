@@ -23,7 +23,7 @@ export type ExchangeId = typeof ExchangeId.Type
  */
 export class Exchange extends Model.Class<Exchange>("Exchange")({
   id: Model.GeneratedByDb(ExchangeId),
-  cmcId: Schema.Int,
+  coingeckoId: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   name: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   slug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   logo: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),

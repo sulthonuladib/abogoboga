@@ -26,7 +26,7 @@ import {
   type CryptocurrencyListQuery,
   type CryptocurrencyUpdate
 } from "./Cryptocurrency.ts"
-import { CryptocurrencyCmcIdExists, CryptocurrencySlugExists } from "./CryptocurrencyErrors.ts"
+import { CryptocurrencyCoingeckoIdExists, CryptocurrencySlugExists } from "./CryptocurrencyErrors.ts"
 import { uniqueViolationConstraint } from "./DrizzleErrors.ts"
 import { decodeRows } from "./RowDecoding.ts"
 
@@ -50,10 +50,10 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
       const conditions = []
 
       if (query.search) {
-        if (query.searchBy === "id" || query.searchBy === "cmcId") {
+        if (query.searchBy === "id") {
           const numeric = Number(query.search)
 
-          conditions.push(eq(cryptocurrencyTable[query.searchBy], Number.isNaN(numeric) ? -1 : numeric))
+          conditions.push(eq(cryptocurrencyTable.id, Number.isNaN(numeric) ? -1 : numeric))
         } else {
           conditions.push(ilike(cryptocurrencyTable[query.searchBy], `%${query.search.toLowerCase()}%`))
         }
@@ -101,16 +101,16 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
     const uniqueConflict = (
       error: EffectDrizzleQueryError,
       input: CryptocurrencyCreate | CryptocurrencyUpdate
-    ): CryptocurrencyCmcIdExists | CryptocurrencySlugExists | undefined => {
+    ): CryptocurrencyCoingeckoIdExists | CryptocurrencySlugExists | undefined => {
       const constraint = uniqueViolationConstraint(error)
 
       if (Option.isNone(constraint)) return undefined
 
-      const cmcId = "cmcId" in input ? input.cmcId : undefined
+      const coingeckoId = "coingeckoId" in input ? input.coingeckoId : undefined
       const slug = "slug" in input ? input.slug : undefined
 
-      if (constraint.value === "cryptocurrency_cmcId_unique" && cmcId !== undefined) {
-        return new CryptocurrencyCmcIdExists({ cmcId })
+      if (constraint.value === "cryptocurrency_coingeckoId_unique" && coingeckoId !== undefined) {
+        return new CryptocurrencyCoingeckoIdExists({ coingeckoId })
       }
 
       if (constraint.value === "cryptocurrency_slug_unique" && slug !== undefined) {
@@ -131,11 +131,11 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
       return Option.fromIterable(decodeCoins(rows))
     })
 
-    const findByCmcId = Effect.fn("CryptocurrencyStore.findByCmcId")(function*(cmcId: number) {
+    const findByCoingeckoId = Effect.fn("CryptocurrencyStore.findByCoingeckoId")(function*(coingeckoId: string) {
       const rows = yield* db
         .select()
         .from(cryptocurrencyTable)
-        .where(eq(cryptocurrencyTable.cmcId, cmcId))
+        .where(eq(cryptocurrencyTable.coingeckoId, coingeckoId))
         .limit(1)
         .pipe(Effect.orDie)
 
@@ -356,7 +356,7 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
     return CryptocurrencyStore.of({
       list,
       findById,
-      findByCmcId,
+      findByCoingeckoId,
       findBySlug,
       insert,
       update,

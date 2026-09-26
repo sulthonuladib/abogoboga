@@ -25,9 +25,9 @@ const cleanExitWorker = workerPath("clean-exit")
 const platformLayer = Layer.mergeAll(DomainEvents.layer, BunServices.layer)
 
 const coins = (count: number): ReadonlyArray<BootstrapCoin> =>
-  Array.from({ length: count }, (_, index) => ({ symbol: `C${index + 1}`, cmcId: index + 1 }))
+  Array.from({ length: count }, (_, index) => ({ symbol: `C${index + 1}`, coingeckoId: `coin-${index + 1}` }))
 
-const btc: BootstrapCoin = { symbol: "BTC", cmcId: 1 }
+const btc: BootstrapCoin = { symbol: "BTC", coingeckoId: "bitcoin" }
 
 const runSupervisor = <A, E>(
   workerScript: string,
@@ -83,11 +83,11 @@ describe("Supervisor shard placement", () => {
     await runSupervisor(dummyWorker, (supervisor) =>
       Effect.gen(function*() {
         yield* supervisor.start(2, "dummy-ex", coins(39))
-        yield* supervisor.addCoins(2, [{ symbol: "NEW", cmcId: 999 }])
+        yield* supervisor.addCoins(2, [{ symbol: "NEW", coingeckoId: "new-coin" }])
 
         expect((yield* supervisor.snapshot)[0]?.shards.map((shard) => shard.coins.length)).toEqual([20, 20])
 
-        yield* supervisor.addCoins(2, [{ symbol: "EXTRA", cmcId: 1000 }])
+        yield* supervisor.addCoins(2, [{ symbol: "EXTRA", coingeckoId: "extra-coin" }])
 
         expect((yield* supervisor.snapshot)[0]?.shards.map((shard) => shard.coins.length)).toEqual([20, 20, 1])
       }))
@@ -191,7 +191,7 @@ describe("Supervisor tick forwarding", () => {
 describe("Supervisor boot sweep", () => {
   test("sweep terminates argv-signature orphans only", async () => {
     const orphan = Bun.spawn(
-      ["bun", dummyWorker, workerArgvMarker, "orphan-ex", "shard-9", "BTC:1"],
+      ["bun", dummyWorker, workerArgvMarker, "orphan-ex", "shard-9", "BTC:bitcoin"],
       { stdin: "pipe", stdout: "ignore", stderr: "ignore" }
     )
 
@@ -225,7 +225,7 @@ describe("Supervisor boot sweep", () => {
     const result = await Effect.runPromise(
       sweepStaleWorkers({
         list: Effect.succeed([
-          { pid: 4242, args: `bun /worker.ts ${workerArgvMarker} ex shard-1 BTC:1` },
+          { pid: 4242, args: `bun /worker.ts ${workerArgvMarker} ex shard-1 BTC:bitcoin` },
           { pid: 4343, args: "bun /server.ts" },
           { pid: 5555, args: `bun /worker.ts ${workerArgvMarker} self shard-1` }
         ]),
@@ -247,13 +247,13 @@ describe("Supervisor pure helpers", () => {
   })
 
   test("buildWorkerArgv carries the marker signature and bootstrap coins", () => {
-    expect(buildWorkerArgv("worker.ts", "indodax", "shard-3", [{ symbol: "BTC", cmcId: 1 }])).toEqual([
+    expect(buildWorkerArgv("worker.ts", "indodax", "shard-3", [{ symbol: "BTC", coingeckoId: "bitcoin" }])).toEqual([
       "bun",
       "worker.ts",
       workerArgvMarker,
       "indodax",
       "shard-3",
-      "BTC:1"
+      "BTC:bitcoin"
     ])
   })
 })

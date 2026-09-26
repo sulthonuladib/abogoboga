@@ -23,17 +23,17 @@ describe("Database", () => {
   })
 
   test.skipIf(!databaseUrl)("round-trips an exchange enum column through Postgres", async () => {
-    const cmcId = 2_000_000_001
+    const coingeckoId = "enum-probe-2000000001"
 
     const program = Effect.gen(function*() {
       const { db } = yield* Database
 
-      yield* db.delete(exchangeTable).where(eq(exchangeTable.cmcId, cmcId))
+      yield* db.delete(exchangeTable).where(eq(exchangeTable.coingeckoId, coingeckoId))
 
       const [inserted] = yield* db
         .insert(exchangeTable)
         .values({
-          cmcId,
+          coingeckoId,
           name: "Enum Probe",
           slug: "enum-probe",
           logo: "enum-probe.svg",
@@ -41,9 +41,9 @@ describe("Database", () => {
         })
         .returning()
 
-      const [selected] = yield* db.select().from(exchangeTable).where(eq(exchangeTable.cmcId, cmcId))
+      const [selected] = yield* db.select().from(exchangeTable).where(eq(exchangeTable.coingeckoId, coingeckoId))
 
-      yield* db.delete(exchangeTable).where(eq(exchangeTable.cmcId, cmcId))
+      yield* db.delete(exchangeTable).where(eq(exchangeTable.coingeckoId, coingeckoId))
 
       return { inserted, selected }
     })

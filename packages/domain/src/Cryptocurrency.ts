@@ -25,7 +25,7 @@ export class Cryptocurrency extends Model.Class<Cryptocurrency>("Cryptocurrency"
   symbol: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   slug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   logo: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
-  cmcId: Schema.Int,
+  coingeckoId: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   createdAt: Model.DateTimeInsertFromDate,
   updatedAt: Model.DateTimeUpdateFromDate
 }) {}
