@@ -31,7 +31,7 @@ import {
   type SQL
 } from "drizzle-orm"
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core/errors"
-import { Effect, Layer, Option, Schema } from "effect"
+import { Effect, Layer, Option, Predicate, Schema } from "effect"
 import {
   CryptocurrencyStore,
   type CryptocurrencyCreate,
@@ -41,11 +41,13 @@ import {
   type CryptocurrencySearchField,
   type CryptocurrencyStatsQuery,
   type CryptocurrencyStatsResult,
+  type CryptocurrencyStatsSort,
   type CryptocurrencyUpdate
 } from "./Cryptocurrency.ts"
 import { CryptocurrencyCoingeckoIdExists, CryptocurrencySlugExists } from "./CryptocurrencyErrors.ts"
 import { uniqueViolationConstraint } from "./DrizzleErrors.ts"
 import { keysetKeys, keysetPredicate } from "./KeysetQuery.ts"
+import { keysetListResult, pageListResult } from "./Pagination.ts"
 import { decodeRows } from "./RowDecoding.ts"
 import { literalLikePattern } from "./Search.ts"
 
@@ -198,7 +200,7 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
         const orderBy =
           query.order === "asc" ? asc(cryptocurrencyTable[query.orderBy]) : desc(cryptocurrencyTable[query.orderBy])
 
-        if (query.window._tag === "Page") {
+        if (Predicate.isTagged(query.window, "Page")) {
           const totals = yield* db.select({ value: count() }).from(cryptocurrencyTable).where(where)
           const total = totals[0]?.value ?? 0
 
@@ -213,7 +215,7 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
                   .limit(query.limit)
                   .offset((query.window.page - 1) * query.limit)
 
-          return { _tag: "Page", rows: decodeCoins(rows), total, page: query.window.page }
+          return pageListResult({ rows: decodeCoins(rows), total, page: query.window.page })
         }
 
         const cursor = query.window.cursor
@@ -239,7 +241,7 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
             .where(keysetWhere)
             .orderBy(orderBy, asc(cryptocurrencyTable.id))
 
-          return { _tag: "Keyset", rows: decodeCoins(rows), hasMore: false }
+          return keysetListResult({ rows: decodeCoins(rows), hasMore: false })
         }
 
         const rows = yield* db
@@ -249,11 +251,10 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
           .orderBy(orderBy, asc(cryptocurrencyTable.id))
           .limit(query.limit + 1)
 
-        return {
-          _tag: "Keyset",
+        return keysetListResult({
           rows: decodeCoins(rows.slice(0, query.limit)),
           hasMore: rows.length > query.limit
-        }
+        })
       },
       Effect.orDie
     )
@@ -395,6 +396,25 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
     const decodeStats = decodeRows(StatsRow)
 
     /**
+     * SQL expression for the requested stats sort.
+     *
+     * @param sortBy - Coverage count or `symbol`.
+     * @returns The expression to order by.
+     */
+    const statsSortExpression = (sortBy: CryptocurrencyStatsSort) => {
+      switch (sortBy) {
+        case "markets":
+          return marketsCount
+        case "chains":
+          return chainsCount
+        case "blocked":
+          return blockedCount
+        case "symbol":
+          return cryptocurrencyTable.symbol
+      }
+    }
+
+    /**
      * Filter, sort, aggregate coverage, and page coins in SQL.
      *
      * The filter runs before the page window, so `items`/`pages` describe the
@@ -416,15 +436,10 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
           if (match !== undefined) conditions.push(match)
         }
 
-        const sortExpression = query.sortBy === "symbol"
-          ? cryptocurrencyTable.symbol
-          : query.sortBy === "markets"
-          ? marketsCount
-          : query.sortBy === "chains"
-          ? chainsCount
-          : blockedCount
+        const sortExpression = statsSortExpression(query.sortBy)
 
         if (query.flag === "blocked") conditions.push(gt(blockedCount, 0))
+
         if (query.flag === "single") conditions.push(lte(marketsCount, 1))
 
         const where = conditions.length > 0 ? and(...conditions) : undefined
@@ -447,7 +462,7 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
           blocked: blockedCount
         }
 
-        if (query.window._tag === "Page") {
+        if (Predicate.isTagged(query.window, "Page")) {
           const totals = yield* db.select({ value: count() }).from(cryptocurrencyTable).where(where)
           const total = totals[0]?.value ?? 0
 
@@ -462,7 +477,7 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
                   .limit(query.limit)
                   .offset((query.window.page - 1) * query.limit)
 
-          return { _tag: "Page", rows: decodeStats(rows), total, page: query.window.page }
+          return pageListResult({ rows: decodeStats(rows), total, page: query.window.page })
         }
 
         const cursor = query.window.cursor
@@ -490,7 +505,7 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
         if (query.limit === -1) {
           const rows = yield* db.select(selection).from(cryptocurrencyTable).where(keysetWhere).orderBy(...orderBy)
 
-          return { _tag: "Keyset", rows: decodeStats(rows), hasMore: false }
+          return keysetListResult({ rows: decodeStats(rows), hasMore: false })
         }
 
         const rows = yield* db
@@ -500,11 +515,10 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
           .orderBy(...orderBy)
           .limit(query.limit + 1)
 
-        return {
-          _tag: "Keyset",
+        return keysetListResult({
           rows: decodeStats(rows.slice(0, query.limit)),
           hasMore: rows.length > query.limit
-        }
+        })
       },
       Effect.orDie
     )

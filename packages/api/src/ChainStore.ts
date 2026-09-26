@@ -2,11 +2,12 @@ import { Database, chainTable } from "@lister/db"
 import { Chain as ChainModel, type ChainId } from "@lister/domain"
 import { and, asc, count, desc, eq, ilike, or } from "drizzle-orm"
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core/errors"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Option, Predicate } from "effect"
 import { ChainStore, type ChainCreate, type ChainListQuery, type ChainListResult, type ChainUpdate } from "./Chain.ts"
 import { ChainCodeExists } from "./ChainErrors.ts"
 import { uniqueViolationConstraint } from "./DrizzleErrors.ts"
 import { keysetKeys, keysetPredicate } from "./KeysetQuery.ts"
+import { keysetListResult, pageListResult } from "./Pagination.ts"
 import { decodeRows } from "./RowDecoding.ts"
 import { literalLikePattern } from "./Search.ts"
 
@@ -79,7 +80,7 @@ export const layer: Layer.Layer<ChainStore, never, Database> = Layer.effect(
 
         const orderBy = query.order === "asc" ? asc(chainTable[query.orderBy]) : desc(chainTable[query.orderBy])
 
-        if (query.window._tag === "Page") {
+        if (Predicate.isTagged(query.window, "Page")) {
           const totals = yield* db.select({ value: count() }).from(chainTable).where(where)
           const total = totals[0]?.value ?? 0
 
@@ -94,7 +95,7 @@ export const layer: Layer.Layer<ChainStore, never, Database> = Layer.effect(
                   .limit(query.limit)
                   .offset((query.window.page - 1) * query.limit)
 
-          return { _tag: "Page", rows: decodeChains(rows), total, page: query.window.page }
+          return pageListResult({ rows: decodeChains(rows), total, page: query.window.page })
         }
 
         const cursor = query.window.cursor
@@ -116,7 +117,7 @@ export const layer: Layer.Layer<ChainStore, never, Database> = Layer.effect(
         if (query.limit === -1) {
           const rows = yield* db.select().from(chainTable).where(keysetWhere).orderBy(orderBy, asc(chainTable.id))
 
-          return { _tag: "Keyset", rows: decodeChains(rows), hasMore: false }
+          return keysetListResult({ rows: decodeChains(rows), hasMore: false })
         }
 
         const rows = yield* db
@@ -126,11 +127,10 @@ export const layer: Layer.Layer<ChainStore, never, Database> = Layer.effect(
           .orderBy(orderBy, asc(chainTable.id))
           .limit(query.limit + 1)
 
-        return {
-          _tag: "Keyset",
+        return keysetListResult({
           rows: decodeChains(rows.slice(0, query.limit)),
           hasMore: rows.length > query.limit
-        }
+        })
       },
       Effect.orDie
     )

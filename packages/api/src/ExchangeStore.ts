@@ -2,7 +2,7 @@ import { Database, exchangeTable } from "@lister/db"
 import { Exchange as ExchangeModel, type ExchangeId } from "@lister/domain"
 import { and, asc, count, desc, eq, ilike, or } from "drizzle-orm"
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core/errors"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Option, Predicate } from "effect"
 import { uniqueViolationConstraint } from "./DrizzleErrors.ts"
 import {
   ExchangeStore,
@@ -14,6 +14,7 @@ import {
 } from "./Exchange.ts"
 import { ExchangeCoingeckoIdExists, ExchangeSlugExists } from "./ExchangeErrors.ts"
 import { keysetKeys, keysetPredicate } from "./KeysetQuery.ts"
+import { keysetListResult, pageListResult } from "./Pagination.ts"
 import { decodeRows } from "./RowDecoding.ts"
 import { literalLikePattern } from "./Search.ts"
 
@@ -119,7 +120,7 @@ export const layer: Layer.Layer<ExchangeStore, never, Database> = Layer.effect(
 
         const orderBy = query.order === "asc" ? asc(exchangeTable[query.orderBy]) : desc(exchangeTable[query.orderBy])
 
-        if (query.window._tag === "Page") {
+        if (Predicate.isTagged(query.window, "Page")) {
           const totals = yield* db.select({ value: count() }).from(exchangeTable).where(where)
           const total = totals[0]?.value ?? 0
 
@@ -134,7 +135,7 @@ export const layer: Layer.Layer<ExchangeStore, never, Database> = Layer.effect(
                   .limit(query.limit)
                   .offset((query.window.page - 1) * query.limit)
 
-          return { _tag: "Page", rows: decodeExchanges(rows), total, page: query.window.page }
+          return pageListResult({ rows: decodeExchanges(rows), total, page: query.window.page })
         }
 
         const cursor = query.window.cursor
@@ -160,7 +161,7 @@ export const layer: Layer.Layer<ExchangeStore, never, Database> = Layer.effect(
             .where(keysetWhere)
             .orderBy(orderBy, asc(exchangeTable.id))
 
-          return { _tag: "Keyset", rows: decodeExchanges(rows), hasMore: false }
+          return keysetListResult({ rows: decodeExchanges(rows), hasMore: false })
         }
 
         const rows = yield* db
@@ -170,11 +171,10 @@ export const layer: Layer.Layer<ExchangeStore, never, Database> = Layer.effect(
           .orderBy(orderBy, asc(exchangeTable.id))
           .limit(query.limit + 1)
 
-        return {
-          _tag: "Keyset",
+        return keysetListResult({
           rows: decodeExchanges(rows.slice(0, query.limit)),
           hasMore: rows.length > query.limit
-        }
+        })
       },
       Effect.orDie
     )

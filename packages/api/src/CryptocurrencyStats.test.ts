@@ -62,9 +62,21 @@ const cursorOf = (nextCursor: string | null | undefined) => {
 }
 
 /** Stable projection of a stats row for structural comparison. */
-const statsRow = (
-  row: CryptocurrencyStat
-): { readonly id: number; readonly symbol: string; readonly markets: number; readonly chains: number; readonly blocked: number } => ({
+type StatsRowProjection = {
+  readonly id: number
+  readonly symbol: string
+  readonly markets: number
+  readonly chains: number
+  readonly blocked: number
+}
+
+/**
+ * Project a stats row down to the fields characterization compares.
+ *
+ * @param row - Decoded stats row.
+ * @returns The comparable projection.
+ */
+const statsRow = (row: CryptocurrencyStat): StatsRowProjection => ({
   id: row.id,
   symbol: row.symbol,
   markets: row.markets,
@@ -126,11 +138,17 @@ const seed = Effect.gen(function*() {
       .returning()
 
   const btcBinance = first(yield* market(binance.id, bitcoin.id, "BTCUSDT"))
+
   const btcIndodax = first(yield* market(indodax.id, bitcoin.id, "BTCIDR"))
+
   const ltcBinance = first(yield* market(binance.id, litecoin.id, "LTCUSDT"))
-  const dogeBinance = first(yield* market(binance.id, dogecoin.id, "DOGEUSDT"))
-  const dogeIndodax = first(yield* market(indodax.id, dogecoin.id, "DOGEIDR"))
+
+  // DOGE's markets deliberately carry no links, so only their existence matters.
+  yield* market(binance.id, dogecoin.id, "DOGEUSDT")
+  yield* market(indodax.id, dogecoin.id, "DOGEIDR")
+
   const xrpBinance = first(yield* market(binance.id, ripple.id, "XRPUSDT"))
+
   const xrpIndodax = first(yield* market(indodax.id, ripple.id, "XRPIDR"))
 
   const link = (

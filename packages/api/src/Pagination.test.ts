@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { DateTime, Effect, Option, Schema } from "effect"
+import { DateTime, Effect, Option, Result, Schema } from "effect"
 import {
   Cursor,
   type CursorPosition,
@@ -7,6 +7,7 @@ import {
   decodeCursor,
   encodeCursor,
   keysetMeta,
+  keysetWindow,
   onlyOneWindow,
   pageWindow,
   PaginationQueryFields,
@@ -35,6 +36,22 @@ const ListPayload = Schema.Struct({
 )
 
 const decodePayload = Schema.decodeUnknownResult(ListPayload)
+
+/**
+ * Decode a payload, failing the test when decoding fails.
+ *
+ * @param input - Raw payload to decode.
+ * @returns The decoded payload.
+ */
+const decodedPayload = (input: typeof ListPayload.Encoded): typeof ListPayload.Type => {
+  const decoded = decodePayload(input)
+
+  if (Result.isFailure(decoded)) {
+    throw new Error(`expected the payload to decode: ${decoded.failure.message}`)
+  }
+
+  return decoded.success
+}
 
 describe("cursor codec", () => {
   test("round-trips a position", () => {
@@ -66,48 +83,32 @@ describe("cursor codec", () => {
 
 describe("list payload windows", () => {
   test("defaults to the first keyset window without page or cursor", () => {
-    const decoded = decodePayload({ limit: 5 })
+    const decoded = decodedPayload({ limit: 5 })
 
-    expect(decoded._tag).toBe("Success")
-
-    if (decoded._tag === "Success") {
-      expect(decoded.success.page).toBeUndefined()
-      expect(decoded.success.cursor).toBeUndefined()
-      expect(toListWindow(decoded.success)).toEqual({ _tag: "Keyset", cursor: undefined })
-    }
+    expect(decoded.page).toBeUndefined()
+    expect(decoded.cursor).toBeUndefined()
+    expect(toListWindow(decoded)).toEqual(keysetWindow())
   })
 
   test("selects the offset window when a page is supplied", () => {
-    const decoded = decodePayload({ page: 3, limit: 5 })
-
-    expect(decoded._tag).toBe("Success")
-
-    if (decoded._tag === "Success") {
-      expect(toListWindow(decoded.success)).toEqual(pageWindow(3))
-    }
+    expect(toListWindow(decodedPayload({ page: 3, limit: 5 }))).toEqual(pageWindow(3))
   })
 
   test("decodes a valid cursor into the keyset window", () => {
-    const decoded = decodePayload({ limit: 5, orderBy: "name", cursor: encodeCursor(position) })
+    const decoded = decodedPayload({ limit: 5, orderBy: "name", cursor: encodeCursor(position) })
 
-    expect(decoded._tag).toBe("Success")
-
-    if (decoded._tag === "Success") {
-      expect(decoded.success.cursor).toEqual(position)
-      expect(toListWindow(decoded.success)).toEqual({ _tag: "Keyset", cursor: position })
-    }
+    expect(decoded.cursor).toEqual(position)
+    expect(toListWindow(decoded)).toEqual(keysetWindow(position))
   })
 
   test("rejects a page and a cursor together", () => {
     const decoded = decodePayload({ page: 1, limit: 5, cursor: encodeCursor(position) })
 
-    expect(decoded._tag).toBe("Failure")
+    expect(Result.isFailure(decoded)).toBe(true)
   })
 
   test("rejects a cursor from a different sort", () => {
-    const decoded = decodePayload({ limit: 5, orderBy: "id", cursor: encodeCursor(position) })
-
-    expect(decoded._tag).toBe("Failure")
+    expect(Result.isFailure(decodePayload({ limit: 5, orderBy: "id", cursor: encodeCursor(position) }))).toBe(true)
 
     const reversed = decodePayload({
       limit: 5,
@@ -116,19 +117,17 @@ describe("list payload windows", () => {
       cursor: encodeCursor(position)
     })
 
-    expect(reversed._tag).toBe("Failure")
+    expect(Result.isFailure(reversed)).toBe(true)
   })
 
   test("rejects a malformed cursor as a request error", () => {
-    const decoded = decodePayload({ limit: 5, cursor: "%%%" })
-
-    expect(decoded._tag).toBe("Failure")
+    expect(Result.isFailure(decodePayload({ limit: 5, cursor: "%%%" }))).toBe(true)
   })
 
   test("exposes the opaque cursor schema as a string on the wire", () => {
     const encoded = Schema.encodeSync(Cursor)(position)
 
-    expect(typeof encoded).toBe("string")
+    expect(encoded).toBeString()
     expect(Schema.decodeSync(Cursor)(encoded)).toEqual(position)
   })
 })

@@ -1,5 +1,5 @@
 import { Exchange as ExchangeModel, type ExchangeId } from "@lister/domain"
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Context, Effect, Layer, Option, Predicate, Schema } from "effect"
 import {
   ExchangeCoingeckoIdExists,
   ExchangeError,
@@ -150,7 +150,7 @@ export class Exchange extends Context.Service<
         const result = yield* store.list(query)
         const searchBy = query.searchBy.join(",")
 
-        if (result._tag === "Page") {
+        if (Predicate.isTagged(result, "Page")) {
           return {
             data: result.rows,
             meta: paginationMeta({

@@ -131,12 +131,15 @@ describe("chain HttpApi", () => {
         const keyset = { limit: 2, search: "", searchBy: ["code"], orderBy: "code", order: "asc" } as const
 
         const first = yield* client.chain.list({ payload: keyset })
+
         const second = yield* client.chain.list({
           payload: { ...keyset, cursor: cursorOf(first.nextCursor) }
         })
+
         const third = yield* client.chain.list({
           payload: { ...keyset, cursor: cursorOf(second.nextCursor) }
         })
+
         const past = yield* client.chain.list({
           payload: { ...keyset, cursor: { orderBy: "code", direction: "asc", values: ["ZZZ", 999_999] } }
         })
@@ -146,7 +149,7 @@ describe("chain HttpApi", () => {
     )
 
     expect(result.first.data.map((chain) => chain.code)).toEqual(["AAA", "BBB"])
-    expect(typeof result.first.nextCursor).toBe("string")
+    expect(result.first.nextCursor).toBeString()
     expect(result.first.meta).toMatchObject({ page: 1, hasNextPage: true, hasPreviousPage: false })
     expect(result.second.data.map((chain) => chain.code)).toEqual(["CCC", "DDD"])
     expect(result.third.data.map((chain) => chain.code)).toEqual(["EEE"])

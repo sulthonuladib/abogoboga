@@ -6,7 +6,7 @@ import {
   type ExchangeId,
   type MarketId
 } from "@lister/domain"
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Context, Effect, Layer, Option, Predicate, Schema } from "effect"
 import {
   CryptocurrencyCoingeckoIdExists,
   CryptocurrencyError,
@@ -284,7 +284,7 @@ export class Cryptocurrency extends Context.Service<
         const result = yield* store.list(query)
         const searchBy = query.searchBy.join(",")
 
-        if (result._tag === "Page") {
+        if (Predicate.isTagged(result, "Page")) {
           return {
             data: result.rows,
             meta: paginationMeta({
@@ -327,7 +327,7 @@ export class Cryptocurrency extends Context.Service<
       ): Effect.fn.Return<CryptocurrencyStatsPage, CryptocurrencyError> {
         const result = yield* store.listStats(query)
 
-        if (result._tag === "Page") {
+        if (Predicate.isTagged(result, "Page")) {
           return {
             data: result.rows,
             meta: paginationMeta({

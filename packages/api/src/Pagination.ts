@@ -1,4 +1,4 @@
-import { DateTime, Effect, Option, Predicate, Schema, SchemaGetter, SchemaIssue } from "effect"
+import { Data, DateTime, Effect, Option, Predicate, Schema, SchemaGetter, SchemaIssue } from "effect"
 
 /**
  * Decoded keyset cursor: the position of the last row on a page, together with
@@ -77,19 +77,13 @@ export const decodeCursor = (raw: string): Option.Option<CursorPosition> =>
  *
  * @param value - A row's sort-key value.
  * @returns The value as it is stored in a cursor.
- * @throws When the value has no cursor representation, which means the sort
- * configuration and its cursor builder disagree.
  */
-export const toCursorValue = (value: unknown): string | number => {
+export const toCursorValue = (value: string | number | DateTime.DateTime): string | number => {
   if (Predicate.isString(value) || Predicate.isNumber(value)) {
     return value
   }
 
-  if (DateTime.isDateTime(value)) {
-    return DateTime.formatIso(value)
-  }
-
-  throw new Error(`cannot represent a ${typeof value} cursor sort value`)
+  return DateTime.formatIso(value)
 }
 
 /**
@@ -165,23 +159,17 @@ export const PaginationQueryFields = {
  * `Page` uses the offset window of the legacy API; `Keyset` continues from an
  * optional decoded cursor and is the default when no page is requested.
  */
-export type PageWindow = {
-  readonly _tag: "Page"
-  readonly page: number
-}
+export type ListWindow = Data.TaggedEnum<{
+  /** Offset window: a one-based page number. */
+  Page: { readonly page: number }
+  /** Keyset window: `cursor` is `undefined` for the first page. */
+  Keyset: { readonly cursor: CursorPosition | undefined }
+}>
 
 /**
- * Keyset window: `cursor` is `undefined` for the first page.
+ * Constructors for {@link ListWindow}.
  */
-export type KeysetWindow = {
-  readonly _tag: "Keyset"
-  readonly cursor: CursorPosition | undefined
-}
-
-/**
- * Selected window for a paginated query.
- */
-export type ListWindow = PageWindow | KeysetWindow
+export const ListWindow = Data.taggedEnum<ListWindow>()
 
 /**
  * Build an offset window.
@@ -189,7 +177,7 @@ export type ListWindow = PageWindow | KeysetWindow
  * @param page - One-based page number.
  * @returns The page window.
  */
-export const pageWindow = (page: number): PageWindow => ({ _tag: "Page", page })
+export const pageWindow = (page: number): ListWindow => ListWindow.Page({ page })
 
 /**
  * Build a keyset window.
@@ -197,7 +185,7 @@ export const pageWindow = (page: number): PageWindow => ({ _tag: "Page", page })
  * @param cursor - Decoded cursor to continue after, or `undefined` for the first page.
  * @returns The keyset window.
  */
-export const keysetWindow = (cursor?: CursorPosition): KeysetWindow => ({ _tag: "Keyset", cursor })
+export const keysetWindow = (cursor?: CursorPosition): ListWindow => ListWindow.Keyset({ cursor })
 
 /**
  * Select the window requested by a decoded list payload.
@@ -212,37 +200,58 @@ export const toListWindow = (payload: {
   payload.page !== undefined ? pageWindow(payload.page) : keysetWindow(payload.cursor)
 
 /**
- * Store result for an offset window.
+ * Store result for a paginated query, tagged by the window it came from.
  *
  * @template Row - Row type held by the window.
  */
-export type PageListResult<Row> = {
-  readonly _tag: "Page"
+export type ListResult<Row> = Data.TaggedEnum<{
+  /** Offset window result: the rows, the unpaginated total, and the requested page. */
+  Page: {
+    readonly rows: ReadonlyArray<Row>
+    readonly total: number
+    /** Echo of the requested page, so meta building does not re-narrow the window. */
+    readonly page: number
+  }
+  /** Keyset window result: the rows and whether more exist after them. */
+  Keyset: {
+    readonly rows: ReadonlyArray<Row>
+    readonly hasMore: boolean
+  }
+}>
+
+/**
+ * Definition carrying the row generic for {@link ListResult} constructors.
+ */
+interface ListResultDefinition extends Data.TaggedEnum.WithGenerics<1> {
+  readonly taggedEnum: ListResult<this["A"]>
+}
+
+const ListResult = Data.taggedEnum<ListResultDefinition>()
+
+/**
+ * Build the result of an offset window.
+ *
+ * @template Row - Row type held by the window.
+ * @param input - Rows, unpaginated total, and the requested page.
+ * @returns The tagged page result.
+ */
+export const pageListResult = <Row>(input: {
   readonly rows: ReadonlyArray<Row>
-  /** Total rows matching the query before pagination. */
   readonly total: number
-  /** Echo of the requested page, so meta building does not re-narrow the window. */
   readonly page: number
-}
+}): ListResult<Row> => ListResult.Page(input)
 
 /**
- * Store result for a keyset window.
+ * Build the result of a keyset window.
  *
  * @template Row - Row type held by the window.
+ * @param input - Rows and whether more exist after them.
+ * @returns The tagged keyset result.
  */
-export type KeysetListResult<Row> = {
-  readonly _tag: "Keyset"
+export const keysetListResult = <Row>(input: {
   readonly rows: ReadonlyArray<Row>
-  /** Whether rows exist after this window. */
   readonly hasMore: boolean
-}
-
-/**
- * Store result for a paginated query.
- *
- * @template Row - Row type held by the window.
- */
-export type ListResult<Row> = PageListResult<Row> | KeysetListResult<Row>
+}): ListResult<Row> => ListResult.Keyset(input)
 
 /**
  * A `data` page, its {@link PaginationMeta}, and the keyset continuation when

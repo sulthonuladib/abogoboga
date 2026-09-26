@@ -1,5 +1,5 @@
 import { Chain as ChainModel, type ChainId } from "@lister/domain"
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Context, Effect, Layer, Option, Predicate, Schema } from "effect"
 import { ChainCodeExists, ChainError, ChainNotFound } from "./ChainErrors.ts"
 import {
   type ListResult,
@@ -142,7 +142,7 @@ export class Chain extends Context.Service<
         const result = yield* store.list(query)
         const searchBy = query.searchBy.join(",")
 
-        if (result._tag === "Page") {
+        if (Predicate.isTagged(result, "Page")) {
           return {
             data: result.rows,
             meta: paginationMeta({

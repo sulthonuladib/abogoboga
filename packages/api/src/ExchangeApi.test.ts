@@ -144,6 +144,7 @@ describe("exchange HttpApi", () => {
         const keyset = { limit: 2, search: "", searchBy: ["slug"], orderBy: "slug", order: "asc" } as const
 
         const first = yield* client.exchange.list({ payload: keyset })
+
         const second = yield* client.exchange.list({
           payload: { ...keyset, cursor: cursorOf(first.nextCursor) }
         })
