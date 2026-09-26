@@ -18,7 +18,7 @@ import {
   type CryptocurrencyError,
   type CryptocurrencyStatsQuery,
   type CryptocurrencyUpdate
-} from "@lister/control-plane-api"
+} from "@lister/api"
 import { ChainId, CryptocurrencyId, ExchangeId } from "@lister/domain"
 import { Effect, Layer, Match, Predicate } from "effect"
 import { HttpRouter } from "effect/unstable/http"

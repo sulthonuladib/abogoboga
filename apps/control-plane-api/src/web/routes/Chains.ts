@@ -13,7 +13,7 @@ import {
   type ChainError,
   type ChainListQuery,
   type ChainUpdate
-} from "@lister/control-plane-api"
+} from "@lister/api"
 import { ChainId } from "@lister/domain"
 import { Effect, Layer, Match, Predicate } from "effect"
 import { HttpRouter } from "effect/unstable/http"

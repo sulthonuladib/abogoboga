@@ -5,7 +5,7 @@
  * @module
  */
 
-import type { WorkerStatus } from "@lister/control-plane-api"
+import type { WorkerStatus } from "@lister/api"
 import { html, join, type RawHtml } from "../Html.ts"
 import { EmptyState, PageHeader } from "./Controls.ts"
 

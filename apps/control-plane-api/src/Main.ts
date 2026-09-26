@@ -33,7 +33,7 @@ import {
   exchangeStoreLayer,
   marketStoreLayer,
   workerControlLiveLayer
-} from "@lister/control-plane-api"
+} from "@lister/api"
 import { DomainEvents, Reconciler, Supervisor, eligibilityStoreLayer, orderbookStoreLayer } from "@lister/crawler"
 import { Database } from "@lister/db"
 import { Effect, Layer } from "effect"

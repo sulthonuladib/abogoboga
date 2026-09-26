@@ -12,7 +12,7 @@ import {
   type ExchangeError,
   type ExchangeListQuery,
   type ExchangeUpdate
-} from "@lister/control-plane-api"
+} from "@lister/api"
 import { ExchangeId } from "@lister/domain"
 import { Effect, Layer, Match, Predicate } from "effect"
 import { HttpRouter } from "effect/unstable/http"

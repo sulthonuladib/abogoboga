@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test } from "bun:test"
-import { WorkerControl, type WorkerStatus } from "@lister/control-plane-api"
+import { WorkerControl, type WorkerStatus } from "@lister/api"
 import { Effect } from "effect"
 import { bodyOf, htmxRequest, withTestApp, type TestApp } from "./testing/App.ts"
 import { WorkersList } from "./views/Workers.ts"

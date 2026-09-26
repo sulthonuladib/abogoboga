@@ -22,7 +22,7 @@ import {
   type MarketCreate,
   type MarketError,
   type MarketUpdate
-} from "@lister/control-plane-api"
+} from "@lister/api"
 import { ChainId, ChainLinkId, CryptocurrencyId, ExchangeId, MarketId, type Market as MarketModel } from "@lister/domain"
 import { Effect, Layer, Match, Option, Predicate } from "effect"
 import { HttpRouter } from "effect/unstable/http"

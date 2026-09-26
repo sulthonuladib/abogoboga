@@ -18,7 +18,7 @@ import {
   type CryptocurrencyCreate,
   type ExchangeCreate,
   type MarketCreate
-} from "@lister/control-plane-api"
+} from "@lister/api"
 import { Context, Effect } from "effect"
 import type { AppService } from "./App.ts"
 

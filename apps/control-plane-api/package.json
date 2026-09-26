@@ -1,5 +1,5 @@
 {
-  "name": "@lister/control-plane",
+  "name": "@lister/control-plane-api",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
   "dependencies": {
     "@effect/platform-bun": "^4.0.0-rc.115",
     "@lister/config": "workspace:*",
-    "@lister/control-plane-api": "workspace:*",
+    "@lister/api": "workspace:*",
     "@lister/crawler": "workspace:*",
     "@lister/db": "workspace:*",
     "@lister/domain": "workspace:*",

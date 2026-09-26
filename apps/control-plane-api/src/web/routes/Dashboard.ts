@@ -4,7 +4,7 @@
  * @module
  */
 
-import { Chain, ChainLink, Cryptocurrency, Exchange, Market } from "@lister/control-plane-api"
+import { Chain, ChainLink, Cryptocurrency, Exchange, Market } from "@lister/api"
 import { Effect, Layer } from "effect"
 import { fragmentResponse, isHtmxRequest, pageResponse, route, unexpectedReason } from "../Http.ts"
 import { Layout } from "../Layout.ts"

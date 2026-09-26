@@ -22,7 +22,7 @@ import {
   cryptocurrencyStoreLayer,
   exchangeStoreLayer,
   marketStoreLayer
-} from "@lister/control-plane-api"
+} from "@lister/api"
 import { Context, Effect, Layer } from "effect"
 import { HttpRouter } from "effect/unstable/http"
 import { WebRoutes } from "../Routes.ts"

@@ -8,7 +8,7 @@
  * @module
  */
 
-import { Cryptocurrency, type CryptocurrencyError, type CryptocurrencyMetadata } from "@lister/control-plane-api"
+import { Cryptocurrency, type CryptocurrencyError, type CryptocurrencyMetadata } from "@lister/api"
 import { CryptocurrencyId, orderedPairStatus, viableChains, type ChainLinkFlags } from "@lister/domain"
 import { Effect, Layer, Predicate } from "effect"
 import { HttpRouter } from "effect/unstable/http"

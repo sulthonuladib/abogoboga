@@ -5,7 +5,7 @@
  * @module
  */
 
-import { WorkerControl, type WorkerConflict, type WorkerControlFailure, type WorkerExchangeNotFound, type WorkerStatus } from "@lister/control-plane-api"
+import { WorkerControl, type WorkerConflict, type WorkerControlFailure, type WorkerExchangeNotFound, type WorkerStatus } from "@lister/api"
 import { Effect, Layer, Schema } from "effect"
 import { HttpRouter } from "effect/unstable/http"
 import { ToastOob } from "../Fragments.ts"

@@ -5,7 +5,7 @@
  * @module
  */
 
-import { Chain, Exchange } from "@lister/control-plane-api"
+import { Chain, Exchange } from "@lister/api"
 import { Effect, Layer } from "effect"
 import { HttpRouter, HttpServerResponse } from "effect/unstable/http"
 import { raw } from "../Html.ts"
