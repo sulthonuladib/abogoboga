@@ -30,6 +30,7 @@
       "name": "@lister/cli",
       "version": "1.0.0",
       "dependencies": {
+        "@coingecko/coingecko-typescript": "8.1.0",
         "@effect/platform-bun": "^4.0.0-rc.115",
         "@lister/config": "workspace:*",
         "@lister/crawler": "workspace:*",
@@ -280,6 +281,8 @@
     "drizzle-orm@1.0.0-rc.4": "patches/drizzle-orm@1.0.0-rc.4.patch",
   },
   "packages": {
+    "@coingecko/coingecko-typescript": ["@coingecko/coingecko-typescript@8.1.0", "", {}, "sha512-z9YqPNP9l55AOmuDpwt+syCzHtq1xycAEQcRD/zEeEkAbF+jUTpmYfw9LdlPKJOCncwv7ShUFyEfecSg1vkVoQ=="],
+
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.12.1", "", {}, "sha512-yHwomvolVafvUXhy5TdiJVkuNCxXn+bKOs2aWiWEQh/5YaV97Oa/abJz3dmx7lxgIUsUlS1Jl4mEfvJPo3YsVw=="],
 
     "@effect/platform-bun": ["@effect/platform-bun@4.0.0-rc.115", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-rc.115" }, "peerDependencies": { "effect": "^4.0.0-rc.115" } }, "sha512-ilTFcs66ghInP8WHCJYa4bx/yzohYM9dRR//qjmVBBpSKu1hrCTiRWpEcc1N6zrnOEPk2kyVaKg5ykSMgiBMqQ=="],

@@ -27,7 +27,7 @@ export const CryptocurrencyHandlersNoDeps = HttpApiBuilder.group(
         cryptocurrency.add(payload).pipe(
           Effect.unwrapReason("CryptocurrencyError"),
           Effect.catchTags({
-            CryptocurrencyCmcIdExists: (reason) => Effect.fail(reason),
+            CryptocurrencyCoingeckoIdExists: (reason) => Effect.fail(reason),
             CryptocurrencySlugExists: (reason) => Effect.fail(reason),
             CryptocurrencyNotFound: unexpectedReason("add")
           })
@@ -41,7 +41,7 @@ export const CryptocurrencyHandlersNoDeps = HttpApiBuilder.group(
           Effect.unwrapReason("CryptocurrencyError"),
           Effect.catchTags({
             CryptocurrencyNotFound: (reason) => Effect.fail(reason),
-            CryptocurrencyCmcIdExists: unexpectedReason("metadata"),
+            CryptocurrencyCoingeckoIdExists: unexpectedReason("metadata"),
             CryptocurrencySlugExists: unexpectedReason("metadata")
           })
         )
@@ -51,7 +51,7 @@ export const CryptocurrencyHandlersNoDeps = HttpApiBuilder.group(
           Effect.unwrapReason("CryptocurrencyError"),
           Effect.catchTags({
             CryptocurrencyNotFound: (reason) => Effect.fail(reason),
-            CryptocurrencyCmcIdExists: unexpectedReason("findById"),
+            CryptocurrencyCoingeckoIdExists: unexpectedReason("findById"),
             CryptocurrencySlugExists: unexpectedReason("findById")
           })
         ),
@@ -60,7 +60,7 @@ export const CryptocurrencyHandlersNoDeps = HttpApiBuilder.group(
           Effect.unwrapReason("CryptocurrencyError"),
           Effect.catchTags({
             CryptocurrencyNotFound: (reason) => Effect.fail(reason),
-            CryptocurrencyCmcIdExists: (reason) => Effect.fail(reason),
+            CryptocurrencyCoingeckoIdExists: (reason) => Effect.fail(reason),
             CryptocurrencySlugExists: (reason) => Effect.fail(reason)
           })
         ),
@@ -69,7 +69,7 @@ export const CryptocurrencyHandlersNoDeps = HttpApiBuilder.group(
           Effect.unwrapReason("CryptocurrencyError"),
           Effect.catchTags({
             CryptocurrencyNotFound: (reason) => Effect.fail(reason),
-            CryptocurrencyCmcIdExists: unexpectedReason("remove"),
+            CryptocurrencyCoingeckoIdExists: unexpectedReason("remove"),
             CryptocurrencySlugExists: unexpectedReason("remove")
           })
         )

@@ -13,12 +13,12 @@ describe("SSR partials", () => {
             name: "Bitcoin",
             slug: "bitcoin",
             logo: "https://example.com/btc.png",
-            cmcId: 1
+            coingeckoId: "bitcoin"
           })
           yield* seedExchange(app.services, {
             name: "Binance",
             slug: "binance",
-            cmcId: 270,
+            coingeckoId: "binance",
             logo: "https://example.com/exchange.png",
             registeredOnCmc: true,
             baseCurrency: "usdt"
@@ -66,13 +66,13 @@ describe("SSR partials", () => {
             name: "Bitcoin",
             slug: "bitcoin",
             logo: "https://example.com/btc.png",
-            cmcId: 1
+            coingeckoId: "bitcoin"
           })
 
           const binance = yield* seedExchange(app.services, {
             name: "Binance",
             slug: "binance",
-            cmcId: 270,
+            coingeckoId: "binance",
             logo: "https://example.com/exchange.png",
             registeredOnCmc: true,
             baseCurrency: "usdt"
@@ -81,7 +81,7 @@ describe("SSR partials", () => {
           const kraken = yield* seedExchange(app.services, {
             name: "Kraken",
             slug: "kraken",
-            cmcId: 24,
+            coingeckoId: "kraken",
             logo: "https://example.com/exchange.png",
             registeredOnCmc: true,
             baseCurrency: "usdt"

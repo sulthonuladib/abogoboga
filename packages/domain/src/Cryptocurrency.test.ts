@@ -8,7 +8,7 @@ const row = {
   symbol: "BTC",
   slug: "bitcoin",
   logo: "https://example.com/btc.png",
-  cmcId: 1,
+  coingeckoId: "bitcoin",
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
   updatedAt: new Date("2026-01-02T00:00:00.000Z")
 } as const
@@ -29,6 +29,12 @@ describe("Cryptocurrency", () => {
 
     expect(json.createdAt).toBe("2026-01-01T00:00:00.000Z")
     expect(Schema.decodeUnknownSync(Cryptocurrency.json)(json)).toEqual(decoded)
+  })
+
+  test("empty logo decodes as a no-logo state", () => {
+    const decoded = Schema.decodeUnknownSync(Cryptocurrency)({ ...row, logo: "" })
+
+    expect(decoded.logo).toBe("")
   })
 
   test("insert fills generated fields", async () => {

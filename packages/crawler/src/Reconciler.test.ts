@@ -12,11 +12,11 @@ const repoRoot = fileURLToPath(new URL("../../../", import.meta.url))
 
 const dummyWorker = join(repoRoot, "packages/worker-contract/src/testing/dummy-worker.ts")
 
-const btc: BootstrapCoin = { symbol: "BTC", cmcId: 1 }
+const btc: BootstrapCoin = { symbol: "BTC", coingeckoId: "bitcoin" }
 
-const eth: BootstrapCoin = { symbol: "ETH", cmcId: 1027 }
+const eth: BootstrapCoin = { symbol: "ETH", coingeckoId: "ethereum" }
 
-const sol: BootstrapCoin = { symbol: "SOL", cmcId: 5426 }
+const sol: BootstrapCoin = { symbol: "SOL", coingeckoId: "solana" }
 
 /** Registry entry for one exchange: its slug and currently eligible coins. */
 interface RegistryEntry {

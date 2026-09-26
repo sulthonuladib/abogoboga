@@ -20,7 +20,26 @@ import { runStdioWorker, type WorkerSourceFactory } from "../StdioWorker.ts"
  *
  * @param coin - Coin to key.
  */
-const keyOf = (coin: BootstrapCoin): string => `${coin.symbol}:${coin.cmcId}`
+const keyOf = (coin: BootstrapCoin): string => `${coin.symbol}:${coin.coingeckoId}`
+
+/**
+ * Deterministic synthetic base price in the 100–199 range.
+ *
+ * CoinGecko ids have no numeric value, so derive a stable price from a small
+ * string hash.
+ *
+ * @param coingeckoId - CoinGecko id to hash.
+ * @returns A deterministic base price.
+ */
+const basePrice = (coingeckoId: string): number => {
+  let hash = 0
+
+  for (const character of coingeckoId) {
+    hash = (hash * 31 + character.charCodeAt(0)) % 10_000
+  }
+
+  return 100 + (hash % 100)
+}
 
 /**
  * Builds one synthetic book around a deterministic base price.
@@ -30,12 +49,12 @@ const keyOf = (coin: BootstrapCoin): string => `${coin.symbol}:${coin.cmcId}`
  * @param millis - Emission time in epoch milliseconds (Clock-driven).
  */
 const tickFor = (coin: BootstrapCoin, exchangeSlug: string, millis: number): CanonicalTick => {
-  const base = 100 + (coin.cmcId % 100)
+  const base = basePrice(coin.coingeckoId)
 
   return {
     exchangeSlug,
     symbol: coin.symbol,
-    cmcId: coin.cmcId,
+    coingeckoId: coin.coingeckoId,
     bids: [
       [base, 1],
       [base - 1, 2]

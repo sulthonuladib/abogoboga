@@ -24,8 +24,10 @@ export class Cryptocurrency extends Model.Class<Cryptocurrency>("Cryptocurrency"
   name: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   symbol: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   slug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
-  logo: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
-  cmcId: Schema.Int,
+  // Empty is a valid "no logo" state: the CoinGecko scanner drops oversized
+  // URLs and leaves misses blank, and the UI renders a symbol fallback.
+  logo: Schema.String.pipe(Schema.check(Schema.isMaxLength(255))),
+  coingeckoId: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   createdAt: Model.DateTimeInsertFromDate,
   updatedAt: Model.DateTimeUpdateFromDate
 }) {}

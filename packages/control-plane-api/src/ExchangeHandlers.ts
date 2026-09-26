@@ -26,7 +26,7 @@ export const ExchangeHandlersNoDeps = HttpApiBuilder.group(
         exchange.add(payload).pipe(
           Effect.unwrapReason("ExchangeError"),
           Effect.catchTags({
-            ExchangeCmcIdExists: (reason) => Effect.fail(reason),
+            ExchangeCoingeckoIdExists: (reason) => Effect.fail(reason),
             ExchangeSlugExists: (reason) => Effect.fail(reason),
             ExchangeNotFound: unexpectedReason("add")
           })
@@ -37,7 +37,7 @@ export const ExchangeHandlersNoDeps = HttpApiBuilder.group(
           Effect.unwrapReason("ExchangeError"),
           Effect.catchTags({
             ExchangeNotFound: (reason) => Effect.fail(reason),
-            ExchangeCmcIdExists: unexpectedReason("findById"),
+            ExchangeCoingeckoIdExists: unexpectedReason("findById"),
             ExchangeSlugExists: unexpectedReason("findById")
           })
         ),
@@ -46,7 +46,7 @@ export const ExchangeHandlersNoDeps = HttpApiBuilder.group(
           Effect.unwrapReason("ExchangeError"),
           Effect.catchTags({
             ExchangeNotFound: (reason) => Effect.fail(reason),
-            ExchangeCmcIdExists: (reason) => Effect.fail(reason),
+            ExchangeCoingeckoIdExists: (reason) => Effect.fail(reason),
             ExchangeSlugExists: (reason) => Effect.fail(reason)
           })
         ),
@@ -55,7 +55,7 @@ export const ExchangeHandlersNoDeps = HttpApiBuilder.group(
           Effect.unwrapReason("ExchangeError"),
           Effect.catchTags({
             ExchangeNotFound: (reason) => Effect.fail(reason),
-            ExchangeCmcIdExists: unexpectedReason("remove"),
+            ExchangeCoingeckoIdExists: unexpectedReason("remove"),
             ExchangeSlugExists: unexpectedReason("remove")
           })
         )

@@ -5,7 +5,7 @@ import { HttpServer } from "effect/unstable/http"
 import { HttpApiTest } from "effect/unstable/httpapi"
 import { Api } from "./Api.ts"
 import { ExchangeCreatePayload } from "./ExchangeApi.ts"
-import { ExchangeCmcIdExists, ExchangeNotFound, ExchangeSlugExists } from "./ExchangeErrors.ts"
+import { ExchangeCoingeckoIdExists, ExchangeNotFound, ExchangeSlugExists } from "./ExchangeErrors.ts"
 import { ExchangeHandlers } from "./ExchangeHandlers.ts"
 
 const DatabaseTestLayer = Database.layerMemory()
@@ -37,7 +37,7 @@ const listPayload = {
 } as const
 
 const binance = {
-  cmcId: 270,
+  coingeckoId: "binance",
   name: "Binance",
   slug: "binance",
   logo: "binance.svg",
@@ -76,11 +76,11 @@ describe("exchange HttpApi", () => {
     expect(result.listed.meta).toMatchObject({ items: 1, pages: 1, from: 1, to: 1 })
     expect(result.updated.name).toBe("Binance (updated)")
     expect(result.fetched.name).toBe("Binance (updated)")
-    expect(result.removed.cmcId).toBe(270)
+    expect(result.removed.coingeckoId).toBe("binance")
     expect(result.missing).toBeInstanceOf(ExchangeNotFound)
   })
 
-  test("rejects duplicate cmcId and slug with conflicts", async () => {
+  test("rejects duplicate coingeckoId and slug with conflicts", async () => {
     const result = await runWithClient((client) =>
       Effect.gen(function*() {
         yield* client.exchange.add({ payload: binance })
@@ -89,7 +89,9 @@ describe("exchange HttpApi", () => {
           client.exchange.add({ payload: { ...binance, slug: "binance-us" } })
         )
 
-        const slugConflict = yield* Effect.flip(client.exchange.add({ payload: { ...binance, cmcId: 271 } }))
+        const slugConflict = yield* Effect.flip(
+          client.exchange.add({ payload: { ...binance, coingeckoId: "binance-us" } })
+        )
 
         const listed = yield* client.exchange.list({ payload: { ...listPayload, limit: -1 } })
 
@@ -97,7 +99,7 @@ describe("exchange HttpApi", () => {
       })
     )
 
-    expect(result.cmcConflict).toBeInstanceOf(ExchangeCmcIdExists)
+    expect(result.cmcConflict).toBeInstanceOf(ExchangeCoingeckoIdExists)
     expect(result.slugConflict).toBeInstanceOf(ExchangeSlugExists)
     expect(result.listed.meta.items).toBe(1)
     expect(result.listed.data).toHaveLength(1)
@@ -105,7 +107,7 @@ describe("exchange HttpApi", () => {
 
   test("create payload applies the registeredOnCmc default", () => {
     const decoded = Schema.decodeSync(ExchangeCreatePayload)({
-      cmcId: 270,
+      coingeckoId: "binance",
       name: "Binance",
       slug: "binance",
       logo: "binance.svg",

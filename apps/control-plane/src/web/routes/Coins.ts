@@ -98,8 +98,8 @@ const isCoinMissing = (reason: CryptocurrencyError["reason"]): boolean =>
 const coinWriteMessage = (error: CryptocurrencyError): string =>
   Match.value(error.reason).pipe(
     Match.tagsExhaustive({
-      CryptocurrencyCmcIdExists: (reason) =>
-        `CMC id ${String(reason.cmcId)} is already used by another coin`,
+      CryptocurrencyCoingeckoIdExists: (reason) =>
+        `CoinGecko id "${reason.coingeckoId}" is already used by another coin`,
       CryptocurrencySlugExists: (reason) => `slug "${reason.slug}" is already used by another coin`,
       CryptocurrencyNotFound: () => "coin not found"
     })
@@ -110,7 +110,7 @@ type CoinFormValues = {
   readonly symbol: string
   readonly name: string
   readonly slug: string
-  readonly cmcId: number
+  readonly coingeckoId: string
   readonly logo: string
 }
 
@@ -214,14 +214,9 @@ const coinCreateRoute = route("POST", "/coins", (request) =>
   Effect.gen(function*() {
     const params = yield* formParams(request)
     const symbol = trimmed(params, "symbol")
-    const cmcId = integer(params, "cmcId", Number.NaN)
 
     if (symbol === "") {
       return coinFormError({ mode: "create", action: "/coins", error: "symbol is required" })
-    }
-
-    if (!Number.isSafeInteger(cmcId)) {
-      return coinFormError({ mode: "create", action: "/coins", error: "cmcId must be a whole number" })
     }
 
     const input: CryptocurrencyCreate = {
@@ -229,7 +224,7 @@ const coinCreateRoute = route("POST", "/coins", (request) =>
       name: trimmed(params, "name") || symbol,
       slug: trimmed(params, "slug") || slugify(symbol),
       logo: trimmed(params, "logo") || defaultLogo,
-      cmcId
+      coingeckoId: trimmed(params, "coingeckoId") || slugify(symbol)
     }
 
     const cryptocurrency = yield* Cryptocurrency
@@ -244,7 +239,7 @@ const coinCreateRoute = route("POST", "/coins", (request) =>
         return Effect.succeed({
           kind: "problem" as const,
           message: coinWriteMessage(error),
-          coin: { id: 0, symbol, name: input.name, slug: input.slug, cmcId, logo: input.logo }
+          coin: { id: 0, symbol, name: input.name, slug: input.slug, coingeckoId: input.coingeckoId, logo: input.logo }
         })
       })
     )
@@ -289,7 +284,7 @@ const coinEditRoute = route("GET", "/coins/:id/edit", (_request) =>
           symbol: coin.symbol,
           name: coin.name,
           slug: coin.slug,
-          cmcId: coin.cmcId,
+          coingeckoId: coin.coingeckoId,
           logo: coin.logo
         },
         action: `/coins/${String(coin.id)}`
@@ -314,30 +309,13 @@ const coinUpdateRoute = route("POST", "/coins/:id", (request) =>
     )
 
     const params = yield* formParams(request)
-    const cmcRaw = trimmed(params, "cmcId")
-    const cmcId = cmcRaw === "" ? existing.cmcId : integer(params, "cmcId", Number.NaN)
-
-    if (!Number.isSafeInteger(cmcId)) {
-      return coinFormError({
-        mode: "edit",
-        action: `/coins/${String(id)}`,
-        coin: {
-          id,
-          symbol: existing.symbol,
-          name: existing.name,
-          slug: existing.slug,
-          cmcId: existing.cmcId,
-          logo: existing.logo
-        },
-        error: "cmcId must be a whole number"
-      })
-    }
+    const coingeckoId = trimmed(params, "coingeckoId") || existing.coingeckoId
 
     const input: CryptocurrencyUpdate = {
       symbol: trimmed(params, "symbol") || existing.symbol,
       name: trimmed(params, "name") || existing.name,
       slug: trimmed(params, "slug") || existing.slug,
-      cmcId
+      coingeckoId
     }
 
     const outcome = yield* cryptocurrency.update(id, input).pipe(
@@ -350,7 +328,7 @@ const coinUpdateRoute = route("POST", "/coins/:id", (request) =>
         return Effect.succeed({
           kind: "problem" as const,
           message: coinWriteMessage(error),
-          coin: { id, symbol: input.symbol, name: input.name, slug: input.slug, cmcId: input.cmcId, logo: existing.logo }
+          coin: { id, symbol: input.symbol, name: input.name, slug: input.slug, coingeckoId: input.coingeckoId, logo: existing.logo }
         })
       })
     )

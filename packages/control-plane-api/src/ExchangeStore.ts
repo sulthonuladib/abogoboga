@@ -10,7 +10,7 @@ import {
   type ExchangeListQuery,
   type ExchangeUpdate
 } from "./Exchange.ts"
-import { ExchangeCmcIdExists, ExchangeSlugExists } from "./ExchangeErrors.ts"
+import { ExchangeCoingeckoIdExists, ExchangeSlugExists } from "./ExchangeErrors.ts"
 import { decodeRows } from "./RowDecoding.ts"
 
 /**
@@ -31,10 +31,10 @@ export const layer: Layer.Layer<ExchangeStore, never, Database> = Layer.effect(
       const conditions = []
 
       if (query.search) {
-        if (query.searchBy === "id" || query.searchBy === "cmcId") {
+        if (query.searchBy === "id") {
           const numeric = Number(query.search)
 
-          conditions.push(eq(exchangeTable[query.searchBy], Number.isNaN(numeric) ? -1 : numeric))
+          conditions.push(eq(exchangeTable.id, Number.isNaN(numeric) ? -1 : numeric))
         } else {
           conditions.push(ilike(exchangeTable[query.searchBy], `%${query.search.toLowerCase()}%`))
         }
@@ -54,13 +54,13 @@ export const layer: Layer.Layer<ExchangeStore, never, Database> = Layer.effect(
     const uniqueConflict = (
       error: EffectDrizzleQueryError,
       input: ExchangeCreate | ExchangeUpdate
-    ): ExchangeCmcIdExists | ExchangeSlugExists | undefined => {
+    ): ExchangeCoingeckoIdExists | ExchangeSlugExists | undefined => {
       const constraint = uniqueViolationConstraint(error)
 
       if (Option.isNone(constraint)) return undefined
 
-      if (constraint.value === "exchange_cmcId_unique" && input.cmcId !== undefined) {
-        return new ExchangeCmcIdExists({ cmcId: input.cmcId })
+      if (constraint.value === "exchange_coingeckoId_unique" && input.coingeckoId !== undefined) {
+        return new ExchangeCoingeckoIdExists({ coingeckoId: input.coingeckoId })
       }
 
       if (constraint.value === "exchange_slug_unique" && input.slug !== undefined) {
@@ -81,11 +81,11 @@ export const layer: Layer.Layer<ExchangeStore, never, Database> = Layer.effect(
       return Option.fromIterable(decodeExchanges(rows))
     })
 
-    const findByCmcId = Effect.fn("ExchangeStore.findByCmcId")(function*(cmcId: number) {
+    const findByCoingeckoId = Effect.fn("ExchangeStore.findByCoingeckoId")(function*(coingeckoId: string) {
       const rows = yield* db
         .select()
         .from(exchangeTable)
-        .where(eq(exchangeTable.cmcId, cmcId))
+        .where(eq(exchangeTable.coingeckoId, coingeckoId))
         .limit(1)
         .pipe(Effect.orDie)
 
@@ -185,7 +185,7 @@ export const layer: Layer.Layer<ExchangeStore, never, Database> = Layer.effect(
     return ExchangeStore.of({
       list,
       findById,
-      findByCmcId,
+      findByCoingeckoId,
       findBySlug,
       insert,
       update,

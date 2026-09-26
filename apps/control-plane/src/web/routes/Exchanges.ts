@@ -60,7 +60,7 @@ const isExchangeMissing = (reason: ExchangeError["reason"]): boolean =>
 const exchangeWriteMessage = (error: ExchangeError): string =>
   Match.value(error.reason).pipe(
     Match.tagsExhaustive({
-      ExchangeCmcIdExists: (reason) => `CMC id ${String(reason.cmcId)} is already used by another exchange`,
+      ExchangeCoingeckoIdExists: (reason) => `CoinGecko id "${reason.coingeckoId}" is already used by another exchange`,
       ExchangeSlugExists: (reason) => `slug "${reason.slug}" is already used by another exchange`,
       ExchangeNotFound: () => "exchange not found"
     })
@@ -92,7 +92,7 @@ const loadExchangeRows = Effect.fn("Ssr.exchangeRows")(function*(q: string, page
       id: exchange.id,
       name: exchange.name,
       slug: exchange.slug,
-      cmcId: exchange.cmcId,
+      coingeckoId: exchange.coingeckoId,
       baseCurrency: exchange.baseCurrency,
       registeredOnCmc: exchange.registeredOnCmc,
       coins
@@ -141,7 +141,7 @@ const exchangeCreateRoute = route("POST", "/exchanges", (request) =>
     const input: ExchangeCreate = {
       name,
       slug: trimmed(params, "slug") || slugify(name),
-      cmcId: integer(params, "cmcId", 0),
+      coingeckoId: trimmed(params, "coingeckoId") || slugify(name),
       logo: "https://example.com/exchange.png",
       registeredOnCmc: true,
       baseCurrency: oneOf(params, "baseCurrency", ["usdt", "idr"] as const, "usdt")
@@ -163,7 +163,7 @@ const exchangeCreateRoute = route("POST", "/exchanges", (request) =>
             id: 0,
             name,
             slug: input.slug,
-            cmcId: input.cmcId,
+            coingeckoId: input.coingeckoId,
             baseCurrency: input.baseCurrency
           }
         })
@@ -218,7 +218,7 @@ const exchangeDetailRoute = route("GET", "/exchanges/:id", (request) =>
         id: exchange.id,
         name: exchange.name,
         slug: exchange.slug,
-        cmcId: exchange.cmcId,
+        coingeckoId: exchange.coingeckoId,
         baseCurrency: exchange.baseCurrency,
         registeredOnCmc: exchange.registeredOnCmc
       },
@@ -253,7 +253,7 @@ const exchangeEditRoute = route("GET", "/exchanges/:id/edit", (_request) =>
           id: exchange.id,
           name: exchange.name,
           slug: exchange.slug,
-          cmcId: exchange.cmcId,
+          coingeckoId: exchange.coingeckoId,
           baseCurrency: exchange.baseCurrency
         },
         action: `/exchanges/${String(exchange.id)}`
@@ -282,7 +282,7 @@ const exchangeUpdateRoute = route("POST", "/exchanges/:id", (request) =>
     const input: ExchangeUpdate = {
       name: trimmed(params, "name") || existing.name,
       slug: trimmed(params, "slug") || existing.slug,
-      cmcId: existing.cmcId,
+      coingeckoId: existing.coingeckoId,
       logo: existing.logo,
       registeredOnCmc: existing.registeredOnCmc,
       baseCurrency: existing.baseCurrency
@@ -302,7 +302,7 @@ const exchangeUpdateRoute = route("POST", "/exchanges/:id", (request) =>
             id,
             name: input.name,
             slug: input.slug,
-            cmcId: input.cmcId,
+            coingeckoId: input.coingeckoId,
             baseCurrency: input.baseCurrency
           }
         })

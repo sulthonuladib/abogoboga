@@ -11,11 +11,11 @@ export class ExchangeNotFound extends Schema.TaggedError<ExchangeNotFound>()(
 ) {}
 
 /**
- * Expected failure: another exchange already uses the given `cmcId`.
+ * Expected failure: another exchange already uses the given `coingeckoId`.
  */
-export class ExchangeCmcIdExists extends Schema.TaggedError<ExchangeCmcIdExists>()(
-  "ExchangeCmcIdExists",
-  { cmcId: Schema.Int },
+export class ExchangeCoingeckoIdExists extends Schema.TaggedError<ExchangeCoingeckoIdExists>()(
+  "ExchangeCoingeckoIdExists",
+  { coingeckoId: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))) },
   { httpApiStatus: 409 }
 ) {}
 
@@ -31,7 +31,7 @@ export class ExchangeSlugExists extends Schema.TaggedError<ExchangeSlugExists>()
 /**
  * Failure reasons of the {@link Exchange} application service.
  */
-export const ExchangeReason = Schema.Union([ExchangeNotFound, ExchangeCmcIdExists, ExchangeSlugExists])
+export const ExchangeReason = Schema.Union([ExchangeNotFound, ExchangeCoingeckoIdExists, ExchangeSlugExists])
 
 /**
  * Decoded failure reason of the exchange application service.

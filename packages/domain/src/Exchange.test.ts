@@ -4,7 +4,7 @@ import { Exchange } from "./Exchange.ts"
 
 const row = {
   id: 1,
-  cmcId: 1027,
+  coingeckoId: "binance",
   name: "Binance",
   slug: "binance",
   logo: "https://example.com/binance.png",
@@ -31,6 +31,12 @@ describe("Exchange", () => {
     expect(json.createdAt).toBe("2026-01-01T00:00:00.000Z")
     expect(json.updatedAt).toBe("2026-01-02T00:00:00.000Z")
     expect(Schema.decodeUnknownSync(Exchange.json)(json)).toEqual(decoded)
+  })
+
+  test("empty logo decodes as a no-logo state", () => {
+    const decoded = Schema.decodeUnknownSync(Exchange)({ ...row, logo: "" })
+
+    expect(decoded.logo).toBe("")
   })
 
   test("insert fills generated fields", async () => {

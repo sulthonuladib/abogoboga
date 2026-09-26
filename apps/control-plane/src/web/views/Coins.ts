@@ -15,7 +15,7 @@ export type CoinStatsRow = {
   readonly symbol: string
   readonly name: string
   readonly slug: string
-  readonly cmcId: number
+  readonly coingeckoId: string
   readonly logo: string
   readonly markets: number
   readonly chains: number
@@ -237,7 +237,7 @@ export const CoinsTableWrap = (options: {
                 <tr>
                   ${sortHeader({ column: "symbol", label: "Coin", sortBy: options.sortBy, order: options.order })}
                   <th class="hidden lg:table-cell">Slug</th>
-                  <th class="hidden md:table-cell">CMC</th>
+                  <th class="hidden md:table-cell">CoinGecko</th>
                   ${sortHeader({ column: "markets", label: "Markets", sortBy: options.sortBy, order: options.order })}
                   ${sortHeader({ column: "chains", label: "Chains", sortBy: options.sortBy, order: options.order })}
                   ${sortHeader({ column: "blocked", label: "Blocked", sortBy: options.sortBy, order: options.order })}
@@ -258,7 +258,7 @@ export const CoinsTableWrap = (options: {
                         </div>
                       </td>
                       <td class="hidden font-mono text-xs opacity-70 lg:table-cell">${row.slug}</td>
-                      <td class="hidden md:table-cell">${String(row.cmcId)}</td>
+                      <td class="hidden md:table-cell">${String(row.coingeckoId)}</td>
                       <td><span class="badge badge-ghost badge-sm">${String(row.markets)}</span></td>
                       <td><span class="badge badge-ghost badge-sm">${String(row.chains)}</span></td>
                       <td>
@@ -376,7 +376,7 @@ export const CoinsPageBody = (options: {
  */
 export const CoinFormFragment = (options: {
   readonly mode: "create" | "edit"
-  readonly coin?: { readonly id: number; readonly symbol: string; readonly name: string; readonly slug: string; readonly cmcId: number; readonly logo: string } | undefined
+  readonly coin?: { readonly id: number; readonly symbol: string; readonly name: string; readonly slug: string; readonly coingeckoId: string; readonly logo: string } | undefined
   readonly error?: string | undefined
   readonly action: string
 }): RawHtml => {
@@ -405,12 +405,12 @@ export const CoinFormFragment = (options: {
         </div>
         <div class="col-span-1">
           ${Field({
-            label: "CMC id *",
+            label: "CoinGecko id *",
             children: TextInput({
-              name: "cmcId",
-              placeholder: "1",
+              name: "coingeckoId",
+              placeholder: "bitcoin",
               required: true,
-              value: options.coin === undefined ? "" : String(options.coin.cmcId)
+              value: options.coin === undefined ? "" : options.coin.coingeckoId
             })
           })}
         </div>
@@ -424,12 +424,14 @@ export const CoinFormFragment = (options: {
       ${Field({
         label: "Logo URL",
         children: html`<div class="flex items-center gap-2">
-          <img
-            id="coin-logo-preview"
-            src="${options.coin?.logo ?? ""}"
-            alt=""
-            class="h-8 w-8 shrink-0 rounded-full bg-base-200 object-cover ring-1 ring-base-300"
-          />
+          ${options.coin?.logo
+            ? html`<img
+                id="coin-logo-preview"
+                src="${options.coin.logo}"
+                alt=""
+                class="h-8 w-8 shrink-0 rounded-full bg-base-200 object-cover ring-1 ring-base-300"
+              />`
+            : ""}
           ${TextInput({ name: "logo", placeholder: "https://…/logo.png", value: options.coin?.logo ?? "" })}
         </div>`
       })}

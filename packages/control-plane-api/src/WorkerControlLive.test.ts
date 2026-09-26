@@ -22,8 +22,8 @@ const registry = [
 ] as const
 
 const eligible: ReadonlyArray<BootstrapCoin> = [
-  { symbol: "BTC", cmcId: 1 },
-  { symbol: "ETH", cmcId: 1027 }
+  { symbol: "BTC", coingeckoId: "bitcoin" },
+  { symbol: "ETH", coingeckoId: "ethereum" }
 ]
 
 const eligibilityLayer = Layer.succeed(

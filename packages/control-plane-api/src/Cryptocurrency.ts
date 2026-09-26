@@ -10,7 +10,7 @@ import {
 } from "@lister/domain"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import {
-  CryptocurrencyCmcIdExists,
+  CryptocurrencyCoingeckoIdExists,
   CryptocurrencyError,
   CryptocurrencyNotFound,
   CryptocurrencySlugExists,
@@ -34,7 +34,7 @@ export type CryptocurrencyUpdate = Omit<typeof CryptocurrencyModel.jsonUpdate.Ty
 /**
  * Cryptocurrency fields that text search can target.
  */
-export const CryptocurrencySearchField = Schema.Literals(["id", "name", "symbol", "slug", "cmcId"])
+export const CryptocurrencySearchField = Schema.Literals(["id", "name", "symbol", "slug", "coingeckoId"])
 
 /**
  * Decoded cryptocurrency search field.
@@ -49,7 +49,7 @@ export const CryptocurrencyOrderField = Schema.Literals([
   "name",
   "symbol",
   "slug",
-  "cmcId",
+  "coingeckoId",
   "createdAt",
   "updatedAt"
 ])
@@ -191,18 +191,18 @@ export type CryptocurrencyStoreService = {
   /** Find a cryptocurrency by primary key. */
   readonly findById: (id: CryptocurrencyId) => Effect.Effect<Option.Option<CryptocurrencyModel>>
   /** Find a cryptocurrency by CoinMarketCap id. */
-  readonly findByCmcId: (cmcId: number) => Effect.Effect<Option.Option<CryptocurrencyModel>>
+  readonly findByCoingeckoId: (coingeckoId: string) => Effect.Effect<Option.Option<CryptocurrencyModel>>
   /** Find a cryptocurrency by slug. */
   readonly findBySlug: (slug: string) => Effect.Effect<Option.Option<CryptocurrencyModel>>
   /** Insert a cryptocurrency, translating unique violations into conflicts. */
   readonly insert: (
     input: CryptocurrencyCreate
-  ) => Effect.Effect<CryptocurrencyModel, CryptocurrencyCmcIdExists | CryptocurrencySlugExists>
+  ) => Effect.Effect<CryptocurrencyModel, CryptocurrencyCoingeckoIdExists | CryptocurrencySlugExists>
   /** Update a cryptocurrency, returning `none` when it no longer exists. */
   readonly update: (
     id: CryptocurrencyId,
     input: CryptocurrencyUpdate
-  ) => Effect.Effect<Option.Option<CryptocurrencyModel>, CryptocurrencyCmcIdExists | CryptocurrencySlugExists>
+  ) => Effect.Effect<Option.Option<CryptocurrencyModel>, CryptocurrencyCoingeckoIdExists | CryptocurrencySlugExists>
   /** Delete a cryptocurrency, returning the deleted row when it existed. */
   readonly remove: (id: CryptocurrencyId) => Effect.Effect<Option.Option<CryptocurrencyModel>>
   /** Coins whose symbol or name match the search text. */
@@ -239,9 +239,9 @@ export class Cryptocurrency extends Context.Service<
     readonly metadata: (lookup: CryptocurrencyLookup) => Effect.Effect<CryptocurrencyMetadata, CryptocurrencyError>
     /** Fetch a cryptocurrency by id. */
     readonly getById: (id: CryptocurrencyId) => Effect.Effect<CryptocurrencyModel, CryptocurrencyError>
-    /** Create a cryptocurrency, rejecting duplicate `cmcId` and `slug`. */
+    /** Create a cryptocurrency, rejecting duplicate `coingeckoId` and `slug`. */
     readonly add: (input: CryptocurrencyCreate) => Effect.Effect<CryptocurrencyModel, CryptocurrencyError>
-    /** Update a cryptocurrency, rejecting duplicate `cmcId` and `slug`. */
+    /** Update a cryptocurrency, rejecting duplicate `coingeckoId` and `slug`. */
     readonly update: (
       id: CryptocurrencyId,
       input: CryptocurrencyUpdate
@@ -263,7 +263,7 @@ export class Cryptocurrency extends Context.Service<
       const notFound = (lookup: CryptocurrencyLookup) =>
         new CryptocurrencyError({ reason: new CryptocurrencyNotFound({ lookup }) })
 
-      const fromStoreError = (reason: CryptocurrencyCmcIdExists | CryptocurrencySlugExists) =>
+      const fromStoreError = (reason: CryptocurrencyCoingeckoIdExists | CryptocurrencySlugExists) =>
         new CryptocurrencyError({ reason })
 
       const list = Effect.fn("Cryptocurrency.list")(function*(
@@ -349,10 +349,10 @@ export class Cryptocurrency extends Context.Service<
       const add = Effect.fn("Cryptocurrency.add")(function*(
         input: CryptocurrencyCreate
       ): Effect.fn.Return<CryptocurrencyModel, CryptocurrencyError> {
-        const byCmcId = yield* store.findByCmcId(input.cmcId)
+        const byCoingeckoId = yield* store.findByCoingeckoId(input.coingeckoId)
 
-        if (Option.isSome(byCmcId)) {
-          return yield* new CryptocurrencyError({ reason: new CryptocurrencyCmcIdExists({ cmcId: input.cmcId }) })
+        if (Option.isSome(byCoingeckoId)) {
+          return yield* new CryptocurrencyError({ reason: new CryptocurrencyCoingeckoIdExists({ coingeckoId: input.coingeckoId }) })
         }
 
         const bySlug = yield* store.findBySlug(input.slug)
@@ -374,11 +374,11 @@ export class Cryptocurrency extends Context.Service<
           return yield* notFound(lookupById(id))
         }
 
-        if (input.cmcId !== undefined) {
-          const byCmcId = yield* store.findByCmcId(input.cmcId)
+        if (input.coingeckoId !== undefined) {
+          const byCoingeckoId = yield* store.findByCoingeckoId(input.coingeckoId)
 
-          if (Option.isSome(byCmcId) && byCmcId.value.id !== id) {
-            return yield* new CryptocurrencyError({ reason: new CryptocurrencyCmcIdExists({ cmcId: input.cmcId }) })
+          if (Option.isSome(byCoingeckoId) && byCoingeckoId.value.id !== id) {
+            return yield* new CryptocurrencyError({ reason: new CryptocurrencyCoingeckoIdExists({ coingeckoId: input.coingeckoId }) })
           }
         }
 

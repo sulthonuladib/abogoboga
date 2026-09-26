@@ -20,7 +20,7 @@ export const marketMappingsLayer: Layer.Layer<MarketMappings, never, Database> =
   Effect.gen(function*() {
     const { db } = yield* Database
 
-    const lookup = Effect.fn("MarketMappings.lookup")(function*(exchangeId: number, cmcId: number) {
+    const lookup = Effect.fn("MarketMappings.lookup")(function*(exchangeId: number, coingeckoId: string) {
       const rows = yield* db
         .select({
           exchangeCryptocurrencyId: exchangeCryptocurrencyTable.id,
@@ -35,7 +35,7 @@ export const marketMappingsLayer: Layer.Layer<MarketMappings, never, Database> =
         .where(
           and(
             eq(exchangeCryptocurrencyTable.exchangeId, exchangeId),
-            eq(cryptocurrencyTable.cmcId, cmcId)
+            eq(cryptocurrencyTable.coingeckoId, coingeckoId)
           )
         )
         .limit(1)

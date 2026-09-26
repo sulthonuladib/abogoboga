@@ -8,13 +8,13 @@ import { WorkerRpc } from "./WorkerRpc.ts"
 const tick: CanonicalTick = {
   exchangeSlug: "binance",
   symbol: "BTC",
-  cmcId: 1,
+  coingeckoId: "bitcoin",
   bids: [[67000.5, 0.1]],
   asks: [[67001, 0.15]],
   timestamp: 1726500000000
 }
 
-const btc: BootstrapCoin = { symbol: "BTC", cmcId: 1 }
+const btc: BootstrapCoin = { symbol: "BTC", coingeckoId: "bitcoin" }
 
 describe("WorkerRpc", () => {
   test("loopback covers Subscribe, Ticks, Health, and Unsubscribe", async () => {
@@ -24,10 +24,10 @@ describe("WorkerRpc", () => {
       const handlers = WorkerRpc.toLayer({
         Subscribe: ({ coins }) => Ref.set(subscribed, [...coins]),
         Unsubscribe: ({ coins }) => {
-          const removed = new Set(coins.map((coin) => `${coin.symbol}:${coin.cmcId}`))
+          const removed = new Set(coins.map((coin) => `${coin.symbol}:${coin.coingeckoId}`))
 
           return Ref.update(subscribed, (current) =>
-            current.filter((coin) => !removed.has(`${coin.symbol}:${coin.cmcId}`)))
+            current.filter((coin) => !removed.has(`${coin.symbol}:${coin.coingeckoId}`)))
         },
         Ticks: () => Stream.make(tick),
         Health: () => Effect.succeed({ running: true })

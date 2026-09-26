@@ -74,7 +74,7 @@ describe("coin-detail mutation events", () => {
         const [exchange] = yield* db
           .insert(exchangeTable)
           .values({
-            cmcId: 270,
+            coingeckoId: "binance",
             name: "Binance",
             slug: "binance",
             logo: "binance.svg",
@@ -84,7 +84,7 @@ describe("coin-detail mutation events", () => {
 
         const [coin] = yield* db
           .insert(cryptocurrencyTable)
-          .values({ cmcId: 1, name: "Bitcoin", symbol: "BTC", slug: "bitcoin", logo: "btc.svg" })
+          .values({ coingeckoId: "bitcoin", name: "Bitcoin", symbol: "BTC", slug: "bitcoin", logo: "btc.svg" })
           .returning()
 
         const [chain] = yield* db.insert(chainTable).values({ name: "Ethereum", code: "ETH" }).returning()

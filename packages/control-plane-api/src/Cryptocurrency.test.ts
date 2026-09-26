@@ -5,7 +5,7 @@ import { ChainId, CryptocurrencyId, ExchangeId } from "@lister/domain"
 import { DateTime, Effect, Layer, Schema } from "effect"
 import { Cryptocurrency, CryptocurrencyStore } from "./Cryptocurrency.ts"
 import {
-  CryptocurrencyCmcIdExists,
+  CryptocurrencyCoingeckoIdExists,
   CryptocurrencyError,
   CryptocurrencyNotFound,
   CryptocurrencySlugExists
@@ -38,7 +38,7 @@ const bitcoin = {
   symbol: "BTC",
   slug: "bitcoin",
   logo: "bitcoin.svg",
-  cmcId: 1
+  coingeckoId: "bitcoin"
 } as const
 
 describe("Cryptocurrency application service", () => {
@@ -52,12 +52,12 @@ describe("Cryptocurrency application service", () => {
     )
 
     expect(created.symbol).toBe("BTC")
-    expect(created.cmcId).toBe(1)
+    expect(created.coingeckoId).toBe("bitcoin")
     expect(created.id).toBeGreaterThan(0)
     expect(DateTime.isDateTime(created.createdAt)).toBe(true)
   })
 
-  test("add rejects a duplicate cmcId", async () => {
+  test("add rejects a duplicate coingeckoId", async () => {
     const error = await run(
       Effect.gen(function*() {
         const service = yield* Cryptocurrency
@@ -69,7 +69,7 @@ describe("Cryptocurrency application service", () => {
     )
 
     expect(error).toBeInstanceOf(CryptocurrencyError)
-    expect(error.reason).toBeInstanceOf(CryptocurrencyCmcIdExists)
+    expect(error.reason).toBeInstanceOf(CryptocurrencyCoingeckoIdExists)
   })
 
   test("add rejects a duplicate slug", async () => {
@@ -79,7 +79,7 @@ describe("Cryptocurrency application service", () => {
 
         yield* service.add(bitcoin)
 
-        return yield* Effect.flip(service.add({ ...bitcoin, cmcId: 2 }))
+        return yield* Effect.flip(service.add({ ...bitcoin, coingeckoId: "litecoin" }))
       })
     )
 
@@ -110,25 +110,25 @@ describe("Cryptocurrency application service", () => {
         const service = yield* Cryptocurrency
 
         const first = yield* service.add(bitcoin)
-        const second = yield* service.add({ ...bitcoin, cmcId: 2, slug: "litecoin", symbol: "LTC" })
+        const second = yield* service.add({ ...bitcoin, coingeckoId: "litecoin", slug: "litecoin", symbol: "LTC" })
 
         const updated = yield* service.update(first.id, {
           name: "Bitcoin (updated)",
           symbol: "BTC",
           slug: "bitcoin",
-          cmcId: 1
+          coingeckoId: "bitcoin"
         })
 
         const cmcConflict = yield* Effect.flip(
-          service.update(first.id, { name: "Bitcoin", symbol: "BTC", slug: "bitcoin", cmcId: second.cmcId })
+          service.update(first.id, { name: "Bitcoin", symbol: "BTC", slug: "bitcoin", coingeckoId: second.coingeckoId })
         )
 
         const slugConflict = yield* Effect.flip(
-          service.update(first.id, { name: "Bitcoin", symbol: "BTC", slug: "litecoin", cmcId: 1 })
+          service.update(first.id, { name: "Bitcoin", symbol: "BTC", slug: "litecoin", coingeckoId: "bitcoin" })
         )
 
         const missing = yield* Effect.flip(
-          service.update(coinId(999), { name: "missing", symbol: "MISS", slug: "missing", cmcId: 999 })
+          service.update(coinId(999), { name: "missing", symbol: "MISS", slug: "missing", coingeckoId: "missing-coin" })
         )
 
         return { updated, cmcConflict, slugConflict, missing }
@@ -137,7 +137,7 @@ describe("Cryptocurrency application service", () => {
 
     expect(result.updated.name).toBe("Bitcoin (updated)")
     expect(result.updated.symbol).toBe("BTC")
-    expect(result.cmcConflict.reason).toBeInstanceOf(CryptocurrencyCmcIdExists)
+    expect(result.cmcConflict.reason).toBeInstanceOf(CryptocurrencyCoingeckoIdExists)
     expect(result.slugConflict.reason).toBeInstanceOf(CryptocurrencySlugExists)
     expect(result.missing.reason).toBeInstanceOf(CryptocurrencyNotFound)
   })
@@ -165,14 +165,14 @@ describe("Cryptocurrency application service", () => {
         const service = yield* Cryptocurrency
 
         yield* service.add(bitcoin)
-        yield* service.add({ ...bitcoin, cmcId: 2, slug: "litecoin", symbol: "LTC", name: "Litecoin" })
+        yield* service.add({ ...bitcoin, coingeckoId: "litecoin", slug: "litecoin", symbol: "LTC", name: "Litecoin" })
 
         const searched = yield* service.list({
           page: 1,
           limit: 10,
           search: "LTC",
           searchBy: "symbol",
-          orderBy: "cmcId",
+          orderBy: "coingeckoId",
           order: "asc"
         })
 
@@ -181,7 +181,7 @@ describe("Cryptocurrency application service", () => {
           limit: -1,
           search: "",
           searchBy: "symbol",
-          orderBy: "cmcId",
+          orderBy: "coingeckoId",
           order: "asc"
         })
 
@@ -203,11 +203,11 @@ describe("Cryptocurrency application service", () => {
         const { db } = yield* Database
 
         const btc = yield* service.add(bitcoin)
-        const ltc = yield* service.add({ ...bitcoin, cmcId: 2, slug: "litecoin", symbol: "LTC" })
+        const ltc = yield* service.add({ ...bitcoin, coingeckoId: "litecoin", slug: "litecoin", symbol: "LTC" })
 
         const [exchange] = yield* db
           .insert(exchangeTable)
-          .values({ cmcId: 270, name: "Binance", slug: "binance", logo: "binance.svg", baseCurrency: "usdt" })
+          .values({ coingeckoId: "binance", name: "Binance", slug: "binance", logo: "binance.svg", baseCurrency: "usdt" })
           .returning()
 
         const [chain] = yield* db.insert(chainTable).values({ name: "Ethereum", code: "ETH" }).returning()
@@ -228,7 +228,7 @@ describe("Cryptocurrency application service", () => {
           limit: 10,
           search: "",
           searchBy: "symbol",
-          orderBy: "cmcId",
+          orderBy: "coingeckoId",
           order: "asc",
           exchangeId: exchangeId(exchange!.id)
         })
@@ -238,7 +238,7 @@ describe("Cryptocurrency application service", () => {
           limit: 10,
           search: "",
           searchBy: "symbol",
-          orderBy: "cmcId",
+          orderBy: "coingeckoId",
           order: "asc",
           chainId: chainId(chain!.id)
         })
@@ -261,7 +261,7 @@ describe("Cryptocurrency application service", () => {
 
         const [exchange] = yield* db
           .insert(exchangeTable)
-          .values({ cmcId: 270, name: "Binance", slug: "binance", logo: "binance.svg", baseCurrency: "usdt" })
+          .values({ coingeckoId: "binance", name: "Binance", slug: "binance", logo: "binance.svg", baseCurrency: "usdt" })
           .returning()
 
         const [chain] = yield* db.insert(chainTable).values({ name: "Ethereum", code: "ETH" }).returning()
@@ -300,12 +300,12 @@ describe("Cryptocurrency application service", () => {
 
         const [first] = yield* db
           .insert(exchangeTable)
-          .values({ cmcId: 270, name: "Binance", slug: "binance", logo: "binance.svg", baseCurrency: "usdt" })
+          .values({ coingeckoId: "binance", name: "Binance", slug: "binance", logo: "binance.svg", baseCurrency: "usdt" })
           .returning()
 
         const [second] = yield* db
           .insert(exchangeTable)
-          .values({ cmcId: 294, name: "Bybit", slug: "bybit", logo: "bybit.svg", baseCurrency: "usdt" })
+          .values({ coingeckoId: "bybit", name: "Bybit", slug: "bybit", logo: "bybit.svg", baseCurrency: "usdt" })
           .returning()
 
         const [chainOne] = yield* db.insert(chainTable).values({ name: "Ethereum", code: "ETH" }).returning()
@@ -371,13 +371,13 @@ describe("Cryptocurrency application service", () => {
 
         yield* store.insert(bitcoin)
         const cmcConflict = yield* Effect.flip(store.insert({ ...bitcoin, slug: "other" }))
-        const slugConflict = yield* Effect.flip(store.insert({ ...bitcoin, cmcId: 2 }))
+        const slugConflict = yield* Effect.flip(store.insert({ ...bitcoin, coingeckoId: "litecoin" }))
 
         return { cmcConflict, slugConflict }
       })
     )
 
-    expect(result.cmcConflict).toBeInstanceOf(CryptocurrencyCmcIdExists)
+    expect(result.cmcConflict).toBeInstanceOf(CryptocurrencyCoingeckoIdExists)
     expect(result.slugConflict).toBeInstanceOf(CryptocurrencySlugExists)
   })
 })

@@ -13,13 +13,13 @@ export type PriceLevel = typeof PriceLevel.Type
 /**
  * A canonical order-book tick emitted by a worker on stdout.
  *
- * Prices and quantities are numbers; `cmcId` and `timestamp` are strict
- * integers.
+ * Prices and quantities are numbers; `coingeckoId` is a string and `timestamp`
+ * is a strict integer.
  */
 export const CanonicalTick = Schema.Struct({
   exchangeSlug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   symbol: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
-  cmcId: Schema.Int,
+  coingeckoId: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   bids: Schema.Array(PriceLevel),
   asks: Schema.Array(PriceLevel),
   timestamp: Schema.Int

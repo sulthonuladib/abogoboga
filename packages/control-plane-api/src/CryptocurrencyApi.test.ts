@@ -9,7 +9,7 @@ import { Api } from "./Api.ts"
 import { ChainHandlers } from "./ChainHandlers.ts"
 import { ChainLinkHandlers } from "./ChainLinkHandlers.ts"
 import { CryptocurrencyHandlers } from "./CryptocurrencyHandlers.ts"
-import { CryptocurrencyCmcIdExists, CryptocurrencyNotFound } from "./CryptocurrencyErrors.ts"
+import { CryptocurrencyCoingeckoIdExists, CryptocurrencyNotFound } from "./CryptocurrencyErrors.ts"
 import { ExchangeHandlers } from "./ExchangeHandlers.ts"
 import { MarketHandlers } from "./MarketHandlers.ts"
 import { WorkerControl } from "./WorkerControl.ts"
@@ -41,7 +41,7 @@ const listPayload = {
   limit: 10,
   search: "",
   searchBy: "symbol",
-  orderBy: "cmcId",
+  orderBy: "coingeckoId",
   order: "asc"
 } as const
 
@@ -50,7 +50,7 @@ const bitcoin = {
   symbol: "BTC",
   slug: "bitcoin",
   logo: "bitcoin.svg",
-  cmcId: 1
+  coingeckoId: "bitcoin"
 } as const
 
 describe("cryptocurrency HttpApi", () => {
@@ -65,7 +65,7 @@ describe("cryptocurrency HttpApi", () => {
 
         const updated = yield* client.cryptocurrency.update({
           params: { id: created.id },
-          payload: { name: "Bitcoin (updated)", symbol: "BTC", slug: "bitcoin", cmcId: 1 }
+          payload: { name: "Bitcoin (updated)", symbol: "BTC", slug: "bitcoin", coingeckoId: "bitcoin" }
         })
 
         const fetched = yield* client.cryptocurrency.findById({ params: { id: created.id } })
@@ -87,7 +87,7 @@ describe("cryptocurrency HttpApi", () => {
     expect(result.missing).toBeInstanceOf(CryptocurrencyNotFound)
   })
 
-  test("rejects a duplicate cmcId with a conflict and persists no partial row", async () => {
+  test("rejects a duplicate coingeckoId with a conflict and persists no partial row", async () => {
     const result = await runWithClient((client) =>
       Effect.gen(function*() {
         yield* client.cryptocurrency.add({ payload: bitcoin })
@@ -102,7 +102,7 @@ describe("cryptocurrency HttpApi", () => {
       })
     )
 
-    expect(result.conflict).toBeInstanceOf(CryptocurrencyCmcIdExists)
+    expect(result.conflict).toBeInstanceOf(CryptocurrencyCoingeckoIdExists)
     expect(result.listed.meta.items).toBe(1)
     expect(result.listed.data).toHaveLength(1)
   })
@@ -113,11 +113,11 @@ describe("cryptocurrency HttpApi", () => {
         const { db } = yield* Database
 
         yield* client.cryptocurrency.add({ payload: bitcoin })
-        yield* client.cryptocurrency.add({ payload: { ...bitcoin, cmcId: 2, slug: "litecoin", symbol: "LTC" } })
+        yield* client.cryptocurrency.add({ payload: { ...bitcoin, coingeckoId: "litecoin", slug: "litecoin", symbol: "LTC" } })
 
         const [exchange] = yield* db
           .insert(exchangeTable)
-          .values({ cmcId: 270, name: "Binance", slug: "binance", logo: "binance.svg", baseCurrency: "usdt" })
+          .values({ coingeckoId: "binance", name: "Binance", slug: "binance", logo: "binance.svg", baseCurrency: "usdt" })
           .returning()
 
         const [chain] = yield* db.insert(chainTable).values({ name: "Ethereum", code: "ETH" }).returning()

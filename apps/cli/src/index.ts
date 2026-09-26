@@ -3,23 +3,33 @@ import { AppConfig } from "@lister/config"
 import { Database } from "@lister/db"
 import { Effect, Layer } from "effect"
 import { Command } from "effect/unstable/cli"
+import { CoinGecko } from "./CoinGecko.ts"
 import { cli } from "./Commands.ts"
 
 const databaseLayer = Database.layer().pipe(Layer.provide(AppConfig.layer))
 
-// Only the `seed` and `migrate` commands touch Postgres. Selecting the layer by
-// subcommand keeps `sweep` (and `--help`) from opening a connection or applying
-// migrations. Help/version flags skip the database even under `seed`/`migrate`
-// so `lister seed --help` works offline. Commands stay layer-agnostic so tests
-// can provide `Database.layerMemory()` instead.
+// CoinGecko is only used by `scan fetch`, but building its layer is cheap and
+// keeps the command handlers free of layer wiring.
+const baseServices = Layer.merge(BunServices.layer, CoinGecko.layer)
+
+// Only the `seed`, `migrate`, and `scan import` commands touch Postgres.
+// Selecting the layer by subcommand keeps `sweep`, `scan fetch`, and `--help`
+// from opening a connection or applying migrations. Help/version flags skip the
+// database even under the commands above so `lister seed --help` works offline.
+// Commands stay layer-agnostic so tests can provide `Database.layerMemory()`.
 const helpFlags = new Set(["--help", "-h", "--version", "-v", "--wizard", "--completions"])
 
 const wantsHelp = process.argv.slice(2).some((argument) => helpFlags.has(argument))
 
-const needsDatabase =
-  !wantsHelp && (process.argv[2] === "migrate" || process.argv[2] === "seed")
+const command = process.argv[2]
 
-const services = needsDatabase ? Layer.merge(databaseLayer, BunServices.layer) : BunServices.layer
+const subcommand = process.argv[3]
+
+const needsDatabase =
+  !wantsHelp &&
+  (command === "migrate" || command === "seed" || (command === "scan" && subcommand === "import"))
+
+const services = needsDatabase ? Layer.merge(databaseLayer, baseServices) : baseServices
 
 // SAFETY: `Command.run` infers `unknown` for E/R on Effect v4 RC (`cli` unions
 // handlers with different service needs). `services` satisfies every concrete
