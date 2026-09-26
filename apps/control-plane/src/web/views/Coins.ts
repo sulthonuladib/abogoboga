@@ -424,12 +424,14 @@ export const CoinFormFragment = (options: {
       ${Field({
         label: "Logo URL",
         children: html`<div class="flex items-center gap-2">
-          <img
-            id="coin-logo-preview"
-            src="${options.coin?.logo ?? ""}"
-            alt=""
-            class="h-8 w-8 shrink-0 rounded-full bg-base-200 object-cover ring-1 ring-base-300"
-          />
+          ${options.coin?.logo
+            ? html`<img
+                id="coin-logo-preview"
+                src="${options.coin.logo}"
+                alt=""
+                class="h-8 w-8 shrink-0 rounded-full bg-base-200 object-cover ring-1 ring-base-300"
+              />`
+            : ""}
           ${TextInput({ name: "logo", placeholder: "https://…/logo.png", value: options.coin?.logo ?? "" })}
         </div>`
       })}

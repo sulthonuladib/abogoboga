@@ -31,6 +31,12 @@ describe("Cryptocurrency", () => {
     expect(Schema.decodeUnknownSync(Cryptocurrency.json)(json)).toEqual(decoded)
   })
 
+  test("empty logo decodes as a no-logo state", () => {
+    const decoded = Schema.decodeUnknownSync(Cryptocurrency)({ ...row, logo: "" })
+
+    expect(decoded.logo).toBe("")
+  })
+
   test("insert fills generated fields", async () => {
     const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...insertInput } = row
 

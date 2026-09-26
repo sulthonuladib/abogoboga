@@ -26,7 +26,9 @@ export class Exchange extends Model.Class<Exchange>("Exchange")({
   coingeckoId: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   name: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   slug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
-  logo: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  // Empty is a valid "no logo" state: the CoinGecko scanner drops oversized
+  // URLs and leaves misses blank rather than storing a broken URL.
+  logo: Schema.String.pipe(Schema.check(Schema.isMaxLength(255))),
   registeredOnCmc: Schema.Boolean,
   baseCurrency: Schema.Literals(["usdt", "idr"]),
   createdAt: Model.DateTimeInsertFromDate,
