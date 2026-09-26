@@ -381,7 +381,7 @@ describe("Cryptocurrency application service", () => {
         })
 
         const stats = yield* service.stats({
-          page: 1,
+          window: pageWindow(1),
           limit: 10,
           search: "",
           flag: "all",
@@ -390,7 +390,7 @@ describe("Cryptocurrency application service", () => {
         })
 
         const blocked = yield* service.stats({
-          page: 1,
+          window: pageWindow(1),
           limit: 10,
           search: "",
           flag: "blocked",

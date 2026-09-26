@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { Database, chainTable, exchangeTable } from "@lister/db"
 import { exchangeCryptocurrencyChainTable, exchangeCryptocurrencyTable } from "@lister/db"
 import { ExchangeId } from "@lister/domain"
-import { DateTime, Effect, Layer, Predicate, Schema } from "effect"
+import { DateTime, Effect, Layer, Option, Predicate, Schema } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiTest } from "effect/unstable/httpapi"
 import { Api } from "./Api.ts"
@@ -12,6 +12,7 @@ import { CryptocurrencyHandlers } from "./CryptocurrencyHandlers.ts"
 import { CryptocurrencyCoingeckoIdExists, CryptocurrencyNotFound } from "./CryptocurrencyErrors.ts"
 import { ExchangeHandlers } from "./ExchangeHandlers.ts"
 import { MarketHandlers } from "./MarketHandlers.ts"
+import { type CursorPosition, decodeCursor } from "./Pagination.ts"
 import { WorkerControl } from "./WorkerControl.ts"
 import { WorkersHandlers } from "./WorkersHandlers.ts"
 
@@ -26,6 +27,20 @@ const makeClient = HttpApiTest.groups(Api, ["cryptocurrency"])
 type Client = Effect.Success<typeof makeClient>
 
 const exchangeId = (value: number): ExchangeId => Schema.decodeSync(ExchangeId)(value)
+
+/**
+ * Decode a response cursor, failing the test when none was returned.
+ *
+ * @param nextCursor - The `nextCursor` field of a keyset response.
+ * @returns The decoded position, ready to send back as the next request's cursor.
+ */
+const cursorOf = (nextCursor: string | null | undefined): CursorPosition => {
+  if (nextCursor === null || nextCursor === undefined) {
+    throw new Error("expected the response to carry a cursor")
+  }
+
+  return Option.getOrThrowWith(decodeCursor(nextCursor), () => new Error("nextCursor did not decode"))
+}
 
 const runWithClient = <A, E>(f: (client: Client) => Effect.Effect<A, E, Database>) =>
   Effect.runPromise(
@@ -156,6 +171,73 @@ describe("cryptocurrency HttpApi", () => {
     expect(result.metadata.exchanges[0]?.chains[0]?.code).toBe("ETH")
     expect(result.missing).toBeInstanceOf(CryptocurrencyNotFound)
   })
+
+  test("filters stats before paging and pages them with cursors", async () => {
+    const result = await runWithClient((client) =>
+      Effect.gen(function*() {
+        const { db } = yield* Database
+
+        yield* client.cryptocurrency.add({ payload: bitcoin })
+        yield* client.cryptocurrency.add({
+          payload: { ...bitcoin, coingeckoId: "litecoin", slug: "litecoin", symbol: "LTC", name: "Litecoin" }
+        })
+        yield* client.cryptocurrency.add({
+          payload: { ...bitcoin, coingeckoId: "dogecoin", slug: "dogecoin", symbol: "DOGE", name: "Dogecoin" }
+        })
+
+        const [exchange] = yield* db
+          .insert(exchangeTable)
+          .values({ coingeckoId: "binance", name: "Binance", slug: "binance", logo: "binance.svg", baseCurrency: "usdt" })
+          .returning()
+
+        const [otherExchange] = yield* db
+          .insert(exchangeTable)
+          .values({ coingeckoId: "indodax", name: "Indodax", slug: "indodax", logo: "indodax.svg", baseCurrency: "idr" })
+          .returning()
+
+        // BTC lists twice across exchanges, DOGE once on the filtered
+        // exchange, LTC only elsewhere.
+        yield* db
+          .insert(exchangeCryptocurrencyTable)
+          .values({ exchangeId: exchange!.id, cryptocurrencyId: 1, exchangeSymbol: "BTCUSDT" })
+        yield* db
+          .insert(exchangeCryptocurrencyTable)
+          .values({ exchangeId: otherExchange!.id, cryptocurrencyId: 1, exchangeSymbol: "BTCIDR" })
+        yield* db
+          .insert(exchangeCryptocurrencyTable)
+          .values({ exchangeId: exchange!.id, cryptocurrencyId: 3, exchangeSymbol: "DOGEUSDT" })
+        yield* db
+          .insert(exchangeCryptocurrencyTable)
+          .values({ exchangeId: otherExchange!.id, cryptocurrencyId: 2, exchangeSymbol: "LTCIDR" })
+
+        const filter = { search: "", flag: "all", exchangeId: exchangeId(exchange!.id) } as const
+
+        const page = yield* client.cryptocurrency.stats({
+          payload: { ...filter, page: 1, limit: 10, sortBy: "symbol", order: "asc" }
+        })
+
+        const firstPage = yield* client.cryptocurrency.stats({
+          payload: { ...filter, limit: 1, sortBy: "markets", order: "desc" }
+        })
+
+        const secondPage = yield* client.cryptocurrency.stats({
+          payload: { ...filter, limit: 1, sortBy: "markets", order: "desc", cursor: cursorOf(firstPage.nextCursor) }
+        })
+
+        return { page, firstPage, secondPage }
+      })
+    )
+
+    // The offset request reports totals for the filtered set, not all coins.
+    expect(result.page.data.map((coin) => coin.symbol)).toEqual(["BTC", "DOGE"])
+    expect(result.page.meta.items).toBe(2)
+    expect("nextCursor" in result.page).toBe(false)
+
+    // The count sort applies to the full filtered set: BTC has two markets.
+    expect(result.firstPage.data.map((coin) => coin.symbol)).toEqual(["BTC"])
+    expect(result.firstPage.meta.items).toBe(1)
+    expect(result.secondPage.data.map((coin) => coin.symbol)).toEqual(["DOGE"])
+    expect(result.secondPage.nextCursor).toBeNull()  })
 })
 
 describe("cryptocurrency HttpApi request errors", () => {

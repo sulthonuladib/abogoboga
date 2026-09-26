@@ -37,8 +37,6 @@ export * from "./CryptocurrencyErrors.ts"
 
 export * from "./CryptocurrencyHandlers.ts"
 
-export * from "./CryptocurrencyListingStats.ts"
-
 export { layer as cryptocurrencyStoreLayer } from "./CryptocurrencyStore.ts"
 
 export * from "./DrizzleErrors.ts"

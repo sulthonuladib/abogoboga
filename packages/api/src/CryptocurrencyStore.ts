@@ -1,10 +1,8 @@
 import {
   ChainId,
-  ChainLink,
   ChainLinkId,
   Cryptocurrency as CryptocurrencyModel,
   ExchangeId,
-  Market,
   MarketId,
   type CryptocurrencyId
 } from "@lister/domain"
@@ -16,7 +14,22 @@ import {
   exchangeCryptocurrencyTable,
   exchangeTable
 } from "@lister/db"
-import { and, asc, count, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm"
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  getTableName,
+  gt,
+  ilike,
+  inArray,
+  lte,
+  or,
+  sql,
+  type SQL
+} from "drizzle-orm"
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core/errors"
 import { Effect, Layer, Option, Schema } from "effect"
 import {
@@ -26,6 +39,8 @@ import {
   type CryptocurrencyListQuery,
   type CryptocurrencyListResult,
   type CryptocurrencySearchField,
+  type CryptocurrencyStatsQuery,
+  type CryptocurrencyStatsResult,
   type CryptocurrencyUpdate
 } from "./Cryptocurrency.ts"
 import { CryptocurrencyCoingeckoIdExists, CryptocurrencySlugExists } from "./CryptocurrencyErrors.ts"
@@ -47,8 +62,6 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
     const { db } = yield* Database
 
     const decodeCoins = decodeRows(CryptocurrencyModel)
-    const decodeMarkets = decodeRows(Market)
-    const decodeLinks = decodeRows(ChainLink)
 
     /**
      * Filters shared by the list and stats queries: coins listed on an
@@ -301,33 +314,200 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
       return Option.fromIterable(decodeCoins(rows))
     })
 
-    const searchCoins = Effect.fn("CryptocurrencyStore.searchCoins")(
-      function*(search: string) {
-        const term = search.trim()
+    /**
+     * Fully-qualified reference to the outer coin row.
+     *
+     * Columns interpolated into raw `sql` fragments render unqualified in a
+     * select list, which would make the coverage subqueries resolve `id`
+     * against their own aliases; the qualified reference keeps the correlation
+     * pointing at the coin.
+     */
+    const coinIdRef = sql.raw(`"${getTableName(cryptocurrencyTable)}"."${cryptocurrencyTable.id.name}"`)
 
-        if (term === "") {
-          return decodeCoins(yield* db.select().from(cryptocurrencyTable))
+    // Column identifiers used inside the raw coverage fragments. They are
+    // derived from the schema so a rename cannot silently drift.
+    const marketCoinColumn = sql.identifier(exchangeCryptocurrencyTable.cryptocurrencyId.name)
+    const marketIdColumn = sql.identifier(exchangeCryptocurrencyTable.id.name)
+    const linkMarketColumn = sql.identifier(exchangeCryptocurrencyChainTable.exchangeCryptocurrencyId.name)
+    const linkChainColumn = sql.identifier(exchangeCryptocurrencyChainTable.chainId.name)
+    const linkWithdrawColumn = sql.identifier(exchangeCryptocurrencyChainTable.withdrawEnabled.name)
+    const linkDepositColumn = sql.identifier(exchangeCryptocurrencyChainTable.depositEnabled.name)
+
+    /**
+     * Number of market assignments for the coin in the current row.
+     *
+     * Coverage is computed as correlated scalar subqueries instead of a
+     * load-everything pass: each subquery is evaluated only for the coins the
+     * filter and page window select, so paging stays cheap while `chains` and
+     * `blocked` still describe the full assignment set of the returned coins.
+     * The stats query shape is documented on {@link listStats}.
+     */
+    const marketsCount = sql<number>`(
+      select count(*) from ${exchangeCryptocurrencyTable} as stats_markets
+      where stats_markets.${marketCoinColumn} = ${coinIdRef}
+    )`.mapWith(Number)
+
+    /**
+     * Distinct chain ids reachable through the coin's markets.
+     */
+    const chainsCount = sql<number>`(
+      select count(distinct stats_links.${linkChainColumn})
+      from ${exchangeCryptocurrencyTable} as stats_markets
+      join ${exchangeCryptocurrencyChainTable} as stats_links
+        on stats_links.${linkMarketColumn} = stats_markets.${marketIdColumn}
+      where stats_markets.${marketCoinColumn} = ${coinIdRef}
+    )`.mapWith(Number)
+
+    /**
+     * Ordered market pairs with no transfer route in either direction: pair
+     * `(a, b)` counts when no chain lets `a` withdraw into `b`'s deposit or
+     * vice versa.
+     */
+    const blockedCount = sql<number>`(
+      select count(*)
+      from ${exchangeCryptocurrencyTable} as stats_from
+      join ${exchangeCryptocurrencyTable} as stats_to
+        on stats_to.${marketCoinColumn} = stats_from.${marketCoinColumn}
+       and stats_to.${marketIdColumn} <> stats_from.${marketIdColumn}
+      where stats_from.${marketCoinColumn} = ${coinIdRef}
+        and not exists (
+          select 1
+          from ${exchangeCryptocurrencyChainTable} as stats_from_links
+          join ${exchangeCryptocurrencyChainTable} as stats_to_links
+            on stats_to_links.${linkChainColumn} = stats_from_links.${linkChainColumn}
+          where stats_from_links.${linkMarketColumn} = stats_from.${marketIdColumn}
+            and stats_to_links.${linkMarketColumn} = stats_to.${marketIdColumn}
+            and (
+              (stats_from_links.${linkWithdrawColumn} and stats_to_links.${linkDepositColumn})
+              or (stats_from_links.${linkDepositColumn} and stats_to_links.${linkWithdrawColumn})
+            )
+        )
+    )`.mapWith(Number)
+
+    const StatsRow = CryptocurrencyModel.select.pipe(
+      Schema.fieldsAssign({
+        markets: Schema.Int,
+        chains: Schema.Int,
+        blocked: Schema.Int
+      })
+    )
+
+    const decodeStats = decodeRows(StatsRow)
+
+    /**
+     * Filter, sort, aggregate coverage, and page coins in SQL.
+     *
+     * The filter runs before the page window, so `items`/`pages` describe the
+     * filtered set and sort keys are evaluated over every matching coin, not
+     * just the returned rows. `markets`, `chains`, and `blocked` are
+     * correlated aggregates over the coin's assignments (see the fragments
+     * above); `blocked` is the same pairwise route definition the legacy
+     * in-memory implementation and the SSR matrix use.
+     */
+    const listStats = Effect.fn("CryptocurrencyStore.listStats")(
+      function*(query: CryptocurrencyStatsQuery): Effect.fn.Return<CryptocurrencyStatsResult, EffectDrizzleQueryError> {
+        const conditions = assignmentConditions(query)
+        const term = query.search.trim()
+
+        if (term !== "") {
+          const pattern = `%${term.toLowerCase()}%`
+          const match = or(ilike(cryptocurrencyTable.symbol, pattern), ilike(cryptocurrencyTable.name, pattern))
+
+          if (match !== undefined) conditions.push(match)
         }
 
-        const pattern = `%${term.toLowerCase()}%`
+        const sortExpression = query.sortBy === "symbol"
+          ? cryptocurrencyTable.symbol
+          : query.sortBy === "markets"
+          ? marketsCount
+          : query.sortBy === "chains"
+          ? chainsCount
+          : blockedCount
+
+        if (query.flag === "blocked") conditions.push(gt(blockedCount, 0))
+        if (query.flag === "single") conditions.push(lte(marketsCount, 1))
+
+        const where = conditions.length > 0 ? and(...conditions) : undefined
+
+        const orderBy = query.sortBy === "symbol"
+          ? [
+            query.order === "asc" ? asc(cryptocurrencyTable.symbol) : desc(cryptocurrencyTable.symbol),
+            asc(cryptocurrencyTable.id)
+          ]
+          : [
+            query.order === "asc" ? asc(sortExpression) : desc(sortExpression),
+            asc(cryptocurrencyTable.symbol),
+            asc(cryptocurrencyTable.id)
+          ]
+
+        const selection = {
+          ...getTableColumns(cryptocurrencyTable),
+          markets: marketsCount,
+          chains: chainsCount,
+          blocked: blockedCount
+        }
+
+        if (query.window._tag === "Page") {
+          const totals = yield* db.select({ value: count() }).from(cryptocurrencyTable).where(where)
+          const total = totals[0]?.value ?? 0
+
+          const rows =
+            query.limit === -1
+              ? yield* db.select(selection).from(cryptocurrencyTable).where(where).orderBy(...orderBy)
+              : yield* db
+                  .select(selection)
+                  .from(cryptocurrencyTable)
+                  .where(where)
+                  .orderBy(...orderBy)
+                  .limit(query.limit)
+                  .offset((query.window.page - 1) * query.limit)
+
+          return { _tag: "Page", rows: decodeStats(rows), total, page: query.window.page }
+        }
+
+        const cursor = query.window.cursor
+
+        const predicate = cursor === undefined
+          ? undefined
+          : keysetPredicate(
+            keysetKeys(
+              query.sortBy === "symbol"
+                ? [
+                  { expression: cryptocurrencyTable.symbol, direction: cursor.direction },
+                  { expression: cryptocurrencyTable.id, direction: "asc" }
+                ]
+                : [
+                  { expression: sortExpression, direction: cursor.direction },
+                  { expression: cryptocurrencyTable.symbol, direction: "asc" },
+                  { expression: cryptocurrencyTable.id, direction: "asc" }
+                ],
+              cursor.values
+            )
+          )
+
+        const keysetWhere = predicate === undefined ? where : where === undefined ? predicate : and(where, predicate)
+
+        if (query.limit === -1) {
+          const rows = yield* db.select(selection).from(cryptocurrencyTable).where(keysetWhere).orderBy(...orderBy)
+
+          return { _tag: "Keyset", rows: decodeStats(rows), hasMore: false }
+        }
 
         const rows = yield* db
-          .select()
+          .select(selection)
           .from(cryptocurrencyTable)
-          .where(or(ilike(cryptocurrencyTable.symbol, pattern), ilike(cryptocurrencyTable.name, pattern)))
+          .where(keysetWhere)
+          .orderBy(...orderBy)
+          .limit(query.limit + 1)
 
-        return decodeCoins(rows)
+        return {
+          _tag: "Keyset",
+          rows: decodeStats(rows.slice(0, query.limit)),
+          hasMore: rows.length > query.limit
+        }
       },
       Effect.orDie
     )
-
-    const listAllMarkets = Effect.gen(function*() {
-      return decodeMarkets(yield* db.select().from(exchangeCryptocurrencyTable).pipe(Effect.orDie))
-    })
-
-    const listAllChainLinks = Effect.gen(function*() {
-      return decodeLinks(yield* db.select().from(exchangeCryptocurrencyChainTable).pipe(Effect.orDie))
-    })
 
     const CryptocurrencyListingRow = Schema.Struct({
       exchangeId: ExchangeId,
@@ -420,15 +600,13 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
 
     return CryptocurrencyStore.of({
       list,
+      listStats,
       findById,
       findByCoingeckoId,
       findBySlug,
       insert,
       update,
       remove,
-      searchCoins,
-      listAllMarkets,
-      listAllChainLinks,
       listListings
     })
   })

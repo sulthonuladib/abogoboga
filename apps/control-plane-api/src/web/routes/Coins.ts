@@ -76,8 +76,8 @@ const parseCoinFilter = (params: Params): CoinFilterState => ({
 })
 
 const toStatsQuery = (filter: CoinFilterState, page: number): CryptocurrencyStatsQuery => ({
+  window: pageWindow(page),
   search: filter.q,
-  page,
   limit: pageSize,
   sortBy: filter.sortBy,
   order: filter.order,
@@ -377,7 +377,7 @@ const coinDeleteRoute = route("DELETE", "/coins/:id", (_request) =>
     )
 
     const stats = yield* cryptocurrency
-      .stats({ page: 1, limit: 1, search: "", flag: "all", sortBy: "symbol", order: "asc" })
+      .stats({ window: pageWindow(1), limit: 1, search: "", flag: "all", sortBy: "symbol", order: "asc" })
       .pipe(Effect.catchTag("CryptocurrencyError", unexpectedReason("Cryptocurrency", "stats")))
 
     return fragmentResponse(

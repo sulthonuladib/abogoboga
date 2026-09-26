@@ -19,7 +19,7 @@ const dashboardRoute = route("GET", "/dashboard", (request) =>
     const links = yield* ChainLink
 
     const coinStats = yield* cryptocurrency
-      .stats({ page: 1, limit: 1, search: "", flag: "all", sortBy: "symbol", order: "asc" })
+      .stats({ window: pageWindow(1), limit: 1, search: "", flag: "all", sortBy: "symbol", order: "asc" })
       .pipe(Effect.catchTag("CryptocurrencyError", unexpectedReason("Cryptocurrency", "stats")))
 
     const exchangeList = yield* exchanges
@@ -39,7 +39,7 @@ const dashboardRoute = route("GET", "/dashboard", (request) =>
       .pipe(Effect.catchTag("ChainLinkError", unexpectedReason("ChainLink", "list")))
 
     const fullStats = yield* cryptocurrency
-      .stats({ page: 1, limit: -1, search: "", flag: "all", sortBy: "symbol", order: "asc" })
+      .stats({ window: pageWindow(1), limit: -1, search: "", flag: "all", sortBy: "symbol", order: "asc" })
       .pipe(Effect.catchTag("CryptocurrencyError", unexpectedReason("Cryptocurrency", "stats")))
 
     const attention: Array<AttentionItem> = []

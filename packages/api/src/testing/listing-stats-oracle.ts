@@ -1,17 +1,59 @@
-import { canTransfer, type ChainLink, type Cryptocurrency as CryptocurrencyModel, type Market } from "@lister/domain"
-import { paginationMeta } from "./Pagination.ts"
-import type { CryptocurrencyStat, CryptocurrencyStatsPage, CryptocurrencyStatsQuery } from "./Cryptocurrency.ts"
+import {
+  canTransfer,
+  type ChainId,
+  type ChainLink,
+  type Cryptocurrency as CryptocurrencyModel,
+  type ExchangeId,
+  type Market
+} from "@lister/domain"
+import type {
+  CryptocurrencyStat,
+  CryptocurrencyStatsFlag,
+  CryptocurrencyStatsPage,
+  CryptocurrencyStatsSort
+} from "../Cryptocurrency.ts"
+import { paginationMeta } from "../Pagination.ts"
+
+/**
+ * In-memory listing-stats oracle.
+ *
+ * This module is the frozen, pre-store implementation of the coin listing
+ * stats: it loads every coin, market, and chain link and does all filtering,
+ * sorting, counting, and slicing in memory. It is kept only as the
+ * characterization oracle for the SQL stats query in
+ * `CryptocurrencyStore.listStats`, so the two can be compared row for row.
+ * Production code must not import it.
+ *
+ * @module
+ */
 
 /**
  * Raw rows required to compute listing coverage.
  */
-export type CryptocurrencyListingStatsSources = {
+export type ListingStatsSources = {
   /** Coins matching the requested search text. */
   readonly coins: ReadonlyArray<CryptocurrencyModel>
   /** Every market assignment. */
   readonly markets: ReadonlyArray<Market>
   /** Every chain link. */
   readonly links: ReadonlyArray<ChainLink>
+}
+
+/**
+ * Page-based stats query accepted by the oracle.
+ *
+ * Mirrors the legacy payload shape so characterization cases can be written
+ * against it independently of the keyset window the API now accepts.
+ */
+export type ListingStatsOracleQuery = {
+  readonly page: number
+  readonly limit: number
+  readonly search: string
+  readonly flag: CryptocurrencyStatsFlag
+  readonly sortBy: CryptocurrencyStatsSort
+  readonly order: "asc" | "desc"
+  readonly exchangeId?: ExchangeId | undefined
+  readonly chainId?: ChainId | undefined
 }
 
 const countBlockedRoutes = (
@@ -48,9 +90,9 @@ const countBlockedRoutes = (
  * @param query - Filters, sort, and pagination for the page.
  * @returns The stats rows plus pagination metadata.
  */
-export function buildListingStats(
-  sources: CryptocurrencyListingStatsSources,
-  query: CryptocurrencyStatsQuery
+export function buildListingStatsOracle(
+  sources: ListingStatsSources,
+  query: ListingStatsOracleQuery
 ): CryptocurrencyStatsPage {
   const marketsByCoin = new Map<number, Array<Market>>()
 

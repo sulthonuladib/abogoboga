@@ -53,17 +53,12 @@ export const CryptocurrencyListPayload = Schema.Struct({
 /**
  * Query payload of `POST /api/cryptocurrency/stats`.
  *
- * Declares its own `page` because the stats window stays offset-based until
- * the stats store query lands; it deliberately omits `cursor`.
+ * `page` and `cursor` are alternative windows: supplying neither returns the
+ * first keyset page and a `nextCursor`, supplying `page` keeps the offset
+ * behavior. A cursor carries the `sortBy`/`order` it was produced under.
  */
 export const CryptocurrencyStatsPayload = Schema.Struct({
-  page: Schema.Int.pipe(
-    Schema.check(Schema.isGreaterThanOrEqualTo(1)),
-    Schema.withDecodingDefaultTypeKey(Effect.succeed(1))
-  ),
-  limit: PaginationQueryFields.limit,
-  search: PaginationQueryFields.search,
-  order: PaginationQueryFields.order,
+  ...PaginationQueryFields,
   flag: Schema.Literals(["all", "blocked", "single"]).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed("all" satisfies CryptocurrencyStatsFlag))
   ),
@@ -72,7 +67,10 @@ export const CryptocurrencyStatsPayload = Schema.Struct({
   ),
   exchangeId: Schema.optional(ExchangeId),
   chainId: Schema.optional(ChainId)
-})
+}).check(
+  Schema.makeFilter(onlyOneWindow),
+  Schema.makeFilter((payload) => cursorMatchesSort(payload.cursor, { orderBy: payload.sortBy, order: payload.order }))
+)
 
 /**
  * Payload of `POST /api/cryptocurrency/metadata`: look a coin up by id or slug.
@@ -190,7 +188,7 @@ export class CryptocurrencyApiGroup extends HttpApiGroup.make("cryptocurrency")
       documented(
         "cryptocurrency.stats",
         "Cryptocurrency listing stats",
-        "List coins with market, chain, and blocked-route coverage counts."
+        "List coins with market, chain, and blocked-route coverage counts, with search, coverage filters, and either offset pagination (`page`) or keyset pagination (`cursor`, continued with the returned `nextCursor`)."
       )
     ),
     HttpApiEndpoint.post("metadata", "/cryptocurrency/metadata", {

@@ -4,9 +4,7 @@ import {
   Cryptocurrency as CryptocurrencyModel,
   type CryptocurrencyId,
   type ExchangeId,
-  type MarketId,
-  type Market,
-  type ChainLink
+  type MarketId
 } from "@lister/domain"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import {
@@ -16,7 +14,6 @@ import {
   CryptocurrencySlugExists,
   type CryptocurrencyLookup
 } from "./CryptocurrencyErrors.ts"
-import { buildListingStats } from "./CryptocurrencyListingStats.ts"
 import {
   type ListResult,
   type ListWindow,
@@ -106,9 +103,11 @@ export type CryptocurrencyStatsSort = "symbol" | "markets" | "chains" | "blocked
 
 /**
  * Query accepted by {@link CryptocurrencyService.stats}.
+ *
+ * `window` selects offset paging (`Page`) or keyset paging (`Keyset`).
  */
 export type CryptocurrencyStatsQuery = {
-  readonly page: number
+  readonly window: ListWindow
   readonly limit: number
   readonly search: string
   readonly flag: CryptocurrencyStatsFlag
@@ -128,11 +127,13 @@ export type CryptocurrencyStat = CryptocurrencyModel & {
 }
 
 /**
- * One page of listing-stats rows with its pagination summary.
+ * One page of listing-stats rows with its pagination summary, plus the keyset
+ * continuation when the query used a keyset window.
  */
 export type CryptocurrencyStatsPage = {
   readonly data: ReadonlyArray<CryptocurrencyStat>
   readonly meta: PaginationMeta
+  readonly nextCursor?: string | null | undefined
 }
 
 /**
@@ -190,6 +191,11 @@ export type CryptocurrencyExchangeListing = {
 export type CryptocurrencyListResult = ListResult<CryptocurrencyModel>
 
 /**
+ * A page of stats rows plus the total row count or the keyset continuation.
+ */
+export type CryptocurrencyStatsResult = ListResult<CryptocurrencyStat>
+
+/**
  * Persistence port required by {@link Cryptocurrency}.
  *
  * Owned by the application service and implemented by a Drizzle adapter over
@@ -198,6 +204,8 @@ export type CryptocurrencyListResult = ListResult<CryptocurrencyModel>
 export type CryptocurrencyStoreService = {
   /** List cryptocurrencies matching the query, using the query's window. */
   readonly list: (query: CryptocurrencyListQuery) => Effect.Effect<CryptocurrencyListResult>
+  /** Filter, sort, aggregate coverage, and page coins, using the query's window. */
+  readonly listStats: (query: CryptocurrencyStatsQuery) => Effect.Effect<CryptocurrencyStatsResult>
   /** Find a cryptocurrency by primary key. */
   readonly findById: (id: CryptocurrencyId) => Effect.Effect<Option.Option<CryptocurrencyModel>>
   /** Find a cryptocurrency by CoinMarketCap id. */
@@ -215,12 +223,6 @@ export type CryptocurrencyStoreService = {
   ) => Effect.Effect<Option.Option<CryptocurrencyModel>, CryptocurrencyCoingeckoIdExists | CryptocurrencySlugExists>
   /** Delete a cryptocurrency, returning the deleted row when it existed. */
   readonly remove: (id: CryptocurrencyId) => Effect.Effect<Option.Option<CryptocurrencyModel>>
-  /** Coins whose symbol or name match the search text. */
-  readonly searchCoins: (search: string) => Effect.Effect<ReadonlyArray<CryptocurrencyModel>>
-  /** Every market assignment, used to compute listing coverage. */
-  readonly listAllMarkets: Effect.Effect<ReadonlyArray<Market>>
-  /** Every chain link, used to compute transfer coverage. */
-  readonly listAllChainLinks: Effect.Effect<ReadonlyArray<ChainLink>>
   /** Joined exchange/market/chain rows for one cryptocurrency. */
   readonly listListings: (id: CryptocurrencyId) => Effect.Effect<ReadonlyArray<CryptocurrencyExchangeListing>>
 }
@@ -323,11 +325,46 @@ export class Cryptocurrency extends Context.Service<
       const stats = Effect.fn("Cryptocurrency.stats")(function*(
         query: CryptocurrencyStatsQuery
       ): Effect.fn.Return<CryptocurrencyStatsPage, CryptocurrencyError> {
-        const coins = yield* store.searchCoins(query.search)
-        const markets = yield* store.listAllMarkets
-        const links = yield* store.listAllChainLinks
+        const result = yield* store.listStats(query)
 
-        return buildListingStats({ coins, markets, links }, query)
+        if (result._tag === "Page") {
+          return {
+            data: result.rows,
+            meta: paginationMeta({
+              items: result.total,
+              page: result.page,
+              limit: query.limit,
+              search: query.search,
+              searchBy: "symbol",
+              order: query.order,
+              orderBy: query.sortBy
+            })
+          }
+        }
+
+        const last = result.rows[result.rows.length - 1]
+
+        return {
+          data: result.rows,
+          meta: keysetMeta({
+            items: result.rows.length,
+            limit: query.limit,
+            hasMore: result.hasMore,
+            search: query.search,
+            searchBy: "symbol",
+            order: query.order,
+            orderBy: query.sortBy
+          }),
+          nextCursor: result.hasMore && last !== undefined
+            ? encodeCursor({
+              orderBy: query.sortBy,
+              direction: query.order,
+              values: query.sortBy === "symbol"
+                ? [last.symbol, last.id]
+                : [toCursorValue(last[query.sortBy]), last.symbol, last.id]
+            })
+            : null
+        }
       })
 
       const metadata = Effect.fn("Cryptocurrency.metadata")(function*(
