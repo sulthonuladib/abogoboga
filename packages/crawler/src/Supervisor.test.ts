@@ -5,7 +5,7 @@ import { workerArgvMarker } from "@lister/worker-contract"
 import { Duration, Effect, Layer, Ref } from "effect"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { Supervisor, buildWorkerArgv, shardCoins, type ExchangeSnapshot } from "./Supervisor.ts"
+import { Supervisor, buildWorkerArgv, shardCapacityFor, shardCoins, type ExchangeSnapshot } from "./Supervisor.ts"
 import { DomainEvents } from "./WorkerEvents.ts"
 import { sweepStaleWorkers } from "./Sweep.ts"
 
@@ -244,6 +244,13 @@ describe("Supervisor pure helpers", () => {
     expect(shardCoins(coins(19)).map((chunk) => chunk.length)).toEqual([19])
     expect(shardCoins(coins(45)).map((chunk) => chunk.length)).toEqual([20, 20, 5])
     expect(shardCoins(coins(0))).toEqual([])
+  })
+
+  test("shardCapacityFor resolves per-exchange limits with a default fallback", () => {
+    expect(shardCapacityFor("binance")).toBe(100)
+    expect(shardCapacityFor("gateio")).toBe(50)
+    expect(shardCapacityFor("kucoin")).toBe(20)
+    expect(shardCapacityFor("unknown")).toBe(20)
   })
 
   test("buildWorkerArgv carries the marker signature and bootstrap coins", () => {

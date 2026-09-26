@@ -16,9 +16,32 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
 import { DomainEvents, workerEvent } from "./WorkerEvents.ts"
 
 /**
- * Maximum coins placed into one worker shard.
+ * Default maximum coins placed into one worker shard, used for exchanges
+ * without a dedicated limit in {@link shardCapacityFor}.
  */
 export const shardCapacity = 20 as const
+
+/**
+ * Resolve the maximum coins per shard for one exchange.
+ *
+ * Each exchange enforces its own subscription ceiling in its worker; the
+ * supervisor mirrors those limits here so a shard never asks a worker for more
+ * pairs than it can subscribe to.
+ *
+ * @param exchangeSlug - Exchange slug carried in worker argv.
+ * @returns The exchange's shard capacity, or {@link shardCapacity} when it has
+ * no dedicated limit.
+ */
+export const shardCapacityFor = (exchangeSlug: string): number => {
+  switch (exchangeSlug) {
+    case "binance":
+      return 100
+    case "gateio":
+      return 50
+    default:
+      return shardCapacity
+  }
+}
 
 /**
  * Base delay of the first shard respawn, in milliseconds.
@@ -104,8 +127,11 @@ export interface SupervisorLayerOptions<R = never> {
    * {@link workerScript}; set it to launch `apps/workers/<slug>` entrypoints.
    */
   readonly workerScriptFor?: ((exchangeSlug: string) => string) | undefined
-  /** Maximum coins per shard. Defaults to {@link shardCapacity}. */
-  readonly capacity?: number | undefined
+  /**
+   * Per-exchange maximum coins per shard resolver. Defaults to
+   * {@link shardCapacityFor}; set it to override a specific exchange's ceiling.
+   */
+  readonly capacityFor?: ((exchangeSlug: string) => number) | undefined
   /**
    * Sink for decoded worker ticks, receiving the tick's exchange and shard
    * context. Failures are the handler's concern; the supervisor never fails a
@@ -212,7 +238,8 @@ const backoffFor = (attempt: number): number =>
  * In-process sharded supervisor for crawler worker subprocesses.
  *
  * The supervisor owns every running exchange: it chunks the eligible coin set
- * into shards of at most {@link shardCapacity} coins, spawns one
+ * into shards of at most the exchange's configured capacity (see
+ * {@link shardCapacityFor}) coins, spawns one
  * `ChildProcessSpawner` handle per shard, forwards stdout ticks and stderr logs
  * to the configured handlers, and publishes lifecycle events through
  * {@link DomainEvents}.
@@ -270,7 +297,8 @@ export class Supervisor extends Context.Service<Supervisor, {
    * Scoped layer building a supervisor over the platform child-process spawner
    * and the crawler {@link DomainEvents} bus.
    *
-   * @param options - Worker script, shard capacity, and tick/log handlers.
+   * @param options - Worker script, per-exchange shard capacity, and tick/log
+   * handlers.
    * @returns A scoped layer providing a live supervisor.
    */
   static readonly layer = <R = never>(
@@ -281,7 +309,7 @@ export class Supervisor extends Context.Service<Supervisor, {
       Effect.gen(function*() {
         const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
         const events = yield* DomainEvents
-        const capacity = options.capacity ?? shardCapacity
+        const capacityFor = options.capacityFor ?? shardCapacityFor
         const scriptFor = options.workerScriptFor ?? (() => options.workerScript)
         const workers = yield* FiberMap.make<string>()
         const state = yield* Ref.make(new Map<number, ExchangeState>())
@@ -595,7 +623,7 @@ export class Supervisor extends Context.Service<Supervisor, {
                   message: `exchange ${exchangeSlug} started`
                 })
               )
-              yield* Effect.forEach(shardCoins(coins, capacity), (chunk) => spawnShard(exchange, chunk), {
+              yield* Effect.forEach(shardCoins(coins, capacityFor(exchangeSlug)), (chunk) => spawnShard(exchange, chunk), {
                 discard: true
               })
             }),
@@ -612,7 +640,7 @@ export class Supervisor extends Context.Service<Supervisor, {
 
                 if (shards.some((shard) => shard.coins.has(key))) continue
 
-                const target = shards.find((shard) => shard.coins.size < capacity)
+                const target = shards.find((shard) => shard.coins.size < capacityFor(exchange.exchangeSlug))
 
                 if (target === undefined) {
                   yield* spawnShard(exchange, [coin])

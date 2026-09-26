@@ -23,6 +23,7 @@
     "prepare": "effect-tsgo patch --typescript --oxlint"
   },
   "dependencies": {
+    "@bufbuild/buf": "^1.73.0",
     "@lister/db": "workspace:*",
     "daisyui": "^5",
     "drizzle-orm": "1.0.0-rc.4",

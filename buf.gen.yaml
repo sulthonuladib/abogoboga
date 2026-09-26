@@ -1,0 +1,8 @@
+version: v2
+clean: true
+plugins:
+  - remote: buf.build/community/stephenh-ts-proto
+    out: ./packages/generated/src/mexc-websocket-proto
+    opt: paths=source_relative
+inputs:
+  - directory: ./vendor/mexc-websocket-proto
