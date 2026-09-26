@@ -17,7 +17,8 @@ import {
   type CryptocurrencyCreate,
   type CryptocurrencyError,
   type CryptocurrencyStatsQuery,
-  type CryptocurrencyUpdate
+  type CryptocurrencyUpdate,
+  pageWindow
 } from "@lister/api"
 import { ChainId, CryptocurrencyId, ExchangeId } from "@lister/domain"
 import { Effect, Layer, Match, Predicate } from "effect"
@@ -160,11 +161,11 @@ const loadCoinFilterLists = Effect.fn("Ssr.coinFilterLists")(function*() {
   const chains = yield* Chain
 
   const exchangePage = yield* exchanges
-    .list({ page: 1, limit: -1, search: "", searchBy: "name", orderBy: "id", order: "asc" })
+    .list({ window: pageWindow(1), limit: -1, search: "", searchBy: ["name"], orderBy: "id", order: "asc" })
     .pipe(Effect.catchTag("ExchangeError", unexpectedReason("Exchange", "list")))
 
   const chainPage = yield* chains
-    .list({ page: 1, limit: -1, search: "", searchBy: "name", orderBy: "id", order: "asc" })
+    .list({ window: pageWindow(1), limit: -1, search: "", searchBy: ["name"], orderBy: "id", order: "asc" })
     .pipe(Effect.catchTag("ChainError", unexpectedReason("Chain", "list")))
 
   return {

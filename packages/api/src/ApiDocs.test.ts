@@ -39,6 +39,7 @@ const expectedEndpoints = {
   "/api/exchange/list": ["post"],
   "/api/exchange/{id}": ["get", "patch", "delete"],
   "/api/chain/add": ["post"],
+  "/api/chain/find-or-create": ["post"],
   "/api/chain/list": ["post"],
   "/api/chain/{id}": ["get", "patch", "delete"],
   "/api/exchange-cryptocurrency/assign": ["post"],

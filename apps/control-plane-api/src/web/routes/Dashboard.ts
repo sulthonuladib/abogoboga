@@ -4,7 +4,7 @@
  * @module
  */
 
-import { Chain, ChainLink, Cryptocurrency, Exchange, Market } from "@lister/api"
+import { Chain, ChainLink, Cryptocurrency, Exchange, Market, pageWindow } from "@lister/api"
 import { Effect, Layer } from "effect"
 import { fragmentResponse, isHtmxRequest, pageResponse, route, unexpectedReason } from "../Http.ts"
 import { Layout } from "../Layout.ts"
@@ -23,11 +23,11 @@ const dashboardRoute = route("GET", "/dashboard", (request) =>
       .pipe(Effect.catchTag("CryptocurrencyError", unexpectedReason("Cryptocurrency", "stats")))
 
     const exchangeList = yield* exchanges
-      .list({ page: 1, limit: 1, search: "", searchBy: "name", orderBy: "id", order: "asc" })
+      .list({ window: pageWindow(1), limit: 1, search: "", searchBy: ["name"], orderBy: "id", order: "asc" })
       .pipe(Effect.catchTag("ExchangeError", unexpectedReason("Exchange", "list")))
 
     const chainList = yield* chains
-      .list({ page: 1, limit: 1, search: "", searchBy: "name", orderBy: "id", order: "asc" })
+      .list({ window: pageWindow(1), limit: 1, search: "", searchBy: ["name"], orderBy: "id", order: "asc" })
       .pipe(Effect.catchTag("ChainError", unexpectedReason("Chain", "list")))
 
     const allMarkets = yield* markets

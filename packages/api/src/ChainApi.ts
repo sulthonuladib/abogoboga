@@ -8,21 +8,30 @@ import {
   type ChainSearchField as ChainSearchFieldType
 } from "./Chain.ts"
 import { ChainCodeExists, ChainNotFound } from "./ChainErrors.ts"
-import { PaginationQueryFields, paginated } from "./Pagination.ts"
+import { PaginationQueryFields, cursorMatchesSort, onlyOneWindow, paginated } from "./Pagination.ts"
 import { RequestValidation } from "./RequestValidation.ts"
 
 /**
  * Query payload of `POST /api/chain/list`.
+ *
+ * `searchBy` names one or more fields the search text must match. `page` and
+ * `cursor` are alternative windows: supplying neither returns the first keyset
+ * page and a `nextCursor`, supplying `page` keeps the offset behavior.
  */
 export const ChainListPayload = Schema.Struct({
   ...PaginationQueryFields,
-  searchBy: ChainSearchField.pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed("name" satisfies ChainSearchFieldType))
+  searchBy: Schema.Array(ChainSearchField).pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.check(Schema.isMaxLength(8)),
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(["name"] satisfies ReadonlyArray<ChainSearchFieldType>))
   ),
   orderBy: ChainOrderField.pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed("id" satisfies ChainOrderFieldType))
   )
-})
+}).check(
+  Schema.makeFilter(onlyOneWindow),
+  Schema.makeFilter((payload) => cursorMatchesSort(payload.cursor, payload))
+)
 
 /**
  * Response of `POST /api/chain/list`.
@@ -56,11 +65,25 @@ export class ChainApiGroup extends HttpApiGroup.make("chain")
     }).annotateMerge(
       documented("chain.add", "Add chain", "Create a chain, rejecting a duplicate code.")
     ),
+    HttpApiEndpoint.post("findOrCreate", "/chain/find-or-create", {
+      payload: ChainModel.jsonCreate,
+      success: ChainModel.json
+    }).annotateMerge(
+      documented(
+        "chain.findOrCreate",
+        "Find or create chain",
+        "Return the chain with the submitted code, creating it when it does not exist."
+      )
+    ),
     HttpApiEndpoint.post("list", "/chain/list", {
       payload: ChainListPayload,
       success: ChainPageResponse
     }).annotateMerge(
-      documented("chain.list", "List chains", "List chains with search, sort, and pagination.")
+      documented(
+        "chain.list",
+        "List chains",
+        "List chains with search over one or more fields and either offset pagination (`page`) or keyset pagination (`cursor`, continued with the returned `nextCursor`)."
+      )
     ),
     HttpApiEndpoint.get("findById", "/chain/:id", {
       params: { id: ChainId },

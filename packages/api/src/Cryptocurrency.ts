@@ -17,7 +17,15 @@ import {
   type CryptocurrencyLookup
 } from "./CryptocurrencyErrors.ts"
 import { buildListingStats } from "./CryptocurrencyListingStats.ts"
-import { type PaginationMeta, paginationMeta } from "./Pagination.ts"
+import {
+  type ListResult,
+  type ListWindow,
+  type PaginationMeta,
+  encodeCursor,
+  keysetMeta,
+  paginationMeta,
+  toCursorValue
+} from "./Pagination.ts"
 
 /**
  * Fields accepted when creating a cryptocurrency.
@@ -61,12 +69,15 @@ export type CryptocurrencyOrderField = typeof CryptocurrencyOrderField.Type
 
 /**
  * Query accepted by {@link CryptocurrencyService.list}.
+ *
+ * `window` selects offset paging (`Page`) or keyset paging (`Keyset`);
+ * `searchBy` lists every field the search text may match.
  */
 export type CryptocurrencyListQuery = {
-  readonly page: number
+  readonly window: ListWindow
   readonly limit: number
   readonly search: string
-  readonly searchBy: CryptocurrencySearchField
+  readonly searchBy: ReadonlyArray<CryptocurrencySearchField>
   readonly orderBy: CryptocurrencyOrderField
   readonly order: "asc" | "desc"
   readonly exchangeId?: ExchangeId | undefined
@@ -74,11 +85,13 @@ export type CryptocurrencyListQuery = {
 }
 
 /**
- * One page of cryptocurrencies with its pagination summary.
+ * One page of cryptocurrencies with its pagination summary, plus the keyset
+ * continuation when the query used a keyset window.
  */
 export type CryptocurrencyPage = {
   readonly data: ReadonlyArray<CryptocurrencyModel>
   readonly meta: PaginationMeta
+  readonly nextCursor?: string | null | undefined
 }
 
 /**
@@ -172,12 +185,9 @@ export type CryptocurrencyExchangeListing = {
 }
 
 /**
- * A page of store rows plus the total row count before pagination.
+ * A page of store rows plus the total row count or the keyset continuation.
  */
-export type CryptocurrencyListResult = {
-  readonly rows: ReadonlyArray<CryptocurrencyModel>
-  readonly total: number
-}
+export type CryptocurrencyListResult = ListResult<CryptocurrencyModel>
 
 /**
  * Persistence port required by {@link Cryptocurrency}.
@@ -186,7 +196,7 @@ export type CryptocurrencyListResult = {
  * the `Database` service, so tests can substitute an in-memory database.
  */
 export type CryptocurrencyStoreService = {
-  /** List cryptocurrencies matching the query, plus the unpaginated total. */
+  /** List cryptocurrencies matching the query, using the query's window. */
   readonly list: (query: CryptocurrencyListQuery) => Effect.Effect<CryptocurrencyListResult>
   /** Find a cryptocurrency by primary key. */
   readonly findById: (id: CryptocurrencyId) => Effect.Effect<Option.Option<CryptocurrencyModel>>
@@ -270,18 +280,43 @@ export class Cryptocurrency extends Context.Service<
         query: CryptocurrencyListQuery
       ): Effect.fn.Return<CryptocurrencyPage, CryptocurrencyError> {
         const result = yield* store.list(query)
+        const searchBy = query.searchBy.join(",")
+
+        if (result._tag === "Page") {
+          return {
+            data: result.rows,
+            meta: paginationMeta({
+              items: result.total,
+              page: result.page,
+              limit: query.limit,
+              search: query.search,
+              searchBy,
+              order: query.order,
+              orderBy: query.orderBy
+            })
+          }
+        }
+
+        const last = result.rows[result.rows.length - 1]
 
         return {
           data: result.rows,
-          meta: paginationMeta({
-            items: result.total,
-            page: query.page,
+          meta: keysetMeta({
+            items: result.rows.length,
             limit: query.limit,
+            hasMore: result.hasMore,
             search: query.search,
-            searchBy: query.searchBy,
+            searchBy,
             order: query.order,
             orderBy: query.orderBy
-          })
+          }),
+          nextCursor: result.hasMore && last !== undefined
+            ? encodeCursor({
+              orderBy: query.orderBy,
+              direction: query.order,
+              values: [toCursorValue(last[query.orderBy]), last.id]
+            })
+            : null
         }
       })
 

@@ -6,7 +6,15 @@ import {
   ExchangeNotFound,
   ExchangeSlugExists
 } from "./ExchangeErrors.ts"
-import { type PaginationMeta, paginationMeta } from "./Pagination.ts"
+import {
+  type ListResult,
+  type ListWindow,
+  type PaginationMeta,
+  encodeCursor,
+  keysetMeta,
+  paginationMeta,
+  toCursorValue
+} from "./Pagination.ts"
 
 /**
  * Fields accepted when creating an exchange.
@@ -40,31 +48,33 @@ export type ExchangeOrderField = typeof ExchangeOrderField.Type
 
 /**
  * Query accepted by {@link Exchange.list}.
+ *
+ * `window` selects offset paging (`Page`) or keyset paging (`Keyset`);
+ * `searchBy` lists every field the search text may match.
  */
 export type ExchangeListQuery = {
-  readonly page: number
+  readonly window: ListWindow
   readonly limit: number
   readonly search: string
-  readonly searchBy: ExchangeSearchField
+  readonly searchBy: ReadonlyArray<ExchangeSearchField>
   readonly orderBy: ExchangeOrderField
   readonly order: "asc" | "desc"
 }
 
 /**
- * One page of exchanges with its pagination summary.
+ * One page of exchanges with its pagination summary, plus the keyset
+ * continuation when the query used a keyset window.
  */
 export type ExchangePage = {
   readonly data: ReadonlyArray<ExchangeModel>
   readonly meta: PaginationMeta
+  readonly nextCursor?: string | null | undefined
 }
 
 /**
- * A page of store rows plus the total row count before pagination.
+ * A page of store rows plus the total row count or the keyset continuation.
  */
-export type ExchangeListResult = {
-  readonly rows: ReadonlyArray<ExchangeModel>
-  readonly total: number
-}
+export type ExchangeListResult = ListResult<ExchangeModel>
 
 /**
  * Persistence port required by {@link Exchange}.
@@ -73,7 +83,7 @@ export type ExchangeListResult = {
  * the `Database` service, so tests can substitute an in-memory database.
  */
 export type ExchangeStoreService = {
-  /** List exchanges matching the query, plus the unpaginated total. */
+  /** List exchanges matching the query, using the query's window. */
   readonly list: (query: ExchangeListQuery) => Effect.Effect<ExchangeListResult>
   /** Find an exchange by primary key. */
   readonly findById: (id: ExchangeId) => Effect.Effect<Option.Option<ExchangeModel>>
@@ -138,18 +148,43 @@ export class Exchange extends Context.Service<
         query: ExchangeListQuery
       ): Effect.fn.Return<ExchangePage, ExchangeError> {
         const result = yield* store.list(query)
+        const searchBy = query.searchBy.join(",")
+
+        if (result._tag === "Page") {
+          return {
+            data: result.rows,
+            meta: paginationMeta({
+              items: result.total,
+              page: result.page,
+              limit: query.limit,
+              search: query.search,
+              searchBy,
+              order: query.order,
+              orderBy: query.orderBy
+            })
+          }
+        }
+
+        const last = result.rows[result.rows.length - 1]
 
         return {
           data: result.rows,
-          meta: paginationMeta({
-            items: result.total,
-            page: query.page,
+          meta: keysetMeta({
+            items: result.rows.length,
             limit: query.limit,
+            hasMore: result.hasMore,
             search: query.search,
-            searchBy: query.searchBy,
+            searchBy,
             order: query.order,
             orderBy: query.orderBy
-          })
+          }),
+          nextCursor: result.hasMore && last !== undefined
+            ? encodeCursor({
+              orderBy: query.orderBy,
+              direction: query.order,
+              values: [toCursorValue(last[query.orderBy]), last.id]
+            })
+            : null
         }
       })
 

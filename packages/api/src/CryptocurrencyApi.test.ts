@@ -40,7 +40,7 @@ const listPayload = {
   page: 1,
   limit: 10,
   search: "",
-  searchBy: "symbol",
+  searchBy: ["symbol"],
   orderBy: "coingeckoId",
   order: "asc"
 } as const

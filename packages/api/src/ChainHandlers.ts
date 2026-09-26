@@ -1,9 +1,26 @@
 import { Effect, Layer } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { Api } from "./Api.ts"
-import { Chain } from "./Chain.ts"
+import { Chain, type ChainListQuery } from "./Chain.ts"
+import { ChainListPayload } from "./ChainApi.ts"
 import { layer as ChainStoreLive } from "./ChainStore.ts"
+import { toListWindow } from "./Pagination.ts"
 import { RequestValidationLive } from "./RequestValidation.ts"
+
+/**
+ * Translate a decoded list payload into the application query.
+ *
+ * @param payload - Decoded `POST /api/chain/list` payload.
+ * @returns The query accepted by `Chain.list`.
+ */
+const listQuery = (payload: typeof ChainListPayload.Type): ChainListQuery => ({
+  window: toListWindow(payload),
+  limit: payload.limit,
+  search: payload.search,
+  searchBy: [...new Set(payload.searchBy)],
+  orderBy: payload.orderBy,
+  order: payload.order
+})
 
 /**
  * Chain group handlers without their dependencies, so tests can supply an
@@ -30,7 +47,8 @@ export const ChainHandlersNoDeps = HttpApiBuilder.group(
             ChainNotFound: unexpectedReason("add")
           })
         ),
-      list: ({ payload }) => chain.list(payload).pipe(Effect.orDie),
+      findOrCreate: ({ payload }) => chain.findOrCreate(payload).pipe(Effect.orDie),
+      list: ({ payload }) => chain.list(listQuery(payload)).pipe(Effect.orDie),
       findById: ({ params }) =>
         chain.getById(params.id).pipe(
           Effect.unwrapReason("ChainError"),

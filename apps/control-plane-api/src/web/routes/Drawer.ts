@@ -21,7 +21,8 @@ import {
   type CryptocurrencyMetadata,
   type MarketCreate,
   type MarketError,
-  type MarketUpdate
+  type MarketUpdate,
+  pageWindow
 } from "@lister/api"
 import { ChainId, ChainLinkId, CryptocurrencyId, ExchangeId, MarketId, type Market as MarketModel } from "@lister/domain"
 import { Effect, Layer, Match, Option, Predicate } from "effect"
@@ -78,11 +79,11 @@ const loadDrawerLists = Effect.fn("Ssr.drawerLists")(function*(
   const chains = yield* Chain
 
   const exchangePage = yield* exchanges
-    .list({ page: 1, limit: 10, search: exchangeQuery, searchBy: "name", orderBy: "id", order: "asc" })
+    .list({ window: pageWindow(1), limit: 10, search: exchangeQuery, searchBy: ["name"], orderBy: "id", order: "asc" })
     .pipe(Effect.catchTag("ExchangeError", unexpectedReason("Exchange", "list")))
 
   const chainPage = yield* chains
-    .list({ page: 1, limit: 10, search: chainQuery, searchBy: "name", orderBy: "id", order: "asc" })
+    .list({ window: pageWindow(1), limit: 10, search: chainQuery, searchBy: ["name"], orderBy: "id", order: "asc" })
     .pipe(Effect.catchTag("ChainError", unexpectedReason("Chain", "list")))
 
   return {

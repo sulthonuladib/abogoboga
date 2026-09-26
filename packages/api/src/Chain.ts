@@ -1,7 +1,15 @@
 import { Chain as ChainModel, type ChainId } from "@lister/domain"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import { ChainCodeExists, ChainError, ChainNotFound } from "./ChainErrors.ts"
-import { type PaginationMeta, paginationMeta } from "./Pagination.ts"
+import {
+  type ListResult,
+  type ListWindow,
+  type PaginationMeta,
+  encodeCursor,
+  keysetMeta,
+  paginationMeta,
+  toCursorValue
+} from "./Pagination.ts"
 
 /**
  * Fields accepted when creating a chain.
@@ -35,31 +43,33 @@ export type ChainOrderField = typeof ChainOrderField.Type
 
 /**
  * Query accepted by {@link Chain.list}.
+ *
+ * `window` selects offset paging (`Page`) or keyset paging (`Keyset`);
+ * `searchBy` lists every field the search text may match.
  */
 export type ChainListQuery = {
-  readonly page: number
+  readonly window: ListWindow
   readonly limit: number
   readonly search: string
-  readonly searchBy: ChainSearchField
+  readonly searchBy: ReadonlyArray<ChainSearchField>
   readonly orderBy: ChainOrderField
   readonly order: "asc" | "desc"
 }
 
 /**
- * One page of chains with its pagination summary.
+ * One page of chains with its pagination summary, plus the keyset
+ * continuation when the query used a keyset window.
  */
 export type ChainPage = {
   readonly data: ReadonlyArray<ChainModel>
   readonly meta: PaginationMeta
+  readonly nextCursor?: string | null | undefined
 }
 
 /**
- * A page of store rows plus the total row count before pagination.
+ * A page of store rows plus the total row count or the keyset continuation.
  */
-export type ChainListResult = {
-  readonly rows: ReadonlyArray<ChainModel>
-  readonly total: number
-}
+export type ChainListResult = ListResult<ChainModel>
 
 /**
  * Persistence port required by {@link Chain}.
@@ -68,7 +78,7 @@ export type ChainListResult = {
  * the `Database` service, so tests can substitute an in-memory database.
  */
 export type ChainStoreService = {
-  /** List chains matching the query, plus the unpaginated total. */
+  /** List chains matching the query, using the query's window. */
   readonly list: (query: ChainListQuery) => Effect.Effect<ChainListResult>
   /** Find a chain by primary key. */
   readonly findById: (id: ChainId) => Effect.Effect<Option.Option<ChainModel>>
@@ -76,6 +86,8 @@ export type ChainStoreService = {
   readonly findByCode: (code: string) => Effect.Effect<Option.Option<ChainModel>>
   /** Insert a chain, translating unique violations into conflicts. */
   readonly insert: (input: ChainCreate) => Effect.Effect<ChainModel, ChainCodeExists>
+  /** Insert a chain unless its code exists, returning the stored row either way. */
+  readonly insertIfAbsent: (input: ChainCreate) => Effect.Effect<Option.Option<ChainModel>>
   /** Update a chain, returning `none` when it no longer exists. */
   readonly update: (id: ChainId, input: ChainUpdate) => Effect.Effect<Option.Option<ChainModel>, ChainCodeExists>
   /** Delete a chain, returning the deleted row when it existed. */
@@ -104,6 +116,8 @@ export class Chain extends Context.Service<
     readonly getById: (id: ChainId) => Effect.Effect<ChainModel, ChainError>
     /** Create a chain, rejecting duplicate `code`. */
     readonly add: (input: ChainCreate) => Effect.Effect<ChainModel, ChainError>
+    /** Return the chain with `code`, creating it when it does not exist. */
+    readonly findOrCreate: (input: ChainCreate) => Effect.Effect<ChainModel, ChainError>
     /** Update a chain, rejecting duplicate `code`. */
     readonly update: (id: ChainId, input: ChainUpdate) => Effect.Effect<ChainModel, ChainError>
     /** Delete a chain, failing when it does not exist. */
@@ -126,18 +140,43 @@ export class Chain extends Context.Service<
         query: ChainListQuery
       ): Effect.fn.Return<ChainPage, ChainError> {
         const result = yield* store.list(query)
+        const searchBy = query.searchBy.join(",")
+
+        if (result._tag === "Page") {
+          return {
+            data: result.rows,
+            meta: paginationMeta({
+              items: result.total,
+              page: result.page,
+              limit: query.limit,
+              search: query.search,
+              searchBy,
+              order: query.order,
+              orderBy: query.orderBy
+            })
+          }
+        }
+
+        const last = result.rows[result.rows.length - 1]
 
         return {
           data: result.rows,
-          meta: paginationMeta({
-            items: result.total,
-            page: query.page,
+          meta: keysetMeta({
+            items: result.rows.length,
             limit: query.limit,
+            hasMore: result.hasMore,
             search: query.search,
-            searchBy: query.searchBy,
+            searchBy,
             order: query.order,
             orderBy: query.orderBy
-          })
+          }),
+          nextCursor: result.hasMore && last !== undefined
+            ? encodeCursor({
+              orderBy: query.orderBy,
+              direction: query.order,
+              values: [toCursorValue(last[query.orderBy]), last.id]
+            })
+            : null
         }
       })
 
@@ -159,6 +198,18 @@ export class Chain extends Context.Service<
         }
 
         return yield* store.insert(input).pipe(Effect.mapError(fromStoreError))
+      })
+
+      const findOrCreate = Effect.fn("Chain.findOrCreate")(function*(
+        input: ChainCreate
+      ): Effect.fn.Return<ChainModel, ChainError> {
+        const stored = yield* store.insertIfAbsent(input)
+
+        if (Option.isNone(stored)) {
+          return yield* Effect.die(new Error(`chain find-or-create lost the row for code ${input.code}`))
+        }
+
+        return stored.value
       })
 
       const update = Effect.fn("Chain.update")(function*(
@@ -198,7 +249,7 @@ export class Chain extends Context.Service<
         return removed.value
       })
 
-      return Chain.of({ list, getById, add, update, remove })
+      return Chain.of({ list, getById, add, findOrCreate, update, remove })
     })
   )
 }

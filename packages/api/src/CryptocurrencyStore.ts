@@ -16,7 +16,7 @@ import {
   exchangeCryptocurrencyTable,
   exchangeTable
 } from "@lister/db"
-import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm"
+import { and, asc, count, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm"
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core/errors"
 import { Effect, Layer, Option, Schema } from "effect"
 import {
@@ -24,11 +24,15 @@ import {
   type CryptocurrencyCreate,
   type CryptocurrencyExchangeListing,
   type CryptocurrencyListQuery,
+  type CryptocurrencyListResult,
+  type CryptocurrencySearchField,
   type CryptocurrencyUpdate
 } from "./Cryptocurrency.ts"
 import { CryptocurrencyCoingeckoIdExists, CryptocurrencySlugExists } from "./CryptocurrencyErrors.ts"
 import { uniqueViolationConstraint } from "./DrizzleErrors.ts"
+import { keysetKeys, keysetPredicate } from "./KeysetQuery.ts"
 import { decodeRows } from "./RowDecoding.ts"
+import { literalLikePattern } from "./Search.ts"
 
 /**
  * Drizzle-backed implementation of the {@link CryptocurrencyStore} port.
@@ -46,18 +50,15 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
     const decodeMarkets = decodeRows(Market)
     const decodeLinks = decodeRows(ChainLink)
 
-    const listConditions = (query: CryptocurrencyListQuery) => {
-      const conditions = []
-
-      if (query.search) {
-        if (query.searchBy === "id") {
-          const numeric = Number(query.search)
-
-          conditions.push(eq(cryptocurrencyTable.id, Number.isNaN(numeric) ? -1 : numeric))
-        } else {
-          conditions.push(ilike(cryptocurrencyTable[query.searchBy], `%${query.search.toLowerCase()}%`))
-        }
-      }
+    /**
+     * Filters shared by the list and stats queries: coins listed on an
+     * exchange and/or carrying a chain route.
+     */
+    const assignmentConditions = (query: {
+      readonly exchangeId?: ExchangeId | undefined
+      readonly chainId?: ChainId | undefined
+    }): Array<SQL> => {
+      const conditions: Array<SQL> = []
 
       if (query.exchangeId !== undefined) {
         conditions.push(
@@ -86,6 +87,29 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
           )
         )
       }
+
+      return conditions
+    }
+
+    const listConditions = (query: CryptocurrencyListQuery) => {
+      const conditions = []
+
+      if (query.search) {
+        const pattern = literalLikePattern(query.search)
+        const numeric = Number(query.search)
+
+        const match = or(
+          ...query.searchBy.map((field: CryptocurrencySearchField) =>
+            field === "id"
+              ? eq(cryptocurrencyTable.id, Number.isNaN(numeric) ? -1 : numeric)
+              : ilike(cryptocurrencyTable[field], pattern)
+          )
+        )
+
+        if (match !== undefined) conditions.push(match)
+      }
+
+      conditions.push(...assignmentConditions(query))
 
       return conditions
     }
@@ -154,28 +178,69 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
     })
 
     const list = Effect.fn("CryptocurrencyStore.list")(
-      function*(query: CryptocurrencyListQuery) {
+      function*(query: CryptocurrencyListQuery): Effect.fn.Return<CryptocurrencyListResult, EffectDrizzleQueryError> {
         const conditions = listConditions(query)
         const where = conditions.length > 0 ? and(...conditions) : undefined
 
         const orderBy =
           query.order === "asc" ? asc(cryptocurrencyTable[query.orderBy]) : desc(cryptocurrencyTable[query.orderBy])
 
-        const totals = yield* db.select({ value: count() }).from(cryptocurrencyTable).where(where)
-        const total = totals[0]?.value ?? 0
+        if (query.window._tag === "Page") {
+          const totals = yield* db.select({ value: count() }).from(cryptocurrencyTable).where(where)
+          const total = totals[0]?.value ?? 0
 
-        const rows =
-          query.limit === -1
-            ? yield* db.select().from(cryptocurrencyTable).where(where).orderBy(orderBy)
-            : yield* db
-                .select()
-                .from(cryptocurrencyTable)
-                .where(where)
-                .orderBy(orderBy)
-                .limit(query.limit)
-                .offset((query.page - 1) * query.limit)
+          const rows =
+            query.limit === -1
+              ? yield* db.select().from(cryptocurrencyTable).where(where).orderBy(orderBy)
+              : yield* db
+                  .select()
+                  .from(cryptocurrencyTable)
+                  .where(where)
+                  .orderBy(orderBy)
+                  .limit(query.limit)
+                  .offset((query.window.page - 1) * query.limit)
 
-        return { rows: decodeCoins(rows), total }
+          return { _tag: "Page", rows: decodeCoins(rows), total, page: query.window.page }
+        }
+
+        const cursor = query.window.cursor
+
+        const predicate = cursor === undefined
+          ? undefined
+          : keysetPredicate(
+            keysetKeys(
+              [
+                { expression: cryptocurrencyTable[query.orderBy], direction: cursor.direction },
+                { expression: cryptocurrencyTable.id, direction: "asc" }
+              ],
+              cursor.values
+            )
+          )
+
+        const keysetWhere = predicate === undefined ? where : where === undefined ? predicate : and(where, predicate)
+
+        if (query.limit === -1) {
+          const rows = yield* db
+            .select()
+            .from(cryptocurrencyTable)
+            .where(keysetWhere)
+            .orderBy(orderBy, asc(cryptocurrencyTable.id))
+
+          return { _tag: "Keyset", rows: decodeCoins(rows), hasMore: false }
+        }
+
+        const rows = yield* db
+          .select()
+          .from(cryptocurrencyTable)
+          .where(keysetWhere)
+          .orderBy(orderBy, asc(cryptocurrencyTable.id))
+          .limit(query.limit + 1)
+
+        return {
+          _tag: "Keyset",
+          rows: decodeCoins(rows.slice(0, query.limit)),
+          hasMore: rows.length > query.limit
+        }
       },
       Effect.orDie
     )

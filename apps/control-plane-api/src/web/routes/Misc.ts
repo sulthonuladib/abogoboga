@@ -5,7 +5,7 @@
  * @module
  */
 
-import { Chain, Exchange } from "@lister/api"
+import { Chain, Exchange, pageWindow } from "@lister/api"
 import { Effect, Layer } from "effect"
 import { HttpRouter, HttpServerResponse } from "effect/unstable/http"
 import { raw } from "../Html.ts"
@@ -51,7 +51,7 @@ const exchangeOptionsRoute = route("GET", "/partials/exchanges/options", (reques
     const exchanges = yield* Exchange
 
     const list = yield* exchanges
-      .list({ page: 1, limit: 10, search: q, searchBy: "name", orderBy: "id", order: "asc" })
+      .list({ window: pageWindow(1), limit: 10, search: q, searchBy: ["name"], orderBy: "id", order: "asc" })
       .pipe(Effect.catchTag("ExchangeError", unexpectedReason("Exchange", "list")))
 
     return fragmentResponse(
@@ -73,7 +73,7 @@ const chainOptionsRoute = route("GET", "/partials/chains/options", (request) =>
     const chains = yield* Chain
 
     const list = yield* chains
-      .list({ page: 1, limit: 10, search: q, searchBy: "name", orderBy: "id", order: "asc" })
+      .list({ window: pageWindow(1), limit: 10, search: q, searchBy: ["name"], orderBy: "id", order: "asc" })
       .pipe(Effect.catchTag("ChainError", unexpectedReason("Chain", "list")))
 
     return fragmentResponse(

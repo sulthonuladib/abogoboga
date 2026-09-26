@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { Database, chainTable, exchangeTable } from "@lister/db"
 import { exchangeCryptocurrencyChainTable, exchangeCryptocurrencyTable } from "@lister/db"
 import { ChainId, CryptocurrencyId, ExchangeId } from "@lister/domain"
-import { DateTime, Effect, Layer, Schema } from "effect"
+import { DateTime, Effect, Layer, Option, Schema } from "effect"
 import { Cryptocurrency, CryptocurrencyStore } from "./Cryptocurrency.ts"
 import {
   CryptocurrencyCoingeckoIdExists,
@@ -11,6 +11,7 @@ import {
   CryptocurrencySlugExists
 } from "./CryptocurrencyErrors.ts"
 import { layer as CryptocurrencyStoreLive } from "./CryptocurrencyStore.ts"
+import { decodeCursor, keysetWindow, pageWindow } from "./Pagination.ts"
 
 const DatabaseTestLayer = Database.layerMemory()
 
@@ -168,28 +169,38 @@ describe("Cryptocurrency application service", () => {
         yield* service.add({ ...bitcoin, coingeckoId: "litecoin", slug: "litecoin", symbol: "LTC", name: "Litecoin" })
 
         const searched = yield* service.list({
-          page: 1,
+          window: pageWindow(1),
           limit: 10,
           search: "LTC",
-          searchBy: "symbol",
+          searchBy: ["symbol"],
+          orderBy: "coingeckoId",
+          order: "asc"
+        })
+
+        const multiField = yield* service.list({
+          window: pageWindow(1),
+          limit: 10,
+          search: "litecoin",
+          searchBy: ["symbol", "name"],
           orderBy: "coingeckoId",
           order: "asc"
         })
 
         const unlimited = yield* service.list({
-          page: 1,
+          window: pageWindow(1),
           limit: -1,
           search: "",
-          searchBy: "symbol",
+          searchBy: ["symbol"],
           orderBy: "coingeckoId",
           order: "asc"
         })
 
-        return { searched, unlimited }
+        return { searched, multiField, unlimited }
       })
     )
 
     expect(result.searched.data.map((coin) => coin.symbol)).toEqual(["LTC"])
+    expect(result.multiField.data.map((coin) => coin.symbol)).toEqual(["LTC"])
     expect(result.searched.meta.items).toBe(1)
     expect(result.searched.meta.hasNextPage).toBe(false)
     expect(result.unlimited.data.map((coin) => coin.symbol)).toEqual(["BTC", "LTC"])
@@ -224,20 +235,20 @@ describe("Cryptocurrency application service", () => {
         })
 
         const byExchange = yield* service.list({
-          page: 1,
+          window: pageWindow(1),
           limit: 10,
           search: "",
-          searchBy: "symbol",
+          searchBy: ["symbol"],
           orderBy: "coingeckoId",
           order: "asc",
           exchangeId: exchangeId(exchange!.id)
         })
 
         const byChain = yield* service.list({
-          page: 1,
+          window: pageWindow(1),
           limit: 10,
           search: "",
-          searchBy: "symbol",
+          searchBy: ["symbol"],
           orderBy: "coingeckoId",
           order: "asc",
           chainId: chainId(chain!.id)
@@ -249,6 +260,39 @@ describe("Cryptocurrency application service", () => {
 
     expect(result.byExchange.data.map((coin) => coin.symbol)).toEqual(["BTC"])
     expect(result.byChain.data.map((coin) => coin.symbol)).toEqual(["BTC"])
+  })
+
+  test("list follows keyset cursors without repeats", async () => {
+    const result = await run(
+      Effect.gen(function*() {
+        const service = yield* Cryptocurrency
+
+        for (const [symbol, slug] of [["AAA", "aaa"], ["BBB", "bbb"], ["CCC", "ccc"]] as const) {
+          yield* service.add({ ...bitcoin, coingeckoId: slug, slug, symbol, name: `Coin ${symbol}` })
+        }
+
+        const keyset = {
+          window: keysetWindow(),
+          limit: 2,
+          search: "",
+          searchBy: ["symbol"],
+          orderBy: "symbol",
+          order: "asc"
+        } as const
+
+        const first = yield* service.list(keyset)
+
+        const nextWindow = keysetWindow(Option.getOrThrow(decodeCursor(first.nextCursor ?? "")))
+
+        const second = yield* service.list({ ...keyset, window: nextWindow })
+
+        return { first, second }
+      })
+    )
+
+    expect(result.first.data.map((coin) => coin.symbol)).toEqual(["AAA", "BBB"])
+    expect(result.second.data.map((coin) => coin.symbol)).toEqual(["CCC"])
+    expect(result.second.nextCursor).toBeNull()
   })
 
   test("metadata groups exchange listings and chain routes", async () => {

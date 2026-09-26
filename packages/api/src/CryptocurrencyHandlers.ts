@@ -1,10 +1,29 @@
 import { Effect, Layer } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { Api } from "./Api.ts"
-import { Cryptocurrency } from "./Cryptocurrency.ts"
+import { Cryptocurrency, type CryptocurrencyListQuery } from "./Cryptocurrency.ts"
+import { CryptocurrencyListPayload } from "./CryptocurrencyApi.ts"
 import { layer as CryptocurrencyStoreLive } from "./CryptocurrencyStore.ts"
 import type { CryptocurrencyLookup } from "./CryptocurrencyErrors.ts"
+import { toListWindow } from "./Pagination.ts"
 import { RequestValidationLive } from "./RequestValidation.ts"
+
+/**
+ * Translate a decoded list payload into the application query.
+ *
+ * @param payload - Decoded `POST /api/cryptocurrency/list` payload.
+ * @returns The query accepted by `Cryptocurrency.list`.
+ */
+const listQuery = (payload: typeof CryptocurrencyListPayload.Type): CryptocurrencyListQuery => ({
+  window: toListWindow(payload),
+  limit: payload.limit,
+  search: payload.search,
+  searchBy: [...new Set(payload.searchBy)],
+  orderBy: payload.orderBy,
+  order: payload.order,
+  exchangeId: payload.exchangeId,
+  chainId: payload.chainId
+})
 
 /**
  * Cryptocurrency group handlers without their dependencies, so tests can supply
@@ -32,7 +51,7 @@ export const CryptocurrencyHandlersNoDeps = HttpApiBuilder.group(
             CryptocurrencyNotFound: unexpectedReason("add")
           })
         ),
-      list: ({ payload }) => cryptocurrency.list(payload).pipe(Effect.orDie),
+      list: ({ payload }) => cryptocurrency.list(listQuery(payload)).pipe(Effect.orDie),
       stats: ({ payload }) => cryptocurrency.stats(payload).pipe(Effect.orDie),
       metadata: ({ payload }) => {
         const lookup: CryptocurrencyLookup = "id" in payload ? { by: "id", id: payload.id } : { by: "slug", slug: payload.slug }

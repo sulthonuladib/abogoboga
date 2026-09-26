@@ -8,21 +8,30 @@ import {
   type ExchangeSearchField as ExchangeSearchFieldType
 } from "./Exchange.ts"
 import { ExchangeCoingeckoIdExists, ExchangeNotFound, ExchangeSlugExists } from "./ExchangeErrors.ts"
-import { PaginationQueryFields, paginated } from "./Pagination.ts"
+import { PaginationQueryFields, cursorMatchesSort, onlyOneWindow, paginated } from "./Pagination.ts"
 import { RequestValidation } from "./RequestValidation.ts"
 
 /**
  * Query payload of `POST /api/exchange/list`.
+ *
+ * `searchBy` names one or more fields the search text must match. `page` and
+ * `cursor` are alternative windows: supplying neither returns the first keyset
+ * page and a `nextCursor`, supplying `page` keeps the offset behavior.
  */
 export const ExchangeListPayload = Schema.Struct({
   ...PaginationQueryFields,
-  searchBy: ExchangeSearchField.pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed("name" satisfies ExchangeSearchFieldType))
+  searchBy: Schema.Array(ExchangeSearchField).pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.check(Schema.isMaxLength(8)),
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(["name"] satisfies ReadonlyArray<ExchangeSearchFieldType>))
   ),
   orderBy: ExchangeOrderField.pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed("id" satisfies ExchangeOrderFieldType))
   )
-})
+}).check(
+  Schema.makeFilter(onlyOneWindow),
+  Schema.makeFilter((payload) => cursorMatchesSort(payload.cursor, payload))
+)
 
 /**
  * Payload of `POST /api/exchange/add`.
@@ -71,7 +80,11 @@ export class ExchangeApiGroup extends HttpApiGroup.make("exchange")
       payload: ExchangeListPayload,
       success: ExchangePageResponse
     }).annotateMerge(
-      documented("exchange.list", "List exchanges", "List exchanges with search, sort, and pagination.")
+      documented(
+        "exchange.list",
+        "List exchanges",
+        "List exchanges with search over one or more fields and either offset pagination (`page`) or keyset pagination (`cursor`, continued with the returned `nextCursor`)."
+      )
     ),
     HttpApiEndpoint.get("findById", "/exchange/:id", {
       params: { id: ExchangeId },

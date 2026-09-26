@@ -1,12 +1,14 @@
 import { Database, chainTable } from "@lister/db"
 import { Chain as ChainModel, type ChainId } from "@lister/domain"
-import { and, asc, count, desc, eq, ilike } from "drizzle-orm"
+import { and, asc, count, desc, eq, ilike, or } from "drizzle-orm"
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core/errors"
 import { Effect, Layer, Option } from "effect"
-import { ChainStore, type ChainCreate, type ChainListQuery, type ChainUpdate } from "./Chain.ts"
+import { ChainStore, type ChainCreate, type ChainListQuery, type ChainListResult, type ChainUpdate } from "./Chain.ts"
 import { ChainCodeExists } from "./ChainErrors.ts"
 import { uniqueViolationConstraint } from "./DrizzleErrors.ts"
+import { keysetKeys, keysetPredicate } from "./KeysetQuery.ts"
 import { decodeRows } from "./RowDecoding.ts"
+import { literalLikePattern } from "./Search.ts"
 
 /**
  * Drizzle-backed implementation of the {@link ChainStore} port.
@@ -26,7 +28,10 @@ export const layer: Layer.Layer<ChainStore, never, Database> = Layer.effect(
       const conditions = []
 
       if (query.search) {
-        conditions.push(ilike(chainTable[query.searchBy], `%${query.search.toLowerCase()}%`))
+        const pattern = literalLikePattern(query.search)
+        const match = or(...query.searchBy.map((field) => ilike(chainTable[field], pattern)))
+
+        if (match !== undefined) conditions.push(match)
       }
 
       return conditions
@@ -68,27 +73,64 @@ export const layer: Layer.Layer<ChainStore, never, Database> = Layer.effect(
     })
 
     const list = Effect.fn("ChainStore.list")(
-      function*(query: ChainListQuery) {
+      function*(query: ChainListQuery): Effect.fn.Return<ChainListResult, EffectDrizzleQueryError> {
         const conditions = listConditions(query)
         const where = conditions.length > 0 ? and(...conditions) : undefined
 
         const orderBy = query.order === "asc" ? asc(chainTable[query.orderBy]) : desc(chainTable[query.orderBy])
 
-        const totals = yield* db.select({ value: count() }).from(chainTable).where(where)
-        const total = totals[0]?.value ?? 0
+        if (query.window._tag === "Page") {
+          const totals = yield* db.select({ value: count() }).from(chainTable).where(where)
+          const total = totals[0]?.value ?? 0
 
-        const rows =
-          query.limit === -1
-            ? yield* db.select().from(chainTable).where(where).orderBy(orderBy)
-            : yield* db
-                .select()
-                .from(chainTable)
-                .where(where)
-                .orderBy(orderBy)
-                .limit(query.limit)
-                .offset((query.page - 1) * query.limit)
+          const rows =
+            query.limit === -1
+              ? yield* db.select().from(chainTable).where(where).orderBy(orderBy)
+              : yield* db
+                  .select()
+                  .from(chainTable)
+                  .where(where)
+                  .orderBy(orderBy)
+                  .limit(query.limit)
+                  .offset((query.window.page - 1) * query.limit)
 
-        return { rows: decodeChains(rows), total }
+          return { _tag: "Page", rows: decodeChains(rows), total, page: query.window.page }
+        }
+
+        const cursor = query.window.cursor
+
+        const predicate = cursor === undefined
+          ? undefined
+          : keysetPredicate(
+            keysetKeys(
+              [
+                { expression: chainTable[query.orderBy], direction: cursor.direction },
+                { expression: chainTable.id, direction: "asc" }
+              ],
+              cursor.values
+            )
+          )
+
+        const keysetWhere = predicate === undefined ? where : where === undefined ? predicate : and(where, predicate)
+
+        if (query.limit === -1) {
+          const rows = yield* db.select().from(chainTable).where(keysetWhere).orderBy(orderBy, asc(chainTable.id))
+
+          return { _tag: "Keyset", rows: decodeChains(rows), hasMore: false }
+        }
+
+        const rows = yield* db
+          .select()
+          .from(chainTable)
+          .where(keysetWhere)
+          .orderBy(orderBy, asc(chainTable.id))
+          .limit(query.limit + 1)
+
+        return {
+          _tag: "Keyset",
+          rows: decodeChains(rows.slice(0, query.limit)),
+          hasMore: rows.length > query.limit
+        }
       },
       Effect.orDie
     )
@@ -113,6 +155,23 @@ export const layer: Layer.Layer<ChainStore, never, Database> = Layer.effect(
       }
 
       return created
+    })
+
+    const insertIfAbsent = Effect.fn("ChainStore.insertIfAbsent")(function*(input: ChainCreate) {
+      const rows = yield* db
+        .insert(chainTable)
+        .values(input)
+        .onConflictDoNothing({ target: chainTable.code })
+        .returning()
+        .pipe(Effect.orDie)
+
+      const created = decodeChains(rows)[0]
+
+      if (created !== undefined) {
+        return Option.some(created)
+      }
+
+      return yield* findByCode(input.code)
     })
 
     const update = Effect.fn("ChainStore.update")(function*(id: ChainId, input: ChainUpdate) {
@@ -147,6 +206,7 @@ export const layer: Layer.Layer<ChainStore, never, Database> = Layer.effect(
       findById,
       findByCode,
       insert,
+      insertIfAbsent,
       update,
       remove
     })

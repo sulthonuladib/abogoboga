@@ -12,7 +12,8 @@ import {
   type ChainCreate,
   type ChainError,
   type ChainListQuery,
-  type ChainUpdate
+  type ChainUpdate,
+  pageWindow
 } from "@lister/api"
 import { ChainId } from "@lister/domain"
 import { Effect, Layer, Match, Predicate } from "effect"
@@ -40,10 +41,10 @@ import {
 const pageSize = 20
 
 const listQuery = (q: string, page: number): ChainListQuery => ({
-  page,
+  window: pageWindow(page),
   limit: pageSize,
   search: q,
-  searchBy: "name",
+  searchBy: ["name"],
   orderBy: "id",
   order: "asc"
 })

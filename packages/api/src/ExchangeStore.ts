@@ -1,6 +1,6 @@
 import { Database, exchangeTable } from "@lister/db"
 import { Exchange as ExchangeModel, type ExchangeId } from "@lister/domain"
-import { and, asc, count, desc, eq, ilike } from "drizzle-orm"
+import { and, asc, count, desc, eq, ilike, or } from "drizzle-orm"
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core/errors"
 import { Effect, Layer, Option } from "effect"
 import { uniqueViolationConstraint } from "./DrizzleErrors.ts"
@@ -8,10 +8,14 @@ import {
   ExchangeStore,
   type ExchangeCreate,
   type ExchangeListQuery,
+  type ExchangeListResult,
+  type ExchangeSearchField,
   type ExchangeUpdate
 } from "./Exchange.ts"
 import { ExchangeCoingeckoIdExists, ExchangeSlugExists } from "./ExchangeErrors.ts"
+import { keysetKeys, keysetPredicate } from "./KeysetQuery.ts"
 import { decodeRows } from "./RowDecoding.ts"
+import { literalLikePattern } from "./Search.ts"
 
 /**
  * Drizzle-backed implementation of the {@link ExchangeStore} port.
@@ -31,13 +35,18 @@ export const layer: Layer.Layer<ExchangeStore, never, Database> = Layer.effect(
       const conditions = []
 
       if (query.search) {
-        if (query.searchBy === "id") {
-          const numeric = Number(query.search)
+        const pattern = literalLikePattern(query.search)
+        const numeric = Number(query.search)
 
-          conditions.push(eq(exchangeTable.id, Number.isNaN(numeric) ? -1 : numeric))
-        } else {
-          conditions.push(ilike(exchangeTable[query.searchBy], `%${query.search.toLowerCase()}%`))
-        }
+        const match = or(
+          ...query.searchBy.map((field: ExchangeSearchField) =>
+            field === "id"
+              ? eq(exchangeTable.id, Number.isNaN(numeric) ? -1 : numeric)
+              : ilike(exchangeTable[field], pattern)
+          )
+        )
+
+        if (match !== undefined) conditions.push(match)
       }
 
       return conditions
@@ -104,27 +113,68 @@ export const layer: Layer.Layer<ExchangeStore, never, Database> = Layer.effect(
     })
 
     const list = Effect.fn("ExchangeStore.list")(
-      function*(query: ExchangeListQuery) {
+      function*(query: ExchangeListQuery): Effect.fn.Return<ExchangeListResult, EffectDrizzleQueryError> {
         const conditions = listConditions(query)
         const where = conditions.length > 0 ? and(...conditions) : undefined
 
         const orderBy = query.order === "asc" ? asc(exchangeTable[query.orderBy]) : desc(exchangeTable[query.orderBy])
 
-        const totals = yield* db.select({ value: count() }).from(exchangeTable).where(where)
-        const total = totals[0]?.value ?? 0
+        if (query.window._tag === "Page") {
+          const totals = yield* db.select({ value: count() }).from(exchangeTable).where(where)
+          const total = totals[0]?.value ?? 0
 
-        const rows =
-          query.limit === -1
-            ? yield* db.select().from(exchangeTable).where(where).orderBy(orderBy)
-            : yield* db
-                .select()
-                .from(exchangeTable)
-                .where(where)
-                .orderBy(orderBy)
-                .limit(query.limit)
-                .offset((query.page - 1) * query.limit)
+          const rows =
+            query.limit === -1
+              ? yield* db.select().from(exchangeTable).where(where).orderBy(orderBy)
+              : yield* db
+                  .select()
+                  .from(exchangeTable)
+                  .where(where)
+                  .orderBy(orderBy)
+                  .limit(query.limit)
+                  .offset((query.window.page - 1) * query.limit)
 
-        return { rows: decodeExchanges(rows), total }
+          return { _tag: "Page", rows: decodeExchanges(rows), total, page: query.window.page }
+        }
+
+        const cursor = query.window.cursor
+
+        const predicate = cursor === undefined
+          ? undefined
+          : keysetPredicate(
+            keysetKeys(
+              [
+                { expression: exchangeTable[query.orderBy], direction: cursor.direction },
+                { expression: exchangeTable.id, direction: "asc" }
+              ],
+              cursor.values
+            )
+          )
+
+        const keysetWhere = predicate === undefined ? where : where === undefined ? predicate : and(where, predicate)
+
+        if (query.limit === -1) {
+          const rows = yield* db
+            .select()
+            .from(exchangeTable)
+            .where(keysetWhere)
+            .orderBy(orderBy, asc(exchangeTable.id))
+
+          return { _tag: "Keyset", rows: decodeExchanges(rows), hasMore: false }
+        }
+
+        const rows = yield* db
+          .select()
+          .from(exchangeTable)
+          .where(keysetWhere)
+          .orderBy(orderBy, asc(exchangeTable.id))
+          .limit(query.limit + 1)
+
+        return {
+          _tag: "Keyset",
+          rows: decodeExchanges(rows.slice(0, query.limit)),
+          hasMore: rows.length > query.limit
+        }
       },
       Effect.orDie
     )

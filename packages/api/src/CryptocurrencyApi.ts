@@ -21,29 +21,49 @@ import {
   CryptocurrencyNotFound,
   CryptocurrencySlugExists
 } from "./CryptocurrencyErrors.ts"
-import { PaginationQueryFields, paginated } from "./Pagination.ts"
+import { PaginationQueryFields, cursorMatchesSort, onlyOneWindow, paginated } from "./Pagination.ts"
 import { RequestValidation } from "./RequestValidation.ts"
 
 /**
  * Query payload of `POST /api/cryptocurrency/list`.
+ *
+ * `searchBy` names one or more fields the search text must match. `page` and
+ * `cursor` are alternative windows: supplying neither returns the first keyset
+ * page and a `nextCursor`, supplying `page` keeps the offset behavior.
  */
 export const CryptocurrencyListPayload = Schema.Struct({
   ...PaginationQueryFields,
-  searchBy: CryptocurrencySearchField.pipe(
-    Schema.withDecodingDefaultTypeKey(Effect.succeed("symbol" satisfies CryptocurrencySearchFieldType))
+  searchBy: Schema.Array(CryptocurrencySearchField).pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.check(Schema.isMaxLength(8)),
+    Schema.withDecodingDefaultTypeKey(
+      Effect.succeed(["symbol"] satisfies ReadonlyArray<CryptocurrencySearchFieldType>)
+    )
   ),
   orderBy: CryptocurrencyOrderField.pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed("coingeckoId" satisfies CryptocurrencyOrderFieldType))
   ),
   exchangeId: Schema.optional(ExchangeId),
   chainId: Schema.optional(ChainId)
-})
+}).check(
+  Schema.makeFilter(onlyOneWindow),
+  Schema.makeFilter((payload) => cursorMatchesSort(payload.cursor, payload))
+)
 
 /**
  * Query payload of `POST /api/cryptocurrency/stats`.
+ *
+ * Declares its own `page` because the stats window stays offset-based until
+ * the stats store query lands; it deliberately omits `cursor`.
  */
 export const CryptocurrencyStatsPayload = Schema.Struct({
-  ...PaginationQueryFields,
+  page: Schema.Int.pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(1))
+  ),
+  limit: PaginationQueryFields.limit,
+  search: PaginationQueryFields.search,
+  order: PaginationQueryFields.order,
   flag: Schema.Literals(["all", "blocked", "single"]).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed("all" satisfies CryptocurrencyStatsFlag))
   ),
@@ -160,7 +180,7 @@ export class CryptocurrencyApiGroup extends HttpApiGroup.make("cryptocurrency")
       documented(
         "cryptocurrency.list",
         "List cryptocurrencies",
-        "List cryptocurrencies with search, sort, pagination, exchange, and chain filters."
+        "List cryptocurrencies with search over one or more fields, exchange and chain filters, and either offset pagination (`page`) or keyset pagination (`cursor`, continued with the returned `nextCursor`)."
       )
     ),
     HttpApiEndpoint.post("stats", "/cryptocurrency/stats", {

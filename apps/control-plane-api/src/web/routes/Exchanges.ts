@@ -11,7 +11,8 @@ import {
   type ExchangeCreate,
   type ExchangeError,
   type ExchangeListQuery,
-  type ExchangeUpdate
+  type ExchangeUpdate,
+  pageWindow
 } from "@lister/api"
 import { ExchangeId } from "@lister/domain"
 import { Effect, Layer, Match, Predicate } from "effect"
@@ -39,10 +40,10 @@ import {
 const pageSize = 20
 
 const listQuery = (q: string, page: number): ExchangeListQuery => ({
-  page,
+  window: pageWindow(page),
   limit: pageSize,
   search: q,
-  searchBy: "name",
+  searchBy: ["name"],
   orderBy: "id",
   order: "asc"
 })
