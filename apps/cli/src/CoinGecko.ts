@@ -31,6 +31,8 @@ export type TargetExchange = {
   readonly name: string
   /** CoinGecko exchange id used by the API. */
   readonly coingeckoId: string
+  /** Query used to resolve the exchange's large logo through `/search`. */
+  readonly searchQuery: string
   /** Quote currency the exchange's books are denominated in. */
   readonly baseCurrency: BaseCurrency
 }
@@ -39,13 +41,13 @@ export type TargetExchange = {
  * Exchanges the metadata scanner reads from CoinGecko.
  */
 export const targetExchanges: ReadonlyArray<TargetExchange> = [
-  { slug: "binance", name: "Binance", coingeckoId: "binance", baseCurrency: "usdt" },
-  { slug: "indodax", name: "Indodax", coingeckoId: "indodax", baseCurrency: "idr" },
-  { slug: "kucoin", name: "KuCoin", coingeckoId: "kucoin", baseCurrency: "usdt" },
-  { slug: "gateio", name: "Gate.io", coingeckoId: "gate", baseCurrency: "usdt" },
-  { slug: "mexc", name: "MEXC", coingeckoId: "mxc", baseCurrency: "usdt" },
-  { slug: "bybit", name: "Bybit", coingeckoId: "bybit_spot", baseCurrency: "usdt" },
-  { slug: "htx", name: "HTX (Huobi)", coingeckoId: "huobi", baseCurrency: "usdt" }
+  { slug: "binance", name: "Binance", coingeckoId: "binance", searchQuery: "Binance", baseCurrency: "usdt" },
+  { slug: "indodax", name: "Indodax", coingeckoId: "indodax", searchQuery: "Indodax", baseCurrency: "idr" },
+  { slug: "kucoin", name: "KuCoin", coingeckoId: "kucoin", searchQuery: "KuCoin", baseCurrency: "usdt" },
+  { slug: "gateio", name: "Gate.io", coingeckoId: "gate", searchQuery: "Gate", baseCurrency: "usdt" },
+  { slug: "mexc", name: "MEXC", coingeckoId: "mxc", searchQuery: "MEXC", baseCurrency: "usdt" },
+  { slug: "bybit", name: "Bybit", coingeckoId: "bybit_spot", searchQuery: "Bybit", baseCurrency: "usdt" },
+  { slug: "htx", name: "HTX (Huobi)", coingeckoId: "huobi", searchQuery: "HTX", baseCurrency: "usdt" }
 ]
 
 /**
@@ -125,6 +127,31 @@ const rawTickerPage = Schema.Struct({
   name: Schema.String,
   tickers: Schema.Array(rawTicker)
 })
+
+/**
+ * Maximum coin ids sent to one `/coins/markets` logo batch (the API caps
+ * `per_page` at 250).
+ */
+export const coinImageBatchSize = 250 as const
+
+const rawExchangeImage = Schema.Struct({ image: Schema.String })
+
+const rawCoinImage = Schema.Struct({ id: Schema.String, image: Schema.String })
+
+const rawSearchExchange = Schema.Struct({ id: Schema.String, large: Schema.String })
+
+const rawSearch = Schema.Struct({ exchanges: Schema.Array(rawSearchExchange) })
+
+/**
+ * Upgrade a CoinGecko asset URL to its large variant.
+ *
+ * CoinGecko serves the same asset at `/thumb/`, `/small/`, and `/large/`;
+ * some bulk endpoints (notably `/exchanges/{id}`) only return the small form.
+ *
+ * @param url - Vendor asset URL.
+ * @returns The large variant when a size segment is present.
+ */
+const preferLarge = (url: string): string => url.replaceAll("/thumb/", "/large/").replaceAll("/small/", "/large/")
 
 /**
  * Expected failure while talking to CoinGecko or parsing its response.
@@ -316,7 +343,62 @@ export const makeCoinGeckoLayer = (
         return { name: parsed.name, tickers, pageSize: parsed.tickers.length }
       })
 
-      return CoinGecko.of({ listCoins, exchangeTickers })
+      const exchangeLogo = Effect.fn("CoinGecko.exchangeLogo")(function*(coingeckoId: string, searchQuery: string) {
+        const searchRaw = yield* withRetry(
+          Effect.tryPromise({
+            try: () => client.search.get({ query: searchQuery }),
+            catch: (cause) => requestError("exchangeLogo", cause)
+          })
+        )
+
+        const search = yield* Schema.decodeUnknownEffect(rawSearch)(searchRaw).pipe(
+          Effect.mapError((cause) => responseError("exchangeLogo", cause))
+        )
+
+        const match = search.exchanges.find((exchange) => exchange.id === coingeckoId)
+
+        if (match !== undefined) return preferLarge(match.large)
+
+        // Fallback when search does not surface the venue: the canonical
+        // exchange endpoint always has it, but only at the small size.
+        const imageRaw = yield* withRetry(
+          Effect.tryPromise({
+            try: () => client.exchanges.getID(coingeckoId),
+            catch: (cause) => requestError("exchangeLogo", cause)
+          })
+        )
+
+        const image = yield* Schema.decodeUnknownEffect(rawExchangeImage)(imageRaw).pipe(
+          Effect.mapError((cause) => responseError("exchangeLogo", cause))
+        )
+
+        return preferLarge(image.image)
+      })
+
+      const coinImages = Effect.fn("CoinGecko.coinImages")(function*(ids: ReadonlyArray<string>) {
+        if (ids.length === 0) return new Map<string, string>()
+
+        const raw = yield* withRetry(
+          Effect.tryPromise({
+            try: () =>
+              client.coins.markets.get({
+                vs_currency: "usd",
+                ids: ids.join(","),
+                per_page: coinImageBatchSize,
+                page: 1
+              }),
+            catch: (cause) => requestError("coinImages", cause)
+          })
+        )
+
+        const parsed = yield* Schema.decodeUnknownEffect(Schema.Array(rawCoinImage))(raw).pipe(
+          Effect.mapError((cause) => responseError("coinImages", cause))
+        )
+
+        return new Map(parsed.map((item) => [item.id, preferLarge(item.image)]))
+      })
+
+      return CoinGecko.of({ listCoins, exchangeTickers, exchangeLogo, coinImages })
     })
   )
 
@@ -336,6 +418,18 @@ export class CoinGecko extends Context.Service<
       coingeckoId: string,
       page: number
     ) => Effect.Effect<ExchangeTickerPage, CoinGeckoError>
+    /** Large logo URL for one exchange, resolved through search. */
+    readonly exchangeLogo: (
+      coingeckoId: string,
+      searchQuery: string
+    ) => Effect.Effect<string, CoinGeckoError>
+    /**
+     * Logo URLs keyed by coin id for one batch of at most
+     * {@link coinImageBatchSize} coins.
+     */
+    readonly coinImages: (
+      ids: ReadonlyArray<string>
+    ) => Effect.Effect<ReadonlyMap<string, string>, CoinGeckoError>
   }
 >()("lister/cli/CoinGecko") {
   /**

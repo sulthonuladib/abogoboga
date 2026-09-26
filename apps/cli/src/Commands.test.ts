@@ -27,7 +27,9 @@ const coinGeckoStub = Layer.succeed(
   CoinGecko,
   CoinGecko.of({
     listCoins: Effect.die(new Error("CoinGecko is not used by scan import")),
-    exchangeTickers: () => Effect.die(new Error("CoinGecko is not used by scan import"))
+    exchangeTickers: () => Effect.die(new Error("CoinGecko is not used by scan import")),
+    exchangeLogo: () => Effect.die(new Error("CoinGecko is not used by scan import")),
+    coinImages: () => Effect.die(new Error("CoinGecko is not used by scan import"))
   })
 )
 
@@ -41,6 +43,7 @@ const snapshot: Snapshot = {
       slug: "binance",
       coingeckoId: "binance",
       name: "Binance",
+      logo: "https://example.test/binance.png",
       baseCurrency: "usdt",
       tickers: [
         { base: "BTC", target: "USDT", coinId: "bitcoin", targetCoinId: "tether" },
@@ -51,13 +54,20 @@ const snapshot: Snapshot = {
       slug: "gateio",
       coingeckoId: "gate",
       name: "Gate.io",
+      logo: "https://example.test/gate.png",
       baseCurrency: "usdt",
       tickers: [{ base: "BTC", target: "USDT", coinId: "bitcoin", targetCoinId: "tether" }]
     }
   ],
   coins: [
-    { id: "bitcoin", name: "Bitcoin", symbol: "btc", platforms: {} },
-    { id: "ethereum", name: "Ethereum", symbol: "eth", platforms: { ethereum: "0x0000000000000000000000000000000000000000" } }
+    { id: "bitcoin", name: "Bitcoin", symbol: "btc", logo: "https://example.test/btc.png", platforms: {} },
+    {
+      id: "ethereum",
+      name: "Ethereum",
+      symbol: "eth",
+      logo: "https://example.test/eth.png",
+      platforms: { ethereum: "0x0000000000000000000000000000000000000000" }
+    }
   ]
 }
 
@@ -120,7 +130,9 @@ describe("lister cli", () => {
     expect(result.links.every((link) => link.exchangeChainCode === "UNMAPPED")).toBe(true)
 
     expect(result.exchanges.find((exchange) => exchange.slug === "gateio")?.coingeckoId).toBe("gate")
+    expect(result.exchanges.find((exchange) => exchange.slug === "gateio")?.logo).toBe("https://example.test/gate.png")
     expect(result.coins.find((coin) => coin.slug === "bitcoin")?.coingeckoId).toBe("bitcoin")
+    expect(result.coins.find((coin) => coin.slug === "bitcoin")?.logo).toBe("https://example.test/btc.png")
   })
 
   test("scan import honors fallback chain name and code overrides", async () => {

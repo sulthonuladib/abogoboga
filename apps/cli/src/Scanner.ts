@@ -29,6 +29,7 @@ import {
   type CoinGeckoError,
   type CoinListItem,
   type TargetExchange,
+  coinImageBatchSize,
   targetExchangeBySlug,
   targetExchanges
 } from "./CoinGecko.ts"
@@ -63,6 +64,23 @@ export const maxTickerPages = 300 as const
 const boundedString = Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255)))
 
 /**
+ * Maximum logo URL length. The database columns are `varchar(255)`, so a
+ * longer vendor URL is dropped rather than stored truncated (a broken URL is
+ * worse than none).
+ */
+const maxLogoLength = 255 as const
+
+/**
+ * Keep a logo URL only when it fits the database column.
+ *
+ * @param url - Vendor logo URL, possibly empty.
+ * @returns The URL when it fits, otherwise an empty string.
+ */
+const boundedLogo = (url: string): string => (url.length <= maxLogoLength ? url : "")
+
+const logo = Schema.String.pipe(Schema.check(Schema.isMaxLength(maxLogoLength)))
+
+/**
  * One ticker retained in a snapshot.
  */
 export const SnapshotTicker = Schema.Struct({
@@ -78,12 +96,13 @@ export const SnapshotTicker = Schema.Struct({
 export type SnapshotTicker = typeof SnapshotTicker.Type
 
 /**
- * One coin retained in a snapshot, including its platform contracts.
+ * One coin retained in a snapshot, including its platform contracts and logo.
  */
 export const SnapshotCoin = Schema.Struct({
   id: boundedString,
   name: boundedString,
   symbol: boundedString,
+  logo,
   platforms: Schema.Record(Schema.String, Schema.NullOr(Schema.String))
 })
 
@@ -93,12 +112,13 @@ export const SnapshotCoin = Schema.Struct({
 export type SnapshotCoin = typeof SnapshotCoin.Type
 
 /**
- * One exchange and its page-collected tickers.
+ * One exchange, its logo, and its page-collected tickers.
  */
 export const SnapshotExchange = Schema.Struct({
   slug: boundedString,
   coingeckoId: boundedString,
   name: boundedString,
+  logo,
   baseCurrency: Schema.Literals(["usdt", "idr"]),
   tickers: Schema.Array(SnapshotTicker)
 })
@@ -265,10 +285,13 @@ export const fetchSnapshot = Effect.fn("Scanner.fetchSnapshot")(function*(option
       if (result.pageSize < tickerPageSize) break
     }
 
+    const exchangeLogo = yield* paced(coingecko.exchangeLogo(target.coingeckoId, target.searchQuery))
+
     exchanges.push({
       slug: target.slug,
       coingeckoId: target.coingeckoId,
       name: target.name,
+      logo: boundedLogo(exchangeLogo),
       baseCurrency: target.baseCurrency,
       tickers: [...byCoin.values()]
     })
@@ -276,14 +299,31 @@ export const fetchSnapshot = Effect.fn("Scanner.fetchSnapshot")(function*(option
 
   const allCoins = yield* paced(coingecko.listCoins)
 
-  const coins = allCoins
-    .filter((coin) => referenced.has(coin.id) && coin.name !== "" && coin.symbol !== "")
-    .map((coin: CoinListItem): SnapshotCoin => ({
-      id: coin.id,
-      name: coin.name,
-      symbol: coin.symbol,
-      platforms: coin.platforms ?? {}
-    }))
+  const selected = allCoins.filter((coin) => referenced.has(coin.id) && coin.name !== "" && coin.symbol !== "")
+
+  // CoinGecko has no bulk image endpoint, so resolve logos for the referenced
+  // coins through `/coins/markets` in batches; misses keep an empty logo.
+  const images = new Map<string, string>()
+
+  for (let offset = 0; offset < selected.length; offset += coinImageBatchSize) {
+    const batch = selected
+      .slice(offset, offset + coinImageBatchSize)
+      .map((coin) => coin.id)
+
+    const found = yield* paced(coingecko.coinImages(batch))
+
+    for (const [id, image] of found) {
+      images.set(id, image)
+    }
+  }
+
+  const coins = selected.map((coin: CoinListItem): SnapshotCoin => ({
+    id: coin.id,
+    name: coin.name,
+    symbol: coin.symbol,
+    logo: boundedLogo(images.get(coin.id) ?? ""),
+    platforms: coin.platforms ?? {}
+  }))
 
   const fetchedAt = new Date(yield* Clock.currentTimeMillis).toISOString()
 
@@ -399,7 +439,7 @@ export const mapSnapshot = (snapshot: Snapshot, options: ImportSnapshotOptions):
         name: coin.name,
         symbol: coin.symbol,
         slug: coin.id,
-        logo: ""
+        logo: coin.logo
       })
     }
   }
@@ -422,7 +462,7 @@ export const mapSnapshot = (snapshot: Snapshot, options: ImportSnapshotOptions):
       slug: exchange.slug,
       coingeckoId: exchange.coingeckoId,
       name: exchange.name,
-      logo: "",
+      logo: exchange.logo,
       baseCurrency: exchange.baseCurrency
     })),
     coins: [...coins.values()],

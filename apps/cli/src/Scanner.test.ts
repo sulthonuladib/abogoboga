@@ -21,6 +21,7 @@ const snapshot: Snapshot = {
       slug: "binance",
       coingeckoId: "binance",
       name: "Binance",
+      logo: "https://example.test/binance.png",
       baseCurrency: "usdt",
       tickers: [
         { base: "BTC", target: "USDT", coinId: "bitcoin", targetCoinId: "tether" },
@@ -31,14 +32,27 @@ const snapshot: Snapshot = {
       slug: "indodax",
       coingeckoId: "indodax",
       name: "Indodax",
+      logo: "https://example.test/indodax.png",
       baseCurrency: "idr",
       tickers: [{ base: "BTC", target: "IDR", coinId: "bitcoin", targetCoinId: "tether" }]
     }
   ],
   coins: [
-    { id: "bitcoin", name: "Bitcoin", symbol: "btc", platforms: {} },
-    { id: "bitcoin", name: "Bitcoin (duplicate)", symbol: "btc", platforms: {} },
-    { id: "tether", name: "Tether", symbol: "usdt", platforms: { ethereum: "0x0" } }
+    { id: "bitcoin", name: "Bitcoin", symbol: "btc", logo: "https://example.test/btc.png", platforms: {} },
+    {
+      id: "bitcoin",
+      name: "Bitcoin (duplicate)",
+      symbol: "btc",
+      logo: "https://example.test/btc-dup.png",
+      platforms: {}
+    },
+    {
+      id: "tether",
+      name: "Tether",
+      symbol: "usdt",
+      logo: "https://example.test/usdt.png",
+      platforms: { ethereum: "0x0" }
+    }
   ]
 }
 
@@ -50,8 +64,20 @@ describe("mapSnapshot", () => {
 
     expect(plan.chain).toEqual({ name: "Unmapped", code: "UNMAPPED" })
     expect(plan.exchanges).toEqual([
-      { slug: "binance", coingeckoId: "binance", name: "Binance", logo: "", baseCurrency: "usdt" },
-      { slug: "indodax", coingeckoId: "indodax", name: "Indodax", logo: "", baseCurrency: "idr" }
+      {
+        slug: "binance",
+        coingeckoId: "binance",
+        name: "Binance",
+        logo: "https://example.test/binance.png",
+        baseCurrency: "usdt"
+      },
+      {
+        slug: "indodax",
+        coingeckoId: "indodax",
+        name: "Indodax",
+        logo: "https://example.test/indodax.png",
+        baseCurrency: "idr"
+      }
     ])
   })
 
@@ -59,8 +85,14 @@ describe("mapSnapshot", () => {
     const plan = mapSnapshot(snapshot, options)
 
     expect(plan.coins).toEqual([
-      { coingeckoId: "bitcoin", name: "Bitcoin", symbol: "btc", slug: "bitcoin", logo: "" },
-      { coingeckoId: "tether", name: "Tether", symbol: "usdt", slug: "tether", logo: "" }
+      {
+        coingeckoId: "bitcoin",
+        name: "Bitcoin",
+        symbol: "btc",
+        slug: "bitcoin",
+        logo: "https://example.test/btc.png"
+      },
+      { coingeckoId: "tether", name: "Tether", symbol: "usdt", slug: "tether", logo: "https://example.test/usdt.png" }
     ])
   })
 
@@ -106,7 +138,10 @@ describe("fetchSnapshot", () => {
       CoinGecko,
       CoinGecko.of({
         listCoins: Effect.succeed(allCoins),
-        exchangeTickers: (_coingeckoId, pageNumber) => Effect.succeed(pages.get(pageNumber) ?? page([]))
+        exchangeTickers: (_coingeckoId, pageNumber) => Effect.succeed(pages.get(pageNumber) ?? page([])),
+        exchangeLogo: () => Effect.succeed("https://example.test/indodax.png"),
+        coinImages: (ids) =>
+          Effect.succeed(new Map(ids.map((id) => [id, `https://example.test/${id}.png`] as const)))
       })
     )
 
@@ -115,8 +150,10 @@ describe("fetchSnapshot", () => {
     )
 
     expect(result.exchanges).toHaveLength(1)
+    expect(result.exchanges[0]?.logo).toBe("https://example.test/indodax.png")
     expect(result.exchanges[0]?.tickers).toHaveLength(204)
     expect(result.coins.map((coin) => coin.id)).toEqual(["coin-0", "coin-203"])
+    expect(result.coins.every((coin) => coin.logo.startsWith("https://example.test/"))).toBe(true)
   })
 })
 
