@@ -38,9 +38,10 @@ const pageWindow = (page: number, pages: number): ReadonlyArray<PageEntry> => {
 // STYLE
 
 const itemClass =
-  'inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-border px-2 text-sm hover:bg-muted'
+  'inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-card px-2 text-sm shadow-[var(--shadow-border)] transition-[scale,box-shadow,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:shadow-[var(--shadow-border-hover)]'
 
-const currentItemClass = 'bg-primary text-primary-foreground hover:bg-primary'
+const currentItemClass =
+  'bg-primary text-primary-foreground shadow-[var(--shadow-border)] hover:bg-primary hover:shadow-[var(--shadow-border-hover)]'
 
 const disabledItemClass = 'pointer-events-none opacity-40'
 

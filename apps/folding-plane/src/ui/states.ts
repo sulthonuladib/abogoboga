@@ -82,7 +82,7 @@ export const errorPanel = <Message>(
               [
                 ...attributes.button,
                 h.Class(
-                  'rounded-lg border border-border px-2.5 py-1 text-xs hover:bg-muted',
+                  'rounded-lg bg-card px-2.5 py-1 text-xs shadow-[var(--shadow-border)] transition-[scale,box-shadow,background-color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:shadow-[var(--shadow-border-hover)]',
                 ),
               ],
               [input.retryLabel ?? 'Retry'],
@@ -105,11 +105,11 @@ export const staleNotice = <Message>(
   return h.div(
     [
       h.Class(
-        'flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs',
+        'flex flex-wrap items-center justify-between gap-2 rounded-xl bg-popover px-3 py-2 text-xs shadow-[var(--shadow-border)]',
       ),
     ],
     [
-      h.span([h.Class('text-amber-800 dark:text-amber-200')], [
+      h.span([h.Class('text-foreground')], [
         `Showing the last loaded rows. ${input.detail}`,
       ]),
       h.button(
@@ -133,8 +133,9 @@ export const loadingPanel = <Message>(
   h.div(
     [
       h.Class(
-        'flex items-center gap-2 rounded-2xl border border-border px-3 py-2 text-sm text-muted-foreground',
+        'flex items-center gap-2 rounded-2xl bg-card px-3 py-2 text-sm text-muted-foreground shadow-[var(--shadow-border)]',
       ),
+      h.Role('status'),
     ],
     [h.div([h.Class('size-2 animate-pulse rounded-full bg-muted-foreground')]), message],
   )

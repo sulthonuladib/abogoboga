@@ -8,29 +8,30 @@ import { classNames } from './classNames'
 const dialogClass =
   'fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto'
 
-const backdropClass = 'fixed inset-0 bg-black/50'
+const backdropClass = 'fixed inset-0 bg-foreground/40'
 
 const panelClass =
-  'relative rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-xl'
+  'relative rounded-3xl bg-card p-5 text-card-foreground shadow-[var(--shadow-border)]'
 
 const titleClass = 'text-base font-semibold'
 
 const descriptionClass = 'mt-1 text-sm text-muted-foreground'
 
 const closeClass =
-  'absolute right-3 top-3 inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground'
+  'absolute right-3 top-3 inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:text-foreground'
 
 const contentClass = 'mt-4 flex flex-col gap-4'
 
 const footerClass = 'mt-5 flex flex-wrap items-center justify-end gap-2'
 
 const destructiveClass =
-  'rounded-lg bg-destructive px-3 py-1.5 text-sm font-medium text-white hover:bg-destructive/90'
+  'rounded-lg bg-destructive px-3 py-1.5 text-sm font-medium text-primary-foreground transition-[scale,background-color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-destructive/90'
 
 const primaryClass =
-  'rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90'
+  'rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-[scale,background-color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-primary/90'
 
-const secondaryClass = 'rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted'
+const secondaryClass =
+  'rounded-lg bg-card px-3 py-1.5 text-sm shadow-[var(--shadow-border)] transition-[scale,box-shadow,background-color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:shadow-[var(--shadow-border-hover)]'
 
 const confirmButton = <Message>(
   input: Readonly<{

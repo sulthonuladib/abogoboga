@@ -57,8 +57,8 @@ export const action = <Message>(
             ...attributes.button,
             input.h.Class(
               input.isPrimary === true
-                ? 'rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90'
-                : 'rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted',
+                ? 'rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-[scale,background-color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-primary/90'
+                : 'rounded-lg bg-card px-3 py-1.5 text-sm font-medium shadow-[var(--shadow-border)] transition-[scale,box-shadow,background-color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:shadow-[var(--shadow-border-hover)]',
             ),
           ],
           [input.label],
@@ -86,7 +86,7 @@ export const iconAction = <Message>(
       input.h.AriaLabel(input.label),
       input.h.Title(input.label),
       input.h.Class(
-        'inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground',
+        'inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:text-foreground',
       ),
     ],
     [input.icon],
@@ -112,7 +112,7 @@ export const statStrip = <Message>(
   h.dl(
     [h.Class('grid grid-cols-2 gap-3 lg:grid-cols-4')],
     stats.map((stat) =>
-      h.keyed('div')(stat.label, [h.Class('rounded-2xl border border-border px-3 py-2.5')], [
+      h.keyed('div')(stat.label, [h.Class('rounded-2xl bg-card px-3 py-2.5 shadow-[var(--shadow-border)]')], [
         h.dt([h.Class('text-xs text-muted-foreground')], [stat.label]),
         h.dd([h.Class('mt-0.5 flex flex-col gap-0.5')], [
           h.span(

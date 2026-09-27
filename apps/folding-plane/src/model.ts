@@ -36,6 +36,7 @@ export const Model = Schema.Struct({
   theme: Theme,
   coverage: CoverageData.schema,
   chains: Chains.Model,
+  hasNavigated: Schema.Boolean,
 })
 
 export type Model = typeof Model.Type
@@ -47,6 +48,7 @@ export const init = (theme: Theme): Model => ({
   theme,
   coverage: AsyncData.Idle(),
   chains: Chains.initialModel,
+  hasNavigated: false,
 })
 
 export const initialModel: Model = init('Light')

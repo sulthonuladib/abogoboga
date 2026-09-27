@@ -43,20 +43,24 @@ const viewBox = '0 0 24 24'
 
 /**
  * A line icon drawn as inline SVG. The app carries no icon package and a page
- * needs a dozen marks, so they live here as path data.
+ * needs a dozen marks, so they live here as path data. One set, one weight:
+ * every mark draws with a 1.5px stroke beside regular text, in the current
+ * color. The rail marks its current section filled as well as colored, so the
+ * location survives without color.
  */
 export const icon = <Message>(
   name: Name,
   h: HtmlBuilder<Message>,
   sizeClass: string = 'size-4',
+  isFilled: boolean = false,
 ): Html =>
   h.svg(
     [
       h.Class(classNames('shrink-0', sizeClass)),
       h.ViewBox(viewBox),
-      h.Fill('none'),
+      h.Fill(isFilled ? 'currentColor' : 'none'),
       h.Stroke('currentColor'),
-      h.StrokeWidth('1.6'),
+      h.StrokeWidth('1.5'),
       h.StrokeLinecap('round'),
       h.StrokeLinejoin('round'),
       h.AriaHidden(true),

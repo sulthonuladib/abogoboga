@@ -43,6 +43,21 @@ const PersistTheme = Command.define('PersistTheme', {
   execute: ({ theme }) =>
     Effect.try(() => {
       document.cookie = `${THEME_COOKIE}=${theme}; path=/; max-age=31536000`
+
+      // A theme flip recolors nearly every element at once. Suppress
+      // transitions for one frame so the switch snaps instead of smearing,
+      // then restore them before the next interaction.
+      const style = document.createElement('style')
+      style.append(
+        document.createTextNode('*,*::before,*::after{transition:none !important}'),
+      )
+      document.head.append(style)
+
+      const _flushReflow = document.body.offsetHeight
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => style.remove())
+      })
     }).pipe(
       Effect.as(Message.CompletedPersistTheme()),
       Effect.catch(() => Effect.succeed(Message.CompletedPersistTheme())),
@@ -98,7 +113,7 @@ const foldChainsRouteChanged = Update.foldChild({
 
 const setRoute =
   (nextRoute: AppRoute): Update.Step<Model, Message> =>
-  (model) => ({ model: modifyFields(model, { route: () => nextRoute }) })
+  (model) => ({ model: modifyFields(model, { route: () => nextRoute, hasNavigated: () => true }) })
 
 /**
  * The steps a route change runs: the new route first, then the page it belongs
@@ -129,6 +144,7 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, Flags> = (
     theme: flags.theme,
     coverage: flags.coverage,
     chains: Chains.initialModel,
+    hasNavigated: false,
   }
 
   return Match.value(route).pipe(

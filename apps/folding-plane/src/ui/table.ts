@@ -14,7 +14,8 @@ const bodyCellClass = 'px-3 py-2.5 align-middle'
 
 const numericClass = 'text-right tabular-nums'
 
-const rowClass = 'border-b border-border last:border-0 hover:bg-muted/40'
+const rowClass =
+  'border-b border-border transition-[background-color] duration-[var(--duration-instant)] ease-[var(--ease-app)] last:border-0 hover:bg-muted/40'
 
 const placeholderRows = 4
 
@@ -29,7 +30,7 @@ export const table = <Message>(
   content: ReadonlyArray<Html>,
 ): Html =>
   h.div(
-    [h.Class('overflow-x-auto rounded-2xl border border-border')],
+    [h.Class('overflow-x-auto rounded-2xl bg-card shadow-[var(--shadow-border)]')],
     [h.table([h.Class(tableClass)], content)],
   )
 
@@ -145,15 +146,22 @@ export const emptyRow = <Message>(h: HtmlBuilder<Message>, message: string): Htm
 
 /**
  * The rows a table shows while it loads. The header stays put, so the columns
- * do not move when the data arrives.
+ * do not move when the data arrives. Each placeholder keeps a text cue, so the
+ * state reads as loading with motion off or animation disabled.
  */
 export const loadingRows = <Message>(h: HtmlBuilder<Message>): ReadonlyArray<Html> =>
-  Array.makeBy(placeholderRows, (index) =>
+  Array.makeBy(placeholderRows, () =>
     h.tr(
       [h.Class('border-b border-border last:border-0')],
       [
-        h.td([h.Colspan(100), h.Class('px-3 py-3')], [
-          h.div([h.Class('h-4 w-full animate-pulse rounded bg-muted')]),
-        ]),
+        h.td(
+          [h.Colspan(100), h.Class('px-3 py-3'), h.Role('status'), h.AriaLabel('Loading rows')],
+          [
+            h.div([h.Class('flex items-center gap-2')], [
+              h.div([h.Class('h-4 w-full animate-pulse rounded bg-muted')]),
+              h.span([h.Class('sr-only')], ['Loading…']),
+            ]),
+          ],
+        ),
       ],
     ))

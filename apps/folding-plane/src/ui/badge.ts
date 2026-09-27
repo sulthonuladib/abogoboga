@@ -14,11 +14,11 @@ export type Variant = 'neutral' | 'positive' | 'critical' | 'warning'
 
 const variantClass = Match.type<Variant>().pipe(
   Match.when('neutral', () => 'border-border bg-muted text-muted-foreground'),
-  Match.when('positive', () => 'border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'),
-  Match.when('warning', () => 'border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-300'),
+  Match.when('positive', () => 'border-transparent bg-accent text-accent-foreground'),
+  Match.when('warning', () => 'border-border bg-popover text-foreground'),
   Match.when(
     'critical',
-    () => 'border-transparent bg-destructive/15 text-destructive dark:text-red-400',
+    () => 'border-transparent bg-destructive/10 text-destructive',
   ),
   Match.exhaustive,
 )

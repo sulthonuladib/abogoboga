@@ -98,7 +98,14 @@ const shellView = (model: Model, h: HtmlBuilder<Message>): Html =>
       ),
       h.main([h.Class('min-w-0 flex-1')], [
         h.div(
-          [h.Class('mx-auto flex max-w-[96rem] flex-col gap-6 px-4 py-6 lg:px-8')],
+          [
+            h.Class(
+              classNames(
+                'mx-auto flex max-w-[96rem] flex-col gap-6 px-4 py-6 lg:px-8',
+                model.hasNavigated && 'page-enter',
+              ),
+            ),
+          ],
           [routeView(model, h)],
         ),
       ]),
@@ -132,14 +139,14 @@ const navLink = (item: NavItem, route: AppRoute, h: HtmlBuilder<Message>): Html 
       h.AriaCurrent(item.isCurrent(route) ? 'page' : 'false'),
       h.Class(
         classNames(
-          'flex items-center gap-2.5 rounded-3xl px-3 py-2 text-sm whitespace-nowrap transition-colors',
+          'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96]',
           item.isCurrent(route)
-            ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
+            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
             : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
         ),
       ),
     ],
-    [icon(item.mark, h), item.label],
+    [icon(item.mark, h, 'size-4', item.isCurrent(route)), item.label],
   )
 
 // COVERAGE
@@ -162,7 +169,7 @@ const coverageView = (model: Model, h: HtmlBuilder<Message>): Html =>
               h.Title(
                 model.theme === 'Light' ? 'Switch to dark theme' : 'Switch to light theme',
               ),
-              h.Class('rounded-md p-1 text-muted-foreground hover:bg-muted'),
+              h.Class('rounded-md p-1 text-muted-foreground transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted'),
             ],
             [model.theme === 'Light' ? '◐' : '◑'],
           ),
@@ -239,7 +246,7 @@ const notFoundView = (path: string, h: HtmlBuilder<Message>): Html =>
       h.a(
         [
           h.Href(dashboardRouter()),
-          h.Class('rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted'),
+          h.Class('rounded-lg bg-card px-3 py-1.5 text-sm shadow-[var(--shadow-border)] transition-[scale,box-shadow,background-color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:shadow-[var(--shadow-border-hover)]'),
         ],
         ['Back to the dashboard'],
       ),

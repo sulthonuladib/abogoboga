@@ -73,41 +73,41 @@ kit's palette and its idioms, and this group replaces both. The reference is the
 not new ones. The token *names* stay stable through this group, so the pages
 built after it resolve against finished values rather than placeholders.
 
-- [ ] 4.1 Replace the palette with values chosen for this application: one
+- [x] 4.1 Replace the palette with values chosen for this application: one
   accent, one neutral temperature for text and surfaces, and one destructive
   tone. Nothing is carried over. Verify no custom property value in
   `src/styles.css` matches a value in `packages/ui`'s globals, by diffing the two
   files' declared values
-- [ ] 4.2 Reduce the color set to what the application actually raises: a page
+- [x] 4.2 Reduce the color set to what the application actually raises: a page
   background, a card, a raised surface, a border, an accent, and a destructive
   tone, with dark mode as a second set of values for the same names. Verify
   every color used in `src/ui` and `src/view.ts` resolves to one of those names
   and that no component carries a theme check or a raw color
-- [ ] 4.3 Use shadows for depth and borders for structure. The nine current
+- [x] 4.3 Use shadows for depth and borders for structure. The nine current
   `border border-border` uses are depth, not structure. Verify each becomes a
   layered shadow, and that the borders that remain are dividers, the selected
   row, and focus
-- [ ] 4.4 Define one radius scale and apply the concentric rule, so a nested
+- [x] 4.4 Define one radius scale and apply the concentric rule, so a nested
   surface's radius is its parent's radius plus the padding between them. The
   inherited `radius * n` scale goes. Verify every nested pair in the rendered
   pages, such as a dialog panel inside its backdrop and a figure inside a rail
   cell, has the concentric relationship
-- [ ] 4.5 Define the motion language: one curve, a duration per interaction
+- [x] 4.5 Define the motion language: one curve, a duration per interaction
   frequency, a scale on press, and transitions suppressed for one frame during a
   theme switch. Verify a theme switch snaps instead of smearing, that a press
   scales by the prescribed amount, and that no rule names every property
-- [ ] 4.6 Keep the first render still. A server-rendered page arrives painted, so
+- [x] 4.6 Keep the first render still. A server-rendered page arrives painted, so
   nothing animates in on load. Verify a cold request shows no entrance
   animation while a client-side navigation still transitions
-- [ ] 4.7 Bring the icons to one set with one stroke weight, matched to the text
+- [x] 4.7 Bring the icons to one set with one stroke weight, matched to the text
   beside them, drawn in the current color, with an outline default and a filled
   active state. The current weight was chosen by guess. Verify the rail marks
   its current section with fill as well as color, and that no icon carries a
   second weight
-- [ ] 4.8 Give every animated state a static cue as well, so a loading row still
+- [x] 4.8 Give every animated state a static cue as well, so a loading row still
   reads as loading with motion off. Verify the placeholder rows and the
   refetching state are legible with animation disabled
-- [ ] 4.9 Give coin and exchange logos a one-pixel outline at low opacity so they
+- [x] 4.9 Give coin and exchange logos a one-pixel outline at low opacity so they
   sit on either surface with the same depth. Verify a logo has a visible edge
   over the light surface and over the dark one
 
