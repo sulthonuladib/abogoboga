@@ -4,8 +4,9 @@ import { UrlRequest } from 'foldkit/navigation'
 import { Url } from 'foldkit/url'
 import { Menu, Tooltip } from '@foldkit/ui'
 
-import { Coverage } from './model'
+import { Coverage } from './coverage'
 import * as Chains from './page/chains'
+import * as Dashboard from './page/dashboard'
 
 // MESSAGE
 
@@ -20,6 +21,7 @@ export const Message = defineMessageUnion({
   SettledFetchCoverage: { result: Schema.Result(Coverage, Schema.String) },
   GotCoverageTooltipMessage: { message: Tooltip.Message },
   GotChainsMessage: { message: Chains.Message },
+  GotDashboardMessage: { message: Dashboard.Message },
 })
 
 export type Message = typeof Message.Type

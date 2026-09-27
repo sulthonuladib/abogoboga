@@ -4,8 +4,9 @@ import { type Document, type Html, type HtmlBuilder } from 'foldkit/html'
 import { Nav, Tooltip } from '@foldkit/ui'
 
 import { Message } from './message'
-import { type Coverage, type Model } from './model'
+import { type Model } from './model'
 import * as Chains from './page/chains'
+import * as Dashboard from './page/dashboard'
 import {
   AppRoute,
   chainsUrl,
@@ -332,7 +333,14 @@ const coverageRow = (label: string, value: string, h: HtmlBuilder<Message>): Htm
 
 const routeView = (model: Model, h: HtmlBuilder<Message>): Html =>
   AppRoute.match<Html>(model.route, {
-    Dashboard: () => placeholderView('Dashboard', h),
+    Dashboard: () =>
+      h.submodel({
+        slotId: 'dashboard',
+        model: model.dashboard,
+        view: Dashboard.view,
+        viewInputs: { coverage: model.coverage },
+        toParentMessage: (message) => Message.GotDashboardMessage({ message }),
+      }),
     Coins: () => placeholderView('Coins', h),
     CoinRoutes: () => placeholderView('Coin routes', h),
     Exchanges: () => placeholderView('Exchanges', h),

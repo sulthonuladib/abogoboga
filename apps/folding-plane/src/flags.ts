@@ -5,8 +5,9 @@ import type { Url } from 'foldkit/url'
 
 import { type ApiOrigin, isApiFailure } from './api'
 import { readCoverage } from './coverage'
-import { CoverageData } from './model'
+import { CoverageData } from './coverage'
 import * as Chains from './page/chains'
+import * as Dashboard from './page/dashboard'
 import { chainsQueryFromRoute, urlToAppRoute } from './route'
 import { themeFromCookieHeader } from './theme'
 
@@ -48,6 +49,7 @@ export const Flags = Schema.Struct({
   theme: Schema.Literals(['Light', 'Dark']),
   coverage: CoverageData.schema,
   chains: Schema.Option(Chains.Chains.schema),
+  dashboard: Schema.Option(Dashboard.Seed),
 })
 
 export type Flags = typeof Flags.Type
@@ -71,10 +73,21 @@ export const flagsFor = (
       ),
       Match.orElse(() => Effect.succeed(Option.none<Chains.Chains>())),
     )
+    const dashboard = yield* Match.value(route).pipe(
+      Match.tag('Dashboard', () =>
+        Effect.gen(function* () {
+          const blocked = yield* settled(Dashboard.readBlocked())
+          const thin = yield* settled(Dashboard.readThin())
+
+          return Option.some(Dashboard.Seed.make({ blocked, thin }))
+        })),
+      Match.orElse(() => Effect.succeed(Option.none<Dashboard.Seed>())),
+    )
 
     return Flags.make({
       theme: themeFromCookieHeader(cookieHeader),
       coverage: yield* settled(readCoverage),
       chains,
+      dashboard,
     })
   })

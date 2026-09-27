@@ -1,8 +1,28 @@
-import { Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 import { HttpClient } from 'effect/unstable/http'
+import { AsyncData } from 'foldkit'
 
 import { ApiOrigin, Query } from './api'
-import { Coverage } from './model'
+
+// COVERAGE
+
+/**
+ * The figures the rail shows on every page. One Command reads them all, so the
+ * rail and a page never disagree about what the catalogue holds.
+ */
+export const Coverage = Schema.Struct({
+  coins: Schema.Int,
+  exchanges: Schema.Int,
+  chains: Schema.Int,
+  markets: Schema.Int,
+  runningWorkers: Schema.Int,
+  totalWorkers: Schema.Int,
+  reconnectingShards: Schema.Int,
+})
+
+export type Coverage = typeof Coverage.Type
+
+export const CoverageData = AsyncData.Schema(Coverage, Schema.String)
 
 /**
  * The figures the rail shows. A one-row page reports the true total, so nothing

@@ -29,6 +29,7 @@ export type {
   ChainPage,
   CoinMetadata,
   CoinStat,
+  CoinStatPage,
   Exchange,
   MarketAssignment,
 } from './query'

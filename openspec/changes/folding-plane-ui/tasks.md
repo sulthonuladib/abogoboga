@@ -113,21 +113,21 @@ built after it resolve against finished values rather than placeholders.
 
 ## 5. Chains page, the reference for the rest
 
-- [ ] 5.1 Hold `/chains` to the spec: sortable code, name, and creation time;
+- [x] 5.1 Hold `/chains` to the spec: sortable code, name, and creation time;
   search in the URL; paging; an editor that validates; a removal that states
   what it unlinks. Verify with a story test per transition and a scene test for
   the table, the empty state, the failure state, and both dialogs
-- [ ] 5.2 Verify the page end to end against a running control plane: a cold
+- [x] 5.2 Verify the page end to end against a running control plane: a cold
   request to `/chains` renders rows, a reload on a filtered URL renders the same
   window, and adding a chain re-reads the rail
 
 ## 6. Dashboard
 
-- [ ] 6.1 Build the dashboard's two stat strips and its two shortlists, the
+- [x] 6.1 Build the dashboard's two stat strips and its two shortlists, the
   blocked pairs and the thin coverage, from the counts and the two stats reads.
   Verify with a story test for each read settling and a scene test for both
   strips and both lists
-- [ ] 6.2 Verify the dashboard on a cold request renders figures rather than
+- [x] 6.2 Verify the dashboard on a cold request renders figures rather than
   placeholders, and that a failed read shows the reason with a retry
 
 ## 7. Exchanges listing

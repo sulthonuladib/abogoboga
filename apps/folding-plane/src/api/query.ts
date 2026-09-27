@@ -52,6 +52,7 @@ export {
 export type ChainPage = typeof ChainPageResponse.Type
 export type CoinPage = typeof CryptocurrencyPageResponse.Type
 export type CoinStat = typeof CryptocurrencyStatResponse.Type
+export type CoinStatPage = typeof CryptocurrencyStatsPageResponse.Type
 export type CoinMetadata = typeof CryptocurrencyMetadataResponse.Type
 export type MarketAssignment = typeof MarketModel.json.Type
 export type Chain = typeof ChainModel.json.Type

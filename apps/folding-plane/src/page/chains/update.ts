@@ -5,17 +5,19 @@ import { AsyncData, Command, FieldValidation, Update } from 'foldkit'
 import { pushUrl, replaceUrl } from 'foldkit/navigation'
 import { modifyFields } from 'foldkit/struct'
 
-import { call, Query, type ApiFailure, type ApiOrigin, type ChainPage } from '../../api'
-import { ChainsQuery, chainsUrl, defaultChainsQuery, type Order } from '../../route'
+import { type ApiFailure, type ApiOrigin, type ChainPage, Query, call } from '../../api'
+import { ChainsQuery, type Order, chainsUrl, defaultChainsQuery } from '../../route'
+import { trimmedOrEmpty } from '../../ui/format'
 import { searchDelay } from '../../ui/search'
 import { Message, OutMessage } from './message'
 import {
+  type Chains,
+  Model,
   codeRules,
   initialModel,
-  Model,
+  isFormValid,
   nameRules,
   pageSize,
-  type Chains,
 } from './model'
 
 type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage>
@@ -52,7 +54,7 @@ const interruptSearch = () =>
  * A change of sort, page, or filter. It is a navigation rather than a local
  * transition, so the URL always describes the table on screen.
  */
-const NavigateChains = Command.define('NavigateChains', {
+export const NavigateChains = Command.define('NavigateChains', {
   args: { url: Schema.String },
   messages: [Message.CompletedNavigateChains],
   execute: ({ url }) => pushUrl(url).pipe(Effect.as(Message.CompletedNavigateChains())),
@@ -79,7 +81,7 @@ export const FetchChains = Command.define('FetchChains', {
     ),
 })
 
-const AddChain = Command.define('AddChain', {
+export const AddChain = Command.define('AddChain', {
   args: { name: Schema.String, code: Schema.String },
   messages: [Message.SucceededSaveChain, Message.FailedSaveChain],
   execute: ({ name, code }) =>
@@ -91,7 +93,7 @@ const AddChain = Command.define('AddChain', {
     ),
 })
 
-const SaveChain = Command.define('SaveChain', {
+export const SaveChain = Command.define('SaveChain', {
   args: { id: Schema.Int, name: Schema.String, code: Schema.String },
   messages: [Message.SucceededSaveChain, Message.FailedSaveChain],
   execute: ({ id, name, code }) =>
@@ -103,7 +105,7 @@ const SaveChain = Command.define('SaveChain', {
     ),
 })
 
-const DeleteChain = Command.define('DeleteChain', {
+export const DeleteChain = Command.define('DeleteChain', {
   args: { id: Schema.Int },
   messages: [Message.SucceededRemoveChain, Message.FailedRemoveChain],
   execute: ({ id }) =>
@@ -289,21 +291,29 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       model: modifyFields(model, { code: () => validateCode(value) }),
     }),
 
-    ClickedSaveChain: () =>
-      Option.match(model.editing, {
+    ClickedSaveChain: () => {
+      const name = trimmedOrEmpty(model.name.value)
+      const code = trimmedOrEmpty(model.code.value)
+      const validated = modifyFields(model, {
+        name: () => validateName(name),
+        code: () => validateCode(code),
+      })
+
+      if (!isFormValid(validated)) {
+        return { model: modifyFields(validated, { isSaving: () => false }) }
+      }
+
+      return Option.match(model.editing, {
         onNone: () => ({
-          model: modifyFields(model, { isSaving: () => true }),
-          commands: [
-            AddChain({ name: model.name.value, code: model.code.value }),
-          ],
+          model: modifyFields(validated, { isSaving: () => true }),
+          commands: [AddChain({ name, code })],
         }),
         onSome: ({ id }) => ({
-          model: modifyFields(model, { isSaving: () => true }),
-          commands: [
-            SaveChain({ id, name: model.name.value, code: model.code.value }),
-          ],
+          model: modifyFields(validated, { isSaving: () => true }),
+          commands: [SaveChain({ id, name, code })],
         }),
-      }),
+      })
+    },
 
     SucceededSaveChain: () =>
       Update.withOutMessage(
@@ -345,7 +355,10 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       Update.withOutMessage(
         Update.combine(model, [
           () => ({
-            model: modifyFields(model, { maybeRemoving: () => Option.none() }),
+            model: modifyFields(model, {
+              maybeRemoving: () => Option.none(),
+              isSaving: () => false,
+            }),
           }),
           closeRemoveDialog,
           refresh,

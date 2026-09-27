@@ -11,6 +11,7 @@ import type { Flags } from './flags'
 import { Message } from './message'
 import type { Model, Theme } from './model'
 import * as Chains from './page/chains'
+import * as Dashboard from './page/dashboard'
 import { AppRoute, chainsQueryFromRoute, urlToAppRoute } from './route'
 import { THEME_COOKIE } from './theme'
 import { ThemeMenu } from './themeMenu'
@@ -66,7 +67,7 @@ const PersistTheme = Command.define('PersistTheme', {
     ),
 })
 
-const FetchCoverage = Command.define('FetchCoverage', {
+export const FetchCoverage = Command.define('FetchCoverage', {
   messages: [Message.SettledFetchCoverage],
   execute: call(readCoverage).pipe(
     Effect.mapError((error) => detailOf(error)),
@@ -148,6 +149,20 @@ const foldChainsRouteChanged = Update.foldChild({
   toParentMessage: (message) => Message.GotChainsMessage({ message }),
 })
 
+const foldDashboard = Update.foldChild({
+  update: Dashboard.update,
+  read: (model: Model) => Option.some(model.dashboard),
+  write: (model, nextDashboard) => modifyFields(model, { dashboard: () => nextDashboard }),
+  toParentMessage: (message) => Message.GotDashboardMessage({ message }),
+})
+
+const enteredDashboard = Update.foldChildStep({
+  update: Dashboard.entered,
+  read: (model: Model) => Option.some(model.dashboard),
+  write: (model, nextDashboard) => modifyFields(model, { dashboard: () => nextDashboard }),
+  toParentMessage: (message) => Message.GotDashboardMessage({ message }),
+})
+
 // ROUTE
 
 const setRoute =
@@ -161,6 +176,7 @@ const setRoute =
  */
 const pageSteps = (route: AppRoute): ReadonlyArray<Update.Step<Model, Message>> =>
   Match.value(route).pipe(
+    Match.tag('Dashboard', () => [enteredDashboard]),
     Match.tag('Chains', (chainsRoute) => [
       foldChainsRouteChanged(chainsQueryFromRoute(chainsRoute)),
     ]),
@@ -185,10 +201,20 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, Flags> = (
     coverage: flags.coverage,
     coverageTooltip: Tooltip.init({ id: 'coverage-tooltip' }),
     chains: Chains.initialModel,
+    dashboard: Dashboard.initialModel,
     hasNavigated: false,
   }
 
   return Match.value(route).pipe(
+    Match.tag('Dashboard', () => {
+      const dashboardInit = Dashboard.init(flags.dashboard)
+
+      return {
+        model: { ...base, dashboard: dashboardInit.model },
+        commands: Command.mapMessages(dashboardInit.commands, (message) =>
+          Message.GotDashboardMessage({ message })),
+      }
+    }),
     Match.tag('Chains', (chainsRoute) => {
       const chainsInit = Chains.init(
         chainsQueryFromRoute(chainsRoute),
@@ -239,4 +265,6 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     }),
 
     GotChainsMessage: ({ message }) => foldChains(model, message),
+
+    GotDashboardMessage: ({ message }) => foldDashboard(model, message),
   })
