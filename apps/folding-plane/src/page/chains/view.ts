@@ -3,7 +3,7 @@ import { Array, Option } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
 
 import type { ChainPage } from '../../api'
-import { chainDetailUrl } from '../../route'
+import { type ChainsQuery, chainDetailUrl, chainsUrl } from '../../route'
 import { dialog } from '../../ui/dialog'
 import { textField } from '../../ui/field'
 import { formatDate } from '../../ui/format'
@@ -197,14 +197,18 @@ const pagerView = (model: Model, h: HtmlBuilder<Message>): Html =>
   AsyncData.match(model.chains, {
     onIdle: () => h.empty,
     onLoading: () => h.empty,
-    onRefreshing: (data) => pager(data.meta, h),
+    onRefreshing: (data) => pager(data.meta, model.query, h),
     onFailure: () => h.empty,
-    onStale: ({ data }) => pager(data.meta, h),
-    onSuccess: (data) => pager(data.meta, h),
+    onStale: ({ data }) => pager(data.meta, model.query, h),
+    onSuccess: (data) => pager(data.meta, model.query, h),
   })
 
-const pager = (meta: ChainPage['meta'], h: HtmlBuilder<Message>): Html =>
-  pagination({ meta, onPage: (page) => Message.ClickedPage({ page }), h })
+const pager = (
+  meta: ChainPage['meta'],
+  query: ChainsQuery,
+  h: HtmlBuilder<Message>,
+): Html =>
+  pagination({ meta, toHref: (page) => chainsUrl({ ...query, page }), h })
 
 // DIALOG
 

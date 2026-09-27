@@ -1,6 +1,7 @@
 import type { PaginationMeta } from '@lister/api/client'
-import { Array, Match, Option, Order, Result } from 'effect'
+import { Array, Match, Option, Order, Record, Result } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
+import { Nav } from '@foldkit/ui'
 
 import { classNames } from './classNames'
 import { formatCount } from './format'
@@ -49,28 +50,40 @@ const disabledItemClass = 'pointer-events-none opacity-40'
 
 type PagerInput<Message> = Readonly<{
   meta: PaginationMeta
-  onPage: (page: number) => Message
+  toHref: (page: number) => string
   h: HtmlBuilder<Message>
 }>
 
 /**
  * The controls under a listing. The summary counts rows rather than pages,
- * because that is the figure an operator checks, and the controls move between
- * pages and mark the current one.
+ * because that is the figure an operator checks. Every destination is a link,
+ * so a page number can be opened in a new tab, and the current one is marked
+ * from the URL's page.
  */
 export const pagination = <Message>(input: PagerInput<Message>): Html => {
   const { meta, h } = input
   const pages = Math.max(meta.pages, 1)
+  const entries = pageWindow(meta.page, pages)
+  const items = entries.filter((entry): entry is number => entry !== 'gap').map((
+    page,
+  ) => `${page}`)
 
   return h.div(
     [h.Class('flex flex-wrap items-center justify-between gap-3')],
     [
       h.p([h.Class('text-sm text-muted-foreground')], [summaryText(meta)]),
-      h.nav([h.Class('flex items-center gap-1'), h.AriaLabel('Pagination')], [
-        stepButton('Previous', meta.page - 1, meta.hasPreviousPage, input),
-        ...pageItems(pages, meta.page, input),
-        stepButton('Next', meta.page + 1, meta.hasNextPage, input),
-      ]),
+      Nav.view({
+        items,
+        ariaLabel: 'Pagination',
+        toHref: (value) => input.toHref(Number(value)),
+        isItemCurrent: (value) => Number(value) === meta.page,
+        toView: ({ nav, items: links }) =>
+          h.nav([...nav, h.Class('flex items-center gap-1')], [
+            stepControl('Previous', meta.page - 1, meta.hasPreviousPage, input),
+            ...pageLinks(entries, links, h),
+            stepControl('Next', meta.page + 1, meta.hasNextPage, input),
+          ]),
+      }),
     ],
   )
 }
@@ -80,39 +93,48 @@ const summaryText = (meta: PaginationMeta): string =>
     ? 'No rows'
     : `${formatCount(meta.from)}-${formatCount(meta.to)} of ${formatCount(meta.items)}`
 
-const stepButton = <Message>(
+const stepControl = <Message>(
   label: string,
   page: number,
   isEnabled: boolean,
   input: PagerInput<Message>,
 ): Html =>
-  input.h.button(
-    [
-      input.h.Type('button'),
-      input.h.AriaLabel(label),
-      isEnabled ? input.h.OnClick(input.onPage(page)) : input.h.AriaDisabled(true),
-      input.h.Class(classNames(itemClass, isEnabled ? '' : disabledItemClass)),
-    ],
-    [label],
-  )
+  isEnabled
+    ? input.h.a(
+      [
+        input.h.Href(input.toHref(page)),
+        input.h.AriaLabel(label),
+        input.h.Class(itemClass),
+      ],
+      [label],
+    )
+    : input.h.span(
+      [input.h.Class(classNames(itemClass, disabledItemClass)), input.h.AriaDisabled(true)],
+      [label],
+    )
 
-const pageItems = <Message>(
-  pages: number,
-  page: number,
-  input: PagerInput<Message>,
-): ReadonlyArray<Html> =>
-  pageWindow(page, pages).map((entry) =>
+const pageLinks = <Message>(
+  entries: ReadonlyArray<PageEntry>,
+  links: ReadonlyArray<Nav.ItemInfo<string>>,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Html> => {
+  const byPage = Record.fromEntries(links.map((link) => [link.value, link]))
+
+  return entries.map((entry) =>
     Match.value(entry).pipe(
       Match.when('gap', () =>
-        input.h.span([input.h.Class('px-1 text-sm text-muted-foreground')], ['…']),
-      ),
-      Match.orElse((candidate) =>
-        input.h.keyed('button')(String(candidate), [
-          input.h.Type('button'),
-          input.h.OnClick(input.onPage(candidate)),
-          input.h.AriaCurrent(candidate === page ? 'page' : 'false'),
-          input.h.AriaLabel(`Page ${candidate}`),
-          input.h.Class(classNames(itemClass, candidate === page && currentItemClass)),
-        ], [formatCount(candidate)]),
-      ),
+        h.span([h.Class('px-1 text-sm text-muted-foreground')], ['…'])),
+      Match.orElse((page) =>
+        Option.match(Record.get(byPage, `${page}`), {
+          onNone: () => h.empty,
+          onSome: (link) => pageLink(link, h),
+        })),
     ))
+}
+
+const pageLink = <Message>(link: Nav.ItemInfo<string>, h: HtmlBuilder<Message>): Html =>
+  h.keyed('a')(link.value, [
+    ...link.link,
+    h.AriaLabel(`Page ${link.value}`),
+    h.Class(classNames(itemClass, link.isCurrent && currentItemClass)),
+  ], [formatCount(Number(link.value))])

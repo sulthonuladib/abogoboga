@@ -41,26 +41,26 @@ pass in this change removed those files.
 
 ## 3. Foundations of the new application
 
-- [ ] 3.1 Close the transport's failure channel so a body read that fails
+- [x] 3.1 Close the transport's failure channel so a body read that fails
   reports the same typed failure as everything else. Verify
   `bun run --cwd apps/folding-plane typecheck` is clean
-- [ ] 3.2 Write the first story test for the shared parts: a route change to a
+- [x] 3.2 Write the first story test for the shared parts: a route change to a
   page with no seed fetches, and a route change that leaves the query unchanged
   fetches nothing. Verify it passes under
   `bun run --cwd apps/folding-plane test`
-- [ ] 3.3 Write the first scene test for the shell: the rail's labels are
+- [x] 3.3 Write the first scene test for the shell: the rail's labels are
   present, the current section is marked current, and a failed coverage read
   offers a retry. Verify it passes
-- [ ] 3.4 Fill the view-helper gaps the remaining pages need, once, in
+- [x] 3.4 Fill the view-helper gaps the remaining pages need, once, in
   `src/ui/`: a filter select, a sortable header for a numeric column, and a
   section that pairs a heading with its note. Verify each has a scene test that
   exercises it through a rendered page
-- [ ] 3.5 Build the pager and the rail's section navigation on the component
+- [x] 3.5 Build the pager and the rail's section navigation on the component
   library's `Nav` rather than on hand-written anchors and buttons, so page
   numbers are links and the current destination is marked from the URL. Verify a
   page number carries an `href`, opens in a new tab, and that the current page
   and the current section are both marked current
-- [ ] 3.6 Build the theme toggle as the component library's `Menu` with Light and
+- [x] 3.6 Build the theme toggle as the component library's `Menu` with Light and
   Dark items, and give the rail's static icon controls a `Tooltip`. Verify the
   toggle names its options in the rendered text, and that a tooltip appears for
   a static control while a per-row control keeps its accessible name without one

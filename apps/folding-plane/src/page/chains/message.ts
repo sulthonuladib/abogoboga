@@ -14,7 +14,6 @@ export const Message = defineMessageUnion({
   CompletedInterruptSearchChains: { outcome: Command.Interruptible.Outcome },
   CompletedNavigateChains: {},
   ClickedSort: { column: ChainOrderField },
-  ClickedPage: { page: Schema.Int },
   ClickedRetry: {},
   ClickedNewChain: {},
   ClickedEditChain: { id: Schema.Int, name: Schema.String, code: Schema.String },

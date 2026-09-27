@@ -68,7 +68,7 @@ export const readChains = (
 ): Effect.Effect<ChainPage, ApiFailure, ApiOrigin | HttpClient.HttpClient> =>
   Query.listChains({ ...query, limit: pageSize })
 
-const FetchChains = Command.define('FetchChains', {
+export const FetchChains = Command.define('FetchChains', {
   args: { query: ChainsQuery },
   messages: [Message.SettledFetchChains],
   execute: ({ query }) =>
@@ -211,13 +211,17 @@ export const init = (
 /**
  * Tell the page the URL changed. The page owns no route, so it derives its
  * query from the one it is given and returns the fetch that query needs. A
- * click that leaves the query as it was fetches nothing.
+ * click that leaves the query as it was fetches nothing, unless the page
+ * never loaded at all: arriving from another page on the query the listing
+ * already holds still needs its first read.
  */
 export const informRouteChanged = (
   model: Model,
   query: ChainsQuery,
 ): Update.Return<Model, Message> =>
-  sameQuery(model.query, query) ? { model } : loadQuery(model, query)
+  sameQuery(model.query, query) && !AsyncData.isIdle(model.chains)
+    ? { model }
+    : loadQuery(model, query)
 
 // UPDATE
 
@@ -246,11 +250,6 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         ],
       }
     },
-
-    ClickedPage: ({ page }) => ({
-      model,
-      commands: [NavigateChains({ url: chainsUrl({ ...model.query, page }) })],
-    }),
 
     ClickedRetry: () => refresh(model),
 

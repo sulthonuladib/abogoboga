@@ -1,6 +1,7 @@
-import { Match, Option } from 'effect'
+import { Array, Match, Option } from 'effect'
 import { AsyncData } from 'foldkit'
 import { type Document, type Html, type HtmlBuilder } from 'foldkit/html'
+import { Nav, Tooltip } from '@foldkit/ui'
 
 import { Message } from './message'
 import { type Coverage, type Model } from './model'
@@ -12,6 +13,7 @@ import {
   dashboardRouter,
   exchangesUrl,
 } from './route'
+import { ThemeMenu, themeItems } from './themeMenu'
 import { formatCount, pendingCount } from './ui/format'
 import { icon } from './ui/icon'
 import { classNames } from './ui/classNames'
@@ -92,9 +94,11 @@ const shellView = (model: Model, h: HtmlBuilder<Message>): Html =>
   h.div([h.Class('flex min-h-dvh flex-col md:flex-row')], [
     railView(model, h),
     h.div([h.Class('flex min-w-0 flex-1 flex-col')], [
-      h.nav(
-        [h.Class('flex gap-1 overflow-x-auto border-b border-sidebar-border px-2 py-1.5 md:hidden')],
-        navItems.map((item) => navLink(item, model.route, h)),
+      sectionsNav(
+        model.route,
+        h,
+        'flex gap-1 overflow-x-auto border-b border-sidebar-border px-2 py-1.5 md:hidden',
+        mobileLinkClass,
       ),
       h.main([h.Class('min-w-0 flex-1')], [
         h.div(
@@ -124,32 +128,164 @@ const railView = (model: Model, h: HtmlBuilder<Message>): Html =>
           h.span([h.Class('text-xs text-muted-foreground')], ['control plane']),
         ],
       ),
-      h.nav(
-        [h.Class('flex flex-1 flex-col gap-0.5 p-2'), h.AriaLabel('Sections')],
-        navItems.map((item) => navLink(item, model.route, h)),
+      sectionsNav(
+        model.route,
+        h,
+        'flex flex-1 flex-col gap-0.5 p-2',
+        railLinkClass,
       ),
       coverageView(model, h),
     ],
   )
 
-const navLink = (item: NavItem, route: AppRoute, h: HtmlBuilder<Message>): Html =>
-  h.a(
-    [
-      h.Href(item.href()),
-      h.AriaCurrent(item.isCurrent(route) ? 'page' : 'false'),
-      h.Class(
-        classNames(
-          'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96]',
-          item.isCurrent(route)
-            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
-        ),
-      ),
-    ],
-    [icon(item.mark, h, 'size-4', item.isCurrent(route)), item.label],
+const findSection = (label: string): Option.Option<NavItem> =>
+  Array.findFirst(navItems, (item) => item.label === label)
+
+/**
+ * The section navigation, in the rail and on small screens. `Nav` marks the
+ * current destination from the URL, so both renderings agree about where the
+ * operator is.
+ */
+const sectionsNav = (
+  route: AppRoute,
+  h: HtmlBuilder<Message>,
+  containerClass: string,
+  linkClass: (isCurrent: boolean) => string,
+): Html =>
+  Nav.view({
+    items: navItems.map((item) => item.label),
+    ariaLabel: 'Sections',
+    toHref: (label) => sectionHref(label),
+    isItemCurrent: (label) => sectionIsCurrent(route, label),
+    toView: ({ nav, items }) =>
+      h.nav([...nav, h.Class(containerClass)], items.map((item) => sectionLink(item, h, linkClass))),
+  })
+
+const sectionHref = (label: string): string =>
+  Option.match(findSection(label), {
+    onNone: () => dashboardRouter(),
+    onSome: (item) => item.href(),
+  })
+
+const sectionIsCurrent = (route: AppRoute, label: string): boolean =>
+  Option.match(findSection(label), {
+    onNone: () => false,
+    onSome: (item) => item.isCurrent(route),
+  })
+
+const railLinkClass = (isCurrent: boolean): string =>
+  classNames(
+    'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96]',
+    isCurrent
+      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
   )
 
+const mobileLinkClass = (isCurrent: boolean): string =>
+  classNames(
+    'flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm whitespace-nowrap transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96]',
+    isCurrent
+      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
+  )
+
+const sectionLink = (
+  item: Nav.ItemInfo<string>,
+  h: HtmlBuilder<Message>,
+  linkClass: (isCurrent: boolean) => string,
+): Html =>
+  Option.match(findSection(item.value), {
+    onNone: () => h.empty,
+    onSome: (section) =>
+      h.keyed('a')(item.value, [
+        ...item.link,
+        h.Class(linkClass(item.isCurrent)),
+      ], [icon(section.mark, h, 'size-4', item.isCurrent), item.value]),
+  })
+
 // COVERAGE
+
+const themeButtonClass =
+  'rounded-md px-2 py-1 text-xs text-muted-foreground transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:text-foreground'
+
+const themeItemsClass =
+  'z-10 w-36 overflow-hidden rounded-xl bg-popover p-1 shadow-[var(--shadow-border)] outline-none'
+
+const themeItemClass =
+  'cursor-pointer rounded-lg px-2.5 py-1.5 text-sm text-popover-foreground data-[active]:bg-muted'
+
+const retryButtonClass =
+  'inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:text-foreground'
+
+const tooltipPanelClass =
+  'rounded-lg bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-[var(--shadow-border)]'
+
+/**
+ * The theme toggle. A `Menu` names its options, so the control reads as the
+ * choice it is rather than carrying its meaning in a label alone.
+ */
+const themeMenuView = (model: Model, h: HtmlBuilder<Message>): Html =>
+  h.submodel({
+    slotId: model.themeMenu.id,
+    model: model.themeMenu,
+    view: ThemeMenu.view,
+    viewInputs: {
+      items: themeItems,
+      itemToConfig: (item) => ({
+        content: h.span([], [item]),
+        className: themeItemClass,
+      }),
+      buttonContent: h.span([], [model.theme]),
+      buttonClassName: themeButtonClass,
+      itemsClassName: themeItemsClass,
+      ariaLabel: 'Change theme',
+      anchor: { placement: 'bottom-end', gap: 4, padding: 8 },
+    },
+    toParentMessage: (message) => Message.GotThemeMenuMessage({ message }),
+  })
+
+/**
+ * The retry for a coverage read that failed. A `Tooltip` names it on hover
+ * and on focus; per-row controls keep an accessible name and a native tooltip
+ * instead, which is the right weight for a control that repeats its row.
+ */
+const coverageRetryView = (model: Model, h: HtmlBuilder<Message>): Html =>
+  h.submodel({
+    slotId: model.coverageTooltip.id,
+    model: model.coverageTooltip,
+    view: Tooltip.view,
+    viewInputs: {
+      anchor: { placement: 'top', gap: 6, padding: 8 },
+      toView: ({ trigger, panel, isVisible }) =>
+        h.div([h.Class('relative inline-block')], [
+          h.button(
+            [
+              ...trigger,
+              h.Type('button'),
+              h.OnClick(Message.ClickedRefreshCoverage()),
+              h.AriaLabel('Retry coverage'),
+              h.Class(retryButtonClass),
+            ],
+            [icon('refresh', h, 'size-3.5')],
+          ),
+          ...(isVisible
+            ? [
+              h.div(
+                [...panel, h.Class(tooltipPanelClass)],
+                ['Reload the coverage figures'],
+              ),
+            ]
+            : []),
+        ]),
+    },
+    toParentMessage: (message) => Message.GotCoverageTooltipMessage({ message }),
+  })
+
+const coverageControls = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =>
+  Option.match(AsyncData.getError(model.coverage), {
+    onNone: () => [themeMenuView(model, h)],
+    onSome: () => [coverageRetryView(model, h), themeMenuView(model, h)],
+  })
 
 const coverageView = (model: Model, h: HtmlBuilder<Message>): Html =>
   h.div(
@@ -159,20 +295,7 @@ const coverageView = (model: Model, h: HtmlBuilder<Message>): Html =>
         [h.Class('flex items-center justify-between')],
         [
           h.p([h.Class('text-xs font-medium text-sidebar-foreground')], ['Coverage']),
-          h.button(
-            [
-              h.Type('button'),
-              h.OnClick(Message.ClickedToggleTheme()),
-              h.AriaLabel(
-                model.theme === 'Light' ? 'Switch to dark theme' : 'Switch to light theme',
-              ),
-              h.Title(
-                model.theme === 'Light' ? 'Switch to dark theme' : 'Switch to light theme',
-              ),
-              h.Class('rounded-md p-1 text-muted-foreground transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted'),
-            ],
-            [model.theme === 'Light' ? '◐' : '◑'],
-          ),
+          h.div([h.Class('flex items-center gap-1')], coverageControls(model, h)),
         ],
       ),
       h.dl([h.Class('mt-2 flex flex-col gap-1.5 text-xs')], coverageRows(model, h)),

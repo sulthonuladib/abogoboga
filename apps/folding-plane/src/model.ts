@@ -1,5 +1,6 @@
 import { Schema } from 'effect'
 import { AsyncData } from 'foldkit'
+import { Menu, Tooltip } from '@foldkit/ui'
 
 import * as Chains from './page/chains'
 import { AppRoute } from './route'
@@ -34,7 +35,9 @@ export const CoverageData = AsyncData.Schema(Coverage, Schema.String)
 export const Model = Schema.Struct({
   route: AppRoute,
   theme: Theme,
+  themeMenu: Menu.Model,
   coverage: CoverageData.schema,
+  coverageTooltip: Tooltip.Model,
   chains: Chains.Model,
   hasNavigated: Schema.Boolean,
 })
@@ -46,7 +49,9 @@ export type Model = typeof Model.Type
 export const init = (theme: Theme): Model => ({
   route: AppRoute.Dashboard(),
   theme,
+  themeMenu: Menu.init({ id: 'theme-menu' }),
   coverage: AsyncData.Idle(),
+  coverageTooltip: Tooltip.init({ id: 'coverage-tooltip' }),
   chains: Chains.initialModel,
   hasNavigated: false,
 })

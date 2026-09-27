@@ -102,7 +102,15 @@ const isDecodable = (path: string) =>
 const decodeJson = <A, I>(path: string, schema: Schema.Codec<A, I>) =>
   (response: HttpClientResponse.HttpClientResponse) =>
     Effect.gen(function* () {
-      const json = yield* response.json
+      const json = yield* response.json.pipe(
+        Effect.mapError(
+          () =>
+            new ApiFailure({
+              path,
+              detail: `${path} answered with a body this app cannot read`,
+            }),
+        ),
+      )
 
       return yield* Schema.decodeUnknownEffect(schema)(json).pipe(
         Effect.mapError((error) =>

@@ -3,6 +3,7 @@ import { AsyncData, Command, Runtime, Update } from 'foldkit'
 import { UrlRequest, load, pushUrl } from 'foldkit/navigation'
 import { modifyFields } from 'foldkit/struct'
 import { toString as urlToString } from 'foldkit/url'
+import { Menu, Tooltip } from '@foldkit/ui'
 
 import { call, isApiFailure } from './api'
 import { readCoverage } from './coverage'
@@ -12,6 +13,7 @@ import type { Model, Theme } from './model'
 import * as Chains from './page/chains'
 import { AppRoute, chainsQueryFromRoute, urlToAppRoute } from './route'
 import { THEME_COOKIE } from './theme'
+import { ThemeMenu } from './themeMenu'
 
 type UpdateReturn = Update.Return<Model, Message>
 
@@ -90,6 +92,43 @@ const refreshCoverage: Update.Step<Model, Message> = (model) =>
 
 // FOLD
 
+const keepModel: Update.Step<Model, Message> = (model) => ({ model })
+
+const foldThemeMenuOutMessage = Menu.OutMessage.match<
+  Update.Step<Model, Message>,
+  Menu.OutMessage<Theme>
+>({
+  Selected: ({ value }) => (model) => ({
+    model: modifyFields(model, { theme: () => value }),
+    commands: [PersistTheme({ theme: value })],
+  }),
+})
+
+const foldThemeMenu = Update.foldChild({
+  update: ThemeMenu.update,
+  read: (model: Model) => Option.some(model.themeMenu),
+  write: (model, nextThemeMenu) =>
+    modifyFields(model, { themeMenu: () => nextThemeMenu }),
+  toParentMessage: (message) => Message.GotThemeMenuMessage({ message }),
+  foldOutMessage: foldThemeMenuOutMessage,
+})
+
+const foldCoverageTooltipOutMessage = Tooltip.OutMessage.match<
+  Update.Step<Model, Message>
+>({
+  Shown: () => keepModel,
+  Hidden: () => keepModel,
+})
+
+const foldCoverageTooltip = Update.foldChild({
+  update: Tooltip.update,
+  read: (model: Model) => Option.some(model.coverageTooltip),
+  write: (model, nextCoverageTooltip) =>
+    modifyFields(model, { coverageTooltip: () => nextCoverageTooltip }),
+  toParentMessage: (message) => Message.GotCoverageTooltipMessage({ message }),
+  foldOutMessage: foldCoverageTooltipOutMessage,
+})
+
 const foldChainsOutMessage = Chains.OutMessage.match<Update.Step<Model, Message>>({
   ChangedCatalogue: () => refreshCoverage,
 })
@@ -142,7 +181,9 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, Flags> = (
   const base = {
     route,
     theme: flags.theme,
+    themeMenu: Menu.init({ id: 'theme-menu' }),
     coverage: flags.coverage,
+    coverageTooltip: Tooltip.init({ id: 'coverage-tooltip' }),
     chains: Chains.initialModel,
     hasNavigated: false,
   }
@@ -187,14 +228,9 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     CompletedLoadExternal: () => ({ model }),
     CompletedPersistTheme: () => ({ model }),
 
-    ClickedToggleTheme: () => {
-      const theme: Theme = model.theme === 'Light' ? 'Dark' : 'Light'
+    GotThemeMenuMessage: ({ message }) => foldThemeMenu(model, message),
 
-      return {
-        model: modifyFields(model, { theme: () => theme }),
-        commands: [PersistTheme({ theme })],
-      }
-    },
+    GotCoverageTooltipMessage: ({ message }) => foldCoverageTooltip(model, message),
 
     ClickedRefreshCoverage: () => refreshCoverage(model),
 
