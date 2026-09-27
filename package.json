@@ -3,16 +3,20 @@
   "description": "Cryptocurrency, exchange, network, and metadata API.",
   "version": "1.0.0",
   "private": true,
-  "workspaces": ["packages/*", "apps/*", "apps/workers/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "apps/workers/*"
+  ],
   "type": "module",
   "module": "apps/control-plane-api/src/index.ts",
   "catalog": {
     "effect": "4.0.0-rc.117",
-    "@effect/platform-bun": "4.0.0-rc.115",
-    "@effect/platform-node": "4.0.0-rc.116",
-    "@effect/platform-node-shared": "4.0.0-rc.116",
-    "@effect/platform-browser": "4.0.0-rc.116",
-    "@effect/sql-pg": "4.0.0-rc.115",
+    "@effect/platform-bun": "4.0.0-rc.117",
+    "@effect/platform-node": "4.0.0-rc.117",
+    "@effect/platform-node-shared": "4.0.0-rc.117",
+    "@effect/platform-browser": "4.0.0-rc.117",
+    "@effect/sql-pg": "4.0.0-rc.117",
     "@effect/tsgo": "0.46.1",
     "foldkit": "0.163.0",
     "@foldkit/devtools": "0.163.0",
@@ -33,7 +37,9 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.1",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.0",
+    "@effect/sql-pglite": "4.0.0-rc.117",
+    "@effect/atom-react": "4.0.0-rc.117"
   },
   "scripts": {
     "dev": "bun run --watch apps/control-plane-api/src/index.ts",

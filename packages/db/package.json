@@ -11,7 +11,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@effect/sql-pglite": "^4.0.0-rc.115",
+    "@effect/sql-pglite": "catalog:",
     "@electric-sql/pglite": "^0.5.8"
   }
 }
