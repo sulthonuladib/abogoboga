@@ -37,5 +37,5 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # openspec/changes/
 # openspec/specs/
 
-# vendored upstream reference checkouts (read-only, pinned per release)
-repos/
+# vendored upstream reference checkouts live in repos/ and are committed as
+# git subtrees (read-only, pinned per release). See repos/README.md.
