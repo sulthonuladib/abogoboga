@@ -1,48 +1,40 @@
 {
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "foldkit": {
-      "enabled": true,
-      "type": "local",
-      "command": [
-        "bunx",
-        "--bun",
-        "@foldkit/devtools-mcp"
-      ]
-    }
-  },
-  "lsp": {
-    "typescript": {
-      "command": [
-        "bunx",
-        "tsc",
-        "--lsp",
-        "--stdio"
-      ],
-      "extensions": [
-        ".ts",
-        ".tsx",
-        ".js",
-        ".jsx",
-        ".mjs",
-        ".cjs",
-        ".mts",
-        ".cts",
-        ".json"
-      ]
-    }
-  },
-  "references": {
-    "foldkit": {
-      "repository": "foldkit/foldkit",
-      "branch": "main",
-      "description": "Foldkit conventions and APIs. Prefer the committed, version-pinned subtree at repos/foldkit; this cached reference is only a fallback."
+    "$schema": "https://opencode.ai/config.json",
+    "mcp": {
+        "foldkit": {
+            "enabled": true,
+            "type": "local",
+            "command": [
+                "bunx",
+                "--bun",
+                "@foldkit/devtools-mcp"
+            ]
+        }
     },
-    "effect": {
-      "repository": "Effect-TS/effect",
-      "branch": "main",
-      "description": "Effect, Schema, Stream, Match, and the unstable HTTP APIs. Prefer the committed, version-pinned subtree at repos/effect (start with repos/effect/LLMS.md); this cached reference is only a fallback."
-    }
-  },
-  "permission": "allow"
+    "lsp": {
+        "typescript": {
+            "command": [
+                "bunx",
+                "tsc",
+                "--lsp",
+                "--stdio"
+            ],
+            "extensions": [
+                ".ts",
+                ".tsx",
+                ".js",
+                ".jsx",
+                ".mjs",
+                ".cjs",
+                ".mts",
+                ".cts",
+                ".json"
+            ]
+        }
+    },
+    "references": {
+        "effect": "./repos/effect",
+        "foldkit": "./repos/foldkit"
+    },
+    "permission": "allow"
 }
