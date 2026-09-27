@@ -5,6 +5,8 @@ import { Menu, Tooltip } from '@foldkit/ui'
 import { CoverageData } from './coverage'
 import * as Chains from './page/chains'
 import * as Dashboard from './page/dashboard'
+import * as ExchangeDetail from './page/exchangeDetail'
+import * as Exchanges from './page/exchanges'
 import { AppRoute } from './route'
 
 // THEME
@@ -22,6 +24,8 @@ export const Model = Schema.Struct({
   coverageTooltip: Tooltip.Model,
   chains: Chains.Model,
   dashboard: Dashboard.Model,
+  exchanges: Exchanges.Model,
+  exchangeDetail: ExchangeDetail.Model,
   hasNavigated: Schema.Boolean,
 })
 
@@ -37,6 +41,8 @@ export const init = (theme: Theme): Model => ({
   coverageTooltip: Tooltip.init({ id: 'coverage-tooltip' }),
   chains: Chains.initialModel,
   dashboard: Dashboard.initialModel,
+  exchanges: Exchanges.initialModel,
+  exchangeDetail: ExchangeDetail.initFor(0),
   hasNavigated: false,
 })
 

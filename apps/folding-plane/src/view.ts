@@ -7,6 +7,8 @@ import { Message } from './message'
 import { type Model } from './model'
 import * as Chains from './page/chains'
 import * as Dashboard from './page/dashboard'
+import * as ExchangeDetail from './page/exchangeDetail'
+import * as Exchanges from './page/exchanges'
 import {
   AppRoute,
   chainsUrl,
@@ -343,8 +345,20 @@ const routeView = (model: Model, h: HtmlBuilder<Message>): Html =>
       }),
     Coins: () => placeholderView('Coins', h),
     CoinRoutes: () => placeholderView('Coin routes', h),
-    Exchanges: () => placeholderView('Exchanges', h),
-    ExchangeDetail: () => placeholderView('Exchange', h),
+    Exchanges: () =>
+      h.submodel({
+        slotId: 'exchanges',
+        model: model.exchanges,
+        view: Exchanges.view,
+        toParentMessage: (message) => Message.GotExchangesMessage({ message }),
+      }),
+    ExchangeDetail: () =>
+      h.submodel({
+        slotId: 'exchange-detail',
+        model: model.exchangeDetail,
+        view: ExchangeDetail.view,
+        toParentMessage: (message) => Message.GotExchangeDetailMessage({ message }),
+      }),
     Chains: () =>
       h.submodel({
         slotId: 'chains',

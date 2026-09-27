@@ -8,7 +8,9 @@ import { readCoverage } from './coverage'
 import { CoverageData } from './coverage'
 import * as Chains from './page/chains'
 import * as Dashboard from './page/dashboard'
-import { chainsQueryFromRoute, urlToAppRoute } from './route'
+import * as ExchangeDetail from './page/exchangeDetail'
+import * as Exchanges from './page/exchanges'
+import { chainsQueryFromRoute, exchangesQueryFromRoute, urlToAppRoute } from './route'
 import { themeFromCookieHeader } from './theme'
 
 // FAILURE
@@ -50,6 +52,8 @@ export const Flags = Schema.Struct({
   coverage: CoverageData.schema,
   chains: Schema.Option(Chains.Chains.schema),
   dashboard: Schema.Option(Dashboard.Seed),
+  exchanges: Schema.Option(Exchanges.Exchanges.schema),
+  exchangeDetail: Schema.Option(ExchangeDetail.Seed),
 })
 
 export type Flags = typeof Flags.Type
@@ -83,11 +87,35 @@ export const flagsFor = (
         })),
       Match.orElse(() => Effect.succeed(Option.none<Dashboard.Seed>())),
     )
+    const exchanges = yield* Match.value(route).pipe(
+      Match.tag(
+        'Exchanges',
+        (exchangesRoute) =>
+          Effect.map(
+            settled(Exchanges.readExchanges(exchangesQueryFromRoute(exchangesRoute))),
+            Option.some,
+          ),
+      ),
+      Match.orElse(() => Effect.succeed(Option.none<Exchanges.Exchanges>())),
+    )
+    const exchangeDetail = yield* Match.value(route).pipe(
+      Match.tag('ExchangeDetail', ({ exchangeId }) =>
+        Effect.gen(function* () {
+          const exchange = yield* settled(ExchangeDetail.readExchange(exchangeId))
+          const markets = yield* settled(ExchangeDetail.readMarkets(exchangeId))
+          const coins = yield* settled(ExchangeDetail.readCoins())
+
+          return Option.some(ExchangeDetail.Seed.make({ exchange, markets, coins }))
+        })),
+      Match.orElse(() => Effect.succeed(Option.none<ExchangeDetail.Seed>())),
+    )
 
     return Flags.make({
       theme: themeFromCookieHeader(cookieHeader),
       coverage: yield* settled(readCoverage),
       chains,
       dashboard,
+      exchanges,
+      exchangeDetail,
     })
   })

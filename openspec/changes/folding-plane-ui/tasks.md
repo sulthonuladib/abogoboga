@@ -132,19 +132,19 @@ built after it resolve against finished values rather than placeholders.
 
 ## 7. Exchanges listing
 
-- [ ] 7.1 Build the exchange listing: name, slug, base currency, CoinMarketCap
+- [x] 7.1 Build the exchange listing: name, slug, base currency, CoinMarketCap
   registration, creation time, search, sorting, paging, and the editor and
   removal dialogs. Verify with a story test per transition and a scene test for
   the table, both empty states, and both dialogs
-- [ ] 7.2 Verify the listing against a running control plane, including a
+- [x] 7.2 Verify the listing against a running control plane, including a
   search that matches on slug and a removal that re-reads the rail
 
 ## 8. Exchange detail
 
-- [ ] 8.1 Build the exchange page: its own header, the three counts, and the
+- [x] 8.1 Build the exchange page: its own header, the three counts, and the
   table of its market assignments with the coin behind each. Verify with a
   scene test for the loaded, empty, and no-such-exchange states
-- [ ] 8.2 Verify the page resolves coin names through the shared coin index
+- [x] 8.2 Verify the page resolves coin names through the shared coin index
   rather than one request per row, and that a missing exchange reports itself
   instead of erroring
 

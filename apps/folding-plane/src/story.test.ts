@@ -11,6 +11,7 @@ import { initialModel } from './model'
 import { Message } from './message'
 import * as Chains from './page/chains'
 import * as Dashboard from './page/dashboard'
+import * as Exchanges from './page/exchanges'
 import { AppRoute } from './route'
 import { FetchCoverage, update } from './update'
 
@@ -117,6 +118,52 @@ describe('catalogue write', () => {
       Command.resolve(
         Chains.FetchChains,
         Chains.Message.SettledFetchChains({ result: Result.fail('unreachable') }),
+      ),
+      Command.resolve(
+        FetchCoverage,
+        Message.SettledFetchCoverage({
+          result: Result.succeed(Coverage.make({
+            coins: 1,
+            exchanges: 1,
+            chains: 1,
+            markets: 1,
+            runningWorkers: 1,
+            totalWorkers: 1,
+            reconnectingShards: 0,
+          })),
+        }),
+      ),
+      model((next) => {
+        expect(AsyncData.isSuccess(next.coverage)).toBe(true)
+      }),
+    )
+  })
+
+  test('removing an exchange re-reads the rail', () => {
+    story(
+      update,
+      given(modifyFields(initialModel, {
+        exchanges: (exchanges) =>
+          modifyFields(exchanges, {
+            removeDialog: () => Dialog.open(Dialog.init({ id: 'exchange-remove' })).model,
+            maybeRemoving: () => Option.some({ id: 10, name: 'Binance' }),
+          }),
+      })),
+      message(Message.GotExchangesMessage({ message: Exchanges.Message.ClickedConfirmRemoveExchange() })),
+      Command.resolve(
+        Exchanges.DeleteExchange({ id: 10 }),
+        Exchanges.Message.SucceededRemoveExchange({ name: 'Binance' }),
+      ),
+      model((next) => {
+        expect(AsyncData.isLoading(next.coverage)).toBe(true)
+      }),
+      Command.resolve(
+        Dialog.CloseDialog({ id: 'exchange-remove' }),
+        Dialog.Message.CompletedCloseDialog(),
+      ),
+      Command.resolve(
+        Exchanges.FetchExchanges,
+        Exchanges.Message.SettledFetchExchanges({ result: Result.fail('unreachable') }),
       ),
       Command.resolve(
         FetchCoverage,

@@ -7,6 +7,8 @@ import { Menu, Tooltip } from '@foldkit/ui'
 import { Coverage } from './coverage'
 import * as Chains from './page/chains'
 import * as Dashboard from './page/dashboard'
+import * as ExchangeDetail from './page/exchangeDetail'
+import * as Exchanges from './page/exchanges'
 
 // MESSAGE
 
@@ -22,6 +24,8 @@ export const Message = defineMessageUnion({
   GotCoverageTooltipMessage: { message: Tooltip.Message },
   GotChainsMessage: { message: Chains.Message },
   GotDashboardMessage: { message: Dashboard.Message },
+  GotExchangesMessage: { message: Exchanges.Message },
+  GotExchangeDetailMessage: { message: ExchangeDetail.Message },
 })
 
 export type Message = typeof Message.Type

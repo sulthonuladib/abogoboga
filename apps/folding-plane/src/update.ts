@@ -12,7 +12,9 @@ import { Message } from './message'
 import type { Model, Theme } from './model'
 import * as Chains from './page/chains'
 import * as Dashboard from './page/dashboard'
-import { AppRoute, chainsQueryFromRoute, urlToAppRoute } from './route'
+import * as ExchangeDetail from './page/exchangeDetail'
+import * as Exchanges from './page/exchanges'
+import { AppRoute, chainsQueryFromRoute, exchangesQueryFromRoute, urlToAppRoute } from './route'
 import { THEME_COOKIE } from './theme'
 import { ThemeMenu } from './themeMenu'
 
@@ -149,6 +151,41 @@ const foldChainsRouteChanged = Update.foldChild({
   toParentMessage: (message) => Message.GotChainsMessage({ message }),
 })
 
+const foldExchangesOutMessage = Exchanges.OutMessage.match<Update.Step<Model, Message>>({
+  ChangedCatalogue: () => refreshCoverage,
+})
+
+const foldExchanges = Update.foldChild({
+  update: Exchanges.update,
+  read: (model: Model) => Option.some(model.exchanges),
+  write: (model, nextExchanges) => modifyFields(model, { exchanges: () => nextExchanges }),
+  toParentMessage: (message) => Message.GotExchangesMessage({ message }),
+  foldOutMessage: foldExchangesOutMessage,
+})
+
+const foldExchangesRouteChanged = Update.foldChild({
+  update: Exchanges.informRouteChanged,
+  read: (model: Model) => Option.some(model.exchanges),
+  write: (model, nextExchanges) => modifyFields(model, { exchanges: () => nextExchanges }),
+  toParentMessage: (message) => Message.GotExchangesMessage({ message }),
+})
+
+const foldExchangeDetail = Update.foldChild({
+  update: ExchangeDetail.update,
+  read: (model: Model) => Option.some(model.exchangeDetail),
+  write: (model, nextExchangeDetail) =>
+    modifyFields(model, { exchangeDetail: () => nextExchangeDetail }),
+  toParentMessage: (message) => Message.GotExchangeDetailMessage({ message }),
+})
+
+const foldExchangeDetailRouteChanged = Update.foldChild({
+  update: ExchangeDetail.showExchange,
+  read: (model: Model) => Option.some(model.exchangeDetail),
+  write: (model, nextExchangeDetail) =>
+    modifyFields(model, { exchangeDetail: () => nextExchangeDetail }),
+  toParentMessage: (message) => Message.GotExchangeDetailMessage({ message }),
+})
+
 const foldDashboard = Update.foldChild({
   update: Dashboard.update,
   read: (model: Model) => Option.some(model.dashboard),
@@ -180,6 +217,12 @@ const pageSteps = (route: AppRoute): ReadonlyArray<Update.Step<Model, Message>> 
     Match.tag('Chains', (chainsRoute) => [
       foldChainsRouteChanged(chainsQueryFromRoute(chainsRoute)),
     ]),
+    Match.tag('Exchanges', (exchangesRoute) => [
+      foldExchangesRouteChanged(exchangesQueryFromRoute(exchangesRoute)),
+    ]),
+    Match.tag('ExchangeDetail', ({ exchangeId }) => [
+      foldExchangeDetailRouteChanged(exchangeId),
+    ]),
     Match.orElse(() => []),
   )
 
@@ -202,6 +245,8 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, Flags> = (
     coverageTooltip: Tooltip.init({ id: 'coverage-tooltip' }),
     chains: Chains.initialModel,
     dashboard: Dashboard.initialModel,
+    exchanges: Exchanges.initialModel,
+    exchangeDetail: ExchangeDetail.initFor(0),
     hasNavigated: false,
   }
 
@@ -225,6 +270,27 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, Flags> = (
         model: { ...base, chains: chainsInit.model },
         commands: Command.mapMessages(chainsInit.commands, (message) =>
           Message.GotChainsMessage({ message })),
+      }
+    }),
+    Match.tag('Exchanges', (exchangesRoute) => {
+      const exchangesInit = Exchanges.init(
+        exchangesQueryFromRoute(exchangesRoute),
+        flags.exchanges,
+      )
+
+      return {
+        model: { ...base, exchanges: exchangesInit.model },
+        commands: Command.mapMessages(exchangesInit.commands, (message) =>
+          Message.GotExchangesMessage({ message })),
+      }
+    }),
+    Match.tag('ExchangeDetail', ({ exchangeId }) => {
+      const exchangeDetailInit = ExchangeDetail.init(exchangeId, flags.exchangeDetail)
+
+      return {
+        model: { ...base, exchangeDetail: exchangeDetailInit.model },
+        commands: Command.mapMessages(exchangeDetailInit.commands, (message) =>
+          Message.GotExchangeDetailMessage({ message })),
       }
     }),
     Match.orElse(() => ({ model: base })),
@@ -267,4 +333,8 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     GotChainsMessage: ({ message }) => foldChains(model, message),
 
     GotDashboardMessage: ({ message }) => foldDashboard(model, message),
+
+    GotExchangesMessage: ({ message }) => foldExchanges(model, message),
+
+    GotExchangeDetailMessage: ({ message }) => foldExchangeDetail(model, message),
   })
