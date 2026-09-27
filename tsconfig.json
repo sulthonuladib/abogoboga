@@ -43,7 +43,9 @@
     "drizzle.config.ts"
   ],
   "exclude": [
+    "repos",
     "packages/ui",
-    "apps/control-plane"
+    "apps/control-plane",
+    "apps/folding-plane"
   ]
 }

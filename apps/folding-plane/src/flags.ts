@@ -1,0 +1,80 @@
+import { Effect, Match, Option, Schema } from 'effect'
+import { HttpClient } from 'effect/unstable/http'
+import { AsyncData } from 'foldkit'
+import type { Url } from 'foldkit/url'
+
+import { type ApiOrigin, isApiFailure } from './api'
+import { readCoverage } from './coverage'
+import { CoverageData } from './model'
+import * as Chains from './page/chains'
+import { chainsQueryFromRoute, urlToAppRoute } from './route'
+import { themeFromCookieHeader } from './theme'
+
+// FAILURE
+
+const detailOf = (error: unknown): string =>
+  isApiFailure(error) ? error.detail : 'the control plane could not be read'
+
+/**
+ * A read that always produces a state: the rows, or the reason there are none.
+ * A page the control plane could not reach still renders, with the reason on it
+ * and a retry beside it.
+ */
+export const settled = <A, E>(
+  read: Effect.Effect<A, E, ApiOrigin | HttpClient.HttpClient>,
+): Effect.Effect<
+  AsyncData.AsyncData<A, string>,
+  never,
+  ApiOrigin | HttpClient.HttpClient
+> =>
+  read.pipe(
+    Effect.mapError(detailOf),
+    Effect.result,
+    Effect.map((result) => AsyncData.settle(AsyncData.Idle(), result)),
+  )
+
+// FLAGS
+
+/**
+ * The values the server resolved before rendering: the theme from the request,
+ * the rail's figures, and what the rendered page needs. The client decodes
+ * these and calls `init` with them, so the page a browser hydrates is the page
+ * the server sent, and nothing is fetched twice.
+ *
+ * A page's seed is absent when the server rendered a different route, and the
+ * page then fetches its own data.
+ */
+export const Flags = Schema.Struct({
+  theme: Schema.Literals(['Light', 'Dark']),
+  coverage: CoverageData.schema,
+  chains: Schema.Option(Chains.Chains.schema),
+})
+
+export type Flags = typeof Flags.Type
+
+type Api = ApiOrigin | HttpClient.HttpClient
+
+export const flagsFor = (
+  cookieHeader: string,
+  url: Url,
+): Effect.Effect<Flags, never, Api> =>
+  Effect.gen(function* () {
+    const route = urlToAppRoute(url)
+    const chains = yield* Match.value(route).pipe(
+      Match.tag(
+        'Chains',
+        (chainsRoute) =>
+          Effect.map(
+            settled(Chains.readChains(chainsQueryFromRoute(chainsRoute))),
+            Option.some,
+          ),
+      ),
+      Match.orElse(() => Effect.succeed(Option.none<Chains.Chains>())),
+    )
+
+    return Flags.make({
+      theme: themeFromCookieHeader(cookieHeader),
+      coverage: yield* settled(readCoverage),
+      chains,
+    })
+  })

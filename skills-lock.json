@@ -1,11 +1,17 @@
 {
   "version": 1,
   "skills": {
-    "coding-standards": {
-      "source": "dmmulroy/skills",
+    "audit-program": {
+      "source": "foldkit/foldkit",
       "sourceType": "github",
-      "skillPath": "coding-standards/SKILL.md",
-      "computedHash": "4e740075d71028a0d0ee59e2ec28721d8e021be93726dcf9e19b76eff1fd9293"
+      "skillPath": "skills/audit-program/SKILL.md",
+      "computedHash": "f59cae24eeb8626bb977dcba2b870bcfe5f95f778664308d00b310f650de02a9"
+    },
+    "better-ui": {
+      "source": "jakubkrehel/skills",
+      "sourceType": "github",
+      "skillPath": "skills/better-ui/SKILL.md",
+      "computedHash": "d05cf568f197e47b15e71e21b19be1897eba2bf187ef7b0a341bc5ffaf3ffd4d"
     },
     "domain-modeling": {
       "source": "mattpocock/skills",
@@ -13,17 +19,11 @@
       "skillPath": "skills/engineering/domain-modeling/SKILL.md",
       "computedHash": "a11713c0ff7870efa3c331b2e273f09116158485246edc89ae5088eefd1b0b48"
     },
-    "effect-service-design": {
-      "source": "dmmulroy/skills",
+    "foldkit": {
+      "source": "foldkit/foldkit",
       "sourceType": "github",
-      "skillPath": "effect-service-design/SKILL.md",
-      "computedHash": "307d3af97e0343c761d56c260310c75b7e754aec2e64c3dee8c0946570d310ee"
-    },
-    "effect-ts": {
-      "source": "effect-ts/skills",
-      "sourceType": "github",
-      "skillPath": "skills/effect-ts/SKILL.md",
-      "computedHash": "6bdb9b95aa83071eca2f67ae947b7d398a22e9e6e08f6cfa35de9516b03efa6e"
+      "skillPath": "skills/foldkit/SKILL.md",
+      "computedHash": "c3de20f4aa79c073896eb54b2e1235d8844f30bbb428cbc3043006fc2af9fd9b"
     },
     "frontend-design": {
       "source": "anthropics/skills",
@@ -31,17 +31,11 @@
       "skillPath": "skills/frontend-design/SKILL.md",
       "computedHash": "89496d5dd00f4810205f351759594fc2742bf8eea85a2f2b2d1de59f4bd91576"
     },
-    "herdr": {
-      "source": "dmmulroy/skills",
+    "generate-program": {
+      "source": "foldkit/foldkit",
       "sourceType": "github",
-      "skillPath": "herdr/SKILL.md",
-      "computedHash": "b0f370ec8636de94dfcbd4273dc7caa95486fcb92c9f10264385b5d61fc922d6"
-    },
-    "install-anti-slop": {
-      "source": "dmmulroy/anti-slop",
-      "sourceType": "github",
-      "skillPath": "skills/install-anti-slop/SKILL.md",
-      "computedHash": "4031728fbe75bdcad6ee3208fd52b5d66e167b056fefee1fa9758e9a6cb9c0c8"
+      "skillPath": "skills/generate-program/SKILL.md",
+      "computedHash": "fd04a6eb0714e69530a50fb9e7848d72c71403ddc30f23ef5c8ba49358eabe00"
     },
     "tdd": {
       "source": "mattpocock/skills",
