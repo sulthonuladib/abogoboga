@@ -164,9 +164,11 @@ const ThinCoverage = () => {
  * operator's attention.
  */
 export const DashboardPage = () => {
-  const coins = useAtomValue(coinStatsAtom({ limit: 1 }))
-  const exchanges = useAtomValue(exchangeListAtom({ limit: 1 }))
-  const chains = useAtomValue(chainListAtom({ limit: 1 }))
+  // One-row offset queries: only the page window reports the unpaginated total
+  // in `meta.items`, so each count asks for page one explicitly.
+  const coins = useAtomValue(coinStatsAtom({ limit: 1, page: 1 }))
+  const exchanges = useAtomValue(exchangeListAtom({ limit: 1, page: 1 }))
+  const chains = useAtomValue(chainListAtom({ limit: 1, page: 1 }))
   const markets = useAtomValue(marketIndexAtom())
   const workers = useAtomValue(workersAtom())
 

@@ -2,9 +2,9 @@
  * Control-plane composition root.
  *
  * Wires the persistence adapters, crawler supervisor/reconciler, JSON API
- * handlers, and SSR routes into one HTTP server, then runs it with the Bun
- * runtime. Every dependency is chosen here; inner modules stay framework- and
- * vendor-independent.
+ * handlers, and the browser application's static routes into one HTTP server,
+ * then runs it with the Bun runtime. Every dependency is chosen here; inner
+ * modules stay framework- and vendor-independent.
  *
  * @module
  */
@@ -41,7 +41,7 @@ import { HttpRouter } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
-import { WebRoutes } from "./web/Routes.ts"
+import { SpaRoutes } from "./Spa.ts"
 
 const workerEntrypointFor = (exchangeSlug: string): string =>
   fileURLToPath(new URL(`../../workers/${exchangeSlug}/src/index.ts`, import.meta.url))
@@ -144,23 +144,17 @@ const handlersLayer = Layer.mergeAll(
 const routeLayers = Layer.mergeAll(
   HttpApiBuilder.layer(Api).pipe(Layer.provide(handlersLayer)),
   apiDocsLayer,
-  WebRoutes
+  SpaRoutes
 )
-
-const requestServices = Layer.mergeAll(appServicesProvided, workerControlProvided)
 
 /**
  * Every route, application service, and crawler runtime with all dependencies
  * provided.
  *
- * SSR routes read application services per request, so they are supplied
- * through `HttpRouter.provideRequest`; remaining layer requirements
- * (`Database`, worker control) are satisfied from `dependenciesLayer`.
+ * The JSON API handlers, the OpenAPI document, and the browser application's
+ * static routes all draw their services from `dependenciesLayer`.
  */
-export const ApplicationLive = routeLayers.pipe(
-  HttpRouter.provideRequest(requestServices),
-  Layer.provide(dependenciesLayer)
-)
+export const ApplicationLive = routeLayers.pipe(Layer.provide(dependenciesLayer))
 
 const serverLayer = Layer.unwrap(
   Effect.gen(function*() {
@@ -171,6 +165,7 @@ const serverLayer = Layer.unwrap(
 ).pipe(Layer.provide(AppConfig.layer))
 
 /**
- * The HTTP server serving API and SSR routes.
+ * The HTTP server serving the JSON API, the OpenAPI document, and the browser
+ * application.
  */
 export const HttpLive = HttpRouter.serve(ApplicationLive).pipe(Layer.provide(serverLayer))

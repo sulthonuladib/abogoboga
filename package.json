@@ -8,8 +8,6 @@
   "module": "apps/control-plane-api/src/index.ts",
   "scripts": {
     "dev": "bun run --watch apps/control-plane-api/src/index.ts",
-    "css:build": "bunx @tailwindcss/cli -i apps/control-plane-api/src/web/styles.css -o public/static/app.css",
-    "css:watch": "bunx @tailwindcss/cli -i apps/control-plane-api/src/web/styles.css -o public/static/app.css --watch",
     "start": "bun run apps/control-plane-api/src/index.ts",
     "test": "bun test packages apps",
     "typecheck": "bunx tsc --noEmit",
@@ -25,7 +23,6 @@
   "dependencies": {
     "@bufbuild/buf": "^1.73.0",
     "@lister/db": "workspace:*",
-    "daisyui": "^5.7.46",
     "drizzle-orm": "1.0.0-rc.4",
     "effect": "^4.0.0-rc.117",
     "tailwindcss": "^4.3.3"
@@ -34,7 +31,6 @@
     "@effect/platform-bun": "^4.0.0-rc.115",
     "@effect/sql-pg": "^4.0.0-rc.115",
     "@oxlint/plugins": "1.85.0",
-    "@tailwindcss/cli": "^4.3.3",
     "@types/bun": "^1.4.2",
     "drizzle-kit": "1.0.0-rc.4",
     "oxlint": "1.85.0",

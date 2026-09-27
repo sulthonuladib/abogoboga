@@ -63,9 +63,9 @@ const NavItems = (props: { readonly compact?: boolean | undefined }) => (
  * needs a dedicated counting endpoint.
  */
 const CoverageSummary = () => {
-  const coins = useAtomValue(coinStatsAtom({ limit: 1 }))
-  const exchanges = useAtomValue(exchangeListAtom({ limit: 1 }))
-  const chains = useAtomValue(chainListAtom({ limit: 1 }))
+  const coins = useAtomValue(coinStatsAtom({ limit: 1, page: 1 }))
+  const exchanges = useAtomValue(exchangeListAtom({ limit: 1, page: 1 }))
+  const chains = useAtomValue(chainListAtom({ limit: 1, page: 1 }))
   const workers = useAtomValue(workersAtom())
 
   const total = (result: AsyncResult.AsyncResult<{ readonly meta: { readonly items: number } }, unknown>) =>
