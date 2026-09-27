@@ -7,35 +7,35 @@ process serves stay exactly as they are, and the React application remains the
 default UI. This group checks that rather than doing it, because an earlier
 pass in this change removed those files.
 
-- [ ] 1.1 Verify `apps/control-plane`, `packages/ui`, and
+- [x] 1.1 Verify `apps/control-plane`, `packages/ui`, and
   `apps/control-plane-api/src/Spa.ts` match HEAD, and that the root
   `tsconfig.json` again excludes the React app's own project settings. Verify
   `git diff --stat HEAD -- apps/control-plane packages/ui
   apps/control-plane-api/src` reports nothing
-- [ ] 1.2 Verify the control-plane process still serves the React application at
+- [x] 1.2 Verify the control-plane process still serves the React application at
   its root. Verify `bun run --cwd apps/control-plane build` succeeds and a
   request to the control-plane process's root returns the application shell
 
 ## 2. Repository configuration
 
-- [ ] 2.1 Confirm the workspace catalog is applied everywhere, and that each
+- [x] 2.1 Confirm the workspace catalog is applied everywhere, and that each
   entry is a version the suite has verified rather than the newest published
   one. `@effect/sql-pg` and `@effect/platform-bun` are held at
   `4.0.0-rc.115` because `4.0.0-rc.117` breaks their file reads under this
   runtime. Verify no workspace `package.json` pins a version for a dependency the
   root catalog also pins, and that no test failure is attributable to a version
-- [ ] 2.2 Give each workspace's tests their own process, so one workspace's
+- [x] 2.2 Give each workspace's tests their own process, so one workspace's
   global setup cannot leak into another's. `packages/ui` registers a DOM
   implementation globally, which replaces the runtime's `AbortSignal` and
   breaks the file reads in `apps/cli` when both share a process. Verify
   `bun test ./packages/ui ./apps/cli` in one invocation passes
-- [ ] 2.3 Verify the Foldkit devtools MCP server is configured in the
+- [x] 2.3 Verify the Foldkit devtools MCP server is configured in the
   repository's OpenCode config and that a running dev server is reachable
   through it. Verify the tool reports the connected runtime
-- [ ] 2.4 Verify the app's `FOLDKIT.md` matches the version-pinned upstream
+- [x] 2.4 Verify the app's `FOLDKIT.md` matches the version-pinned upstream
   template byte for byte, and that the app's `AGENTS.md` records the
   project-specific decisions
-- [ ] 2.5 Verify the root test and lint commands skip the vendored reference
+- [x] 2.5 Verify the root test and lint commands skip the vendored reference
   checkout. Verify `bun test ./packages ./apps` runs the workspace tests and
   none from `repos/`
 
