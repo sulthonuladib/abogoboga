@@ -36,12 +36,12 @@
     "foldkit": {
       "repository": "foldkit/foldkit",
       "branch": "main",
-      "description": "Foldkit conventions and APIs. The vendored, version-pinned checkout at repos/foldkit is faster and matches the installed packages."
+      "description": "Foldkit conventions and APIs. Prefer the committed, version-pinned subtree at repos/foldkit; this cached reference is only a fallback."
     },
     "effect": {
       "repository": "Effect-TS/effect",
       "branch": "main",
-      "description": "Effect, Schema, Stream, Match, and the unstable HTTP APIs. node_modules/effect/AGENTS.md and node_modules/effect/ai-docs/src are the local references."
+      "description": "Effect, Schema, Stream, Match, and the unstable HTTP APIs. Prefer the committed, version-pinned subtree at repos/effect (start with repos/effect/LLMS.md); this cached reference is only a fallback."
     }
   },
   "permission": "allow"
