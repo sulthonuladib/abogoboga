@@ -197,6 +197,19 @@ function ComboboxEmpty({ className, ...props }: ComboboxPrimitive.Empty.Props) {
   )
 }
 
+// Added beyond the registry output: the async-list status primitive announces
+// loading and result-count changes politely while the list is filtered
+// server-side.
+function ComboboxStatus({ className, ...props }: ComboboxPrimitive.Status.Props) {
+  return (
+    <ComboboxPrimitive.Status
+      data-slot="combobox-status"
+      className={cn("px-3 py-2 text-sm text-muted-foreground empty:hidden", className)}
+      {...props}
+    />
+  )
+}
+
 function ComboboxSeparator({
   className,
   ...props
@@ -285,6 +298,7 @@ export {
   ComboboxLabel,
   ComboboxCollection,
   ComboboxEmpty,
+  ComboboxStatus,
   ComboboxSeparator,
   ComboboxChips,
   ComboboxChip,

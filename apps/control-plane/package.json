@@ -1,0 +1,32 @@
+{
+  "name": "@lister/control-plane",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@effect/atom-react": "4.0.0-rc.117",
+    "@lister/api": "workspace:*",
+    "@lister/domain": "workspace:*",
+    "@lister/ui": "workspace:*",
+    "@phosphor-icons/react": "^2.1.10",
+    "effect": "^4.0.0-rc.117",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router": "^8.4.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.1.1",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.1"
+  }
+}
