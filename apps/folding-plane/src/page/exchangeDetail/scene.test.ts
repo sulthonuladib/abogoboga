@@ -202,7 +202,6 @@ describe('exchange detail', () => {
       { update, view },
       given(loadedModel),
       expect(text('Binance')).toExist(),
-      expect(text('Base currency USDT. CoinGecko id binance. Registered on CoinMarketCap.')).toExist(),
       expect(text('Markets listed')).toExist(),
       expect(text('Trade enabled')).toExist(),
       expect(text('Assigned coins')).toExist(),
@@ -604,7 +603,7 @@ describe('exchange detail', () => {
     scene(
       { update, view },
       given(initFor(10)),
-      expect(text('Loading exchange.')).toExist(),
+      expect(text('Exchange')).toExist(),
       expect(role('status', { name: 'Loading rows' })).toExist(),
     )
   })

@@ -34,16 +34,12 @@ const headerView = (model: Model, h: HtmlBuilder<Message>): Html =>
     onNone: () =>
       pageHeader({
         title: 'Chain',
-        description: AsyncData.isFailure(model.chain)
-          ? 'This chain could not be loaded.'
-          : 'Loading chain.',
         back: { href: chainsUrl(defaultChainsQuery), label: 'Chains' },
         h,
       }),
     onSome: (chain) =>
       pageHeader({
         title: `${chain.code} ${chain.name}`,
-        description: 'Every market route that settles on this chain, with its deposit and withdraw flags.',
         back: { href: chainsUrl(defaultChainsQuery), label: 'Chains' },
         h,
       }),

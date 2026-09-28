@@ -227,13 +227,3 @@ export const isEditValid = (model: Model): boolean =>
 export const isLinkValid = (model: Model): boolean =>
   Option.isSome(model.linkChain) &&
   FieldValidation.allValid([[model.linkCode, chainCodeRules]])
-
-// DESCRIPTION
-
-/**
- * Header description for a loaded exchange, naming its base currency,
- * CoinGecko id, and CoinMarketCap state.
- */
-export const identityDescription = (exchange: typeof ExchangeModel.json.Type): string =>
-  `Base currency ${exchange.baseCurrency.toUpperCase()}. CoinGecko id ${exchange.coingeckoId}. ` +
-  (exchange.registeredOnCmc ? 'Registered on CoinMarketCap.' : 'Not registered on CoinMarketCap.')

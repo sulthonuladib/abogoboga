@@ -4,13 +4,12 @@ import { type Html, type HtmlBuilder } from 'foldkit/html'
 // HEADER
 
 /**
- * The heading every page opens with: a way back, the page's name, one sentence
- * about what it is for, and the actions that page offers.
+ * The top bar every page opens with: a way back, the page's name, and the
+ * actions that page offers. Future page buttons go in `actions`.
  */
 export const pageHeader = <Message>(
   input: Readonly<{
     title: string
-    description: string
     back?: Readonly<{ href: string, label: string }> | undefined
     actions?: ReadonlyArray<Html> | undefined
     h: HtmlBuilder<Message>
@@ -18,8 +17,8 @@ export const pageHeader = <Message>(
 ): Html => {
   const { h } = input
 
-  return h.div([h.Class('flex flex-wrap items-start justify-between gap-4')], [
-    h.div([h.Class('flex min-w-0 flex-col gap-1')], [
+  return h.div([h.Class('flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sidebar-border bg-sidebar px-4 py-3')], [
+    h.div([h.Class('flex min-w-0 flex-col gap-0.5')], [
       input.back === undefined
         ? h.empty
         : h.a(
@@ -29,8 +28,7 @@ export const pageHeader = <Message>(
           ],
           [`← ${input.back.label}`],
         ),
-      h.h1([h.Class('text-xl font-semibold tracking-tight')], [input.title]),
-      h.p([h.Class('text-sm text-muted-foreground')], [input.description]),
+      h.h1([h.Class('text-lg font-semibold tracking-tight')], [input.title]),
     ]),
     input.actions === undefined || input.actions.length === 0
       ? h.empty

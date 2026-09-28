@@ -201,7 +201,7 @@ describe('chain detail', () => {
         markets: AsyncData.Idle(),
         coins: AsyncData.Idle(),
       }),
-      expect(text('Loading chain.')).toExist(),
+      expect(text('Chain')).toExist(),
       expect(role('status', { name: 'Loading rows' })).toExist(),
     )
   })
