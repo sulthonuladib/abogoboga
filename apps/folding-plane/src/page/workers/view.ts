@@ -174,7 +174,7 @@ const shardsCell = (worker: WorkerStatus, h: HtmlBuilder<Message>): Html => {
       h.span(
         [h.Class('inline-flex items-center gap-1 text-xs')],
         [
-          badge(shard.phase, h, shard.phase === 'running' ? 'positive' : shard.phase === 'reconnecting' ? 'critical' : 'neutral'),
+          badge(shard.phase, h, shard.phase === 'running' ? 'positive' : shard.phase === 'reconnecting' ? 'critical' : 'warning'),
           h.span([h.Class('tabular-nums text-muted-foreground')], [`restarts ${formatCount(shard.restarts)}`]),
         ],
       )

@@ -1,7 +1,7 @@
 export { badge, type Variant } from './badge'
 export { classNames } from './classNames'
 export { dialog } from './dialog'
-export { selectField, textField, toggleField, type Choice } from './field'
+export { checkControl, inlineCheck, selectField, textField, toggleField, type Choice } from './field'
 export { clearFilters, filterBar, filterRadio, filterRow, filterSelect, filterStatus, pageSizeSelect, searchFieldChecks } from './filters'
 export {
   formatAgo,

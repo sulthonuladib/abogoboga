@@ -15,8 +15,6 @@ const controlClass =
 
 const invalidControlClass = 'border-destructive focus-visible:ring-destructive'
 
-const checkboxClass = 'size-4 accent-primary'
-
 const errorClass = 'text-xs text-destructive'
 
 // FIELD
@@ -173,6 +171,28 @@ export const selectField = <Message>(
 
 // TOGGLE
 
+const checkBoxClass =
+  'flex size-4 shrink-0 items-center justify-center rounded border border-input bg-background transition-[background-color,border-color] duration-[var(--duration-instant)] ease-[var(--ease-app)] data-[checked]:border-primary data-[checked]:bg-primary'
+
+const checkMarkClass = 'text-[10px] leading-none text-primary-foreground'
+
+/**
+ * The box behind every checkbox in the app: an empty bordered square that
+ * fills with a check while checked. One renderer so a flag reads the same
+ * in a form, a filter row, and a link list.
+ */
+export const checkControl = <Message>(
+  attributes: Checkbox.CheckboxAttributes<Message>,
+  isChecked: boolean,
+  h: HtmlBuilder<Message>,
+): Html =>
+  isChecked
+    ? h.button(
+      [...attributes.checkbox, h.Class(checkBoxClass)],
+      [h.span([h.Class(checkMarkClass)], ['✓'])],
+    )
+    : h.button([...attributes.checkbox, h.Class(checkBoxClass)])
+
 /**
  * A labelled checkbox for a flag the scanner reads.
  */
@@ -192,9 +212,39 @@ export const toggleField = <Message>(
       onToggle: input.onToggle,
       toView: (attributes) =>
         input.h.div([input.h.Class('flex items-center gap-2')], [
-          input.h.input([...attributes.checkbox, input.h.Class(checkboxClass)]),
+          checkControl(attributes, input.isChecked, input.h),
           input.h.label(
             [...attributes.label, input.h.Class('text-sm')],
+            [input.label],
+          ),
+        ]),
+    },
+    input.h,
+  )
+
+/**
+ * A compact checkbox for a table or list row, where a full field would
+ * crowd the row. Same box as the field, smaller label, tighter gaps.
+ */
+export const inlineCheck = <Message>(
+  input: Readonly<{
+    id: string
+    label: string
+    isChecked: boolean
+    onToggle: (isChecked: boolean) => Message
+    h: HtmlBuilder<Message>
+  }>,
+): Html =>
+  Checkbox.view(
+    {
+      id: input.id,
+      isChecked: input.isChecked,
+      onToggle: input.onToggle,
+      toView: (attributes) =>
+        input.h.div([input.h.Class('flex cursor-pointer items-center gap-1.5')], [
+          checkControl(attributes, input.isChecked, input.h),
+          input.h.label(
+            [...attributes.label, input.h.Class('text-xs')],
             [input.label],
           ),
         ]),

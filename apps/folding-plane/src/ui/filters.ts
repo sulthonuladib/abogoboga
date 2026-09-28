@@ -2,15 +2,12 @@ import { Checkbox, RadioGroup, Select } from '@foldkit/ui'
 import { Array, Option } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
 
+import { checkControl } from './field'
+
 // STYLE
 
 const compactSelectClass =
   'h-8 rounded-lg border border-input bg-background px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring'
-
-const checkBoxClass =
-  'flex size-4 shrink-0 items-center justify-center rounded border border-input bg-background transition-[background-color,border-color] duration-[var(--duration-instant)] ease-[var(--ease-app)] data-[checked]:border-primary data-[checked]:bg-primary'
-
-const checkMarkClass = 'text-[10px] leading-none text-primary-foreground'
 
 const checkLabelClass = 'select-none text-sm'
 
@@ -123,22 +120,15 @@ export function searchFieldChecks<Message, Field extends string>(
     [input.h.Class(checksClass), input.h.Role('group'), input.h.AriaLabel(input.label)],
     [
       input.h.span([input.h.Class(checksLabelClass)], [input.label]),
-      ...input.choices.map((choice) => {
-        const isChecked = input.selected.includes(choice.field)
-
-        return Checkbox.view(
+      ...input.choices.map((choice) =>
+        Checkbox.view(
           {
             id: `search-field-${choice.field}`,
-            isChecked,
+            isChecked: input.selected.includes(choice.field),
             onToggle: (nextChecked) => input.onToggle(choice.field, nextChecked),
             toView: (attributes) =>
               input.h.div([input.h.Class(checkRowClass)], [
-                isChecked
-                  ? input.h.button(
-                    [...attributes.checkbox, input.h.Class(checkBoxClass)],
-                    [input.h.span([input.h.Class(checkMarkClass)], ['✓'])],
-                  )
-                  : input.h.button([...attributes.checkbox, input.h.Class(checkBoxClass)]),
+                checkControl(attributes, input.selected.includes(choice.field), input.h),
                 input.h.label(
                   [...attributes.label, input.h.Class(checkLabelClass)],
                   [choice.label],
@@ -147,7 +137,7 @@ export function searchFieldChecks<Message, Field extends string>(
           },
           input.h,
         )
-      }),
+      ),
     ],
   )
 }

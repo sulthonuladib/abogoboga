@@ -18,12 +18,22 @@ import { AppRoute } from './route'
 export const Theme = Schema.Literals(['Light', 'Dark'])
 export type Theme = typeof Theme.Type
 
+/**
+ * The named color preset. `Default` is this app's own warm theme and renders
+ * no overrides; the rest are shadcn base colors, each carrying its own light
+ * and dark variable sets behind `data-preset` in the stylesheet.
+ */
+export const Preset = Schema.Literals(['Default', 'Zinc', 'Slate', 'Stone', 'Neutral', 'Gray'])
+export type Preset = typeof Preset.Type
+
 // MODEL
 
 export const Model = Schema.Struct({
   route: AppRoute,
   theme: Theme,
   themeMenu: Menu.Model,
+  preset: Preset,
+  presetMenu: Menu.Model,
   coverage: CoverageData.schema,
   coverageTooltip: Tooltip.Model,
   chains: Chains.Model,
@@ -41,10 +51,12 @@ export type Model = typeof Model.Type
 
 // INIT
 
-export const init = (theme: Theme): Model => ({
+export const init = (theme: Theme, preset: Preset): Model => ({
   route: AppRoute.Dashboard(),
   theme,
   themeMenu: Menu.init({ id: 'theme-menu' }),
+  preset,
+  presetMenu: Menu.init({ id: 'preset-menu' }),
   coverage: AsyncData.Idle(),
   coverageTooltip: Tooltip.init({ id: 'coverage-tooltip' }),
   chains: Chains.initialModel,
@@ -58,4 +70,4 @@ export const init = (theme: Theme): Model => ({
   hasNavigated: false,
 })
 
-export const initialModel: Model = init('Light')
+export const initialModel: Model = init('Light', 'Default')

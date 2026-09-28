@@ -1,6 +1,6 @@
 import { Menu } from '@foldkit/ui'
 
-import type { Theme } from './model'
+import type { Preset, Theme } from './model'
 
 // THEME MENU
 
@@ -11,3 +11,19 @@ import type { Theme } from './model'
 export const ThemeMenu = Menu.create<Theme>()
 
 export const themeItems: ReadonlyArray<Theme> = ['Light', 'Dark']
+
+/**
+ * The preset picker, bound to the named presets. One menu per concern rather
+ * than a combined matrix: mode and preset vary independently, and each menu
+ * reads as the single choice it is.
+ */
+export const PresetMenu = Menu.create<Preset>()
+
+export const presetItems: ReadonlyArray<Preset> = [
+  'Default',
+  'Zinc',
+  'Slate',
+  'Stone',
+  'Neutral',
+  'Gray',
+]

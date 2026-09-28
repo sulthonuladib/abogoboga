@@ -23,7 +23,7 @@ import {
   defaultExchangesQuery,
   exchangesUrl,
 } from './route'
-import { ThemeMenu, themeItems } from './themeMenu'
+import { PresetMenu, ThemeMenu, presetItems, themeItems } from './themeMenu'
 import { formatCount, pendingCount } from './ui/format'
 import { icon, iconSwap } from './ui/icon'
 import { classNames } from './ui/classNames'
@@ -90,6 +90,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
   body: h.div(
     [
       h.DataAttribute('theme', model.theme),
+      h.DataAttribute('preset', model.preset),
       h.Class('min-h-dvh bg-background text-foreground'),
     ],
     [
@@ -255,6 +256,30 @@ const themeMenuView = (model: Model, h: HtmlBuilder<Message>): Html =>
   })
 
 /**
+ * The preset picker beside it. Same control, other axis: mode says light or
+ * dark, the preset says which palette those words mean.
+ */
+const presetMenuView = (model: Model, h: HtmlBuilder<Message>): Html =>
+  h.submodel({
+    slotId: model.presetMenu.id,
+    model: model.presetMenu,
+    view: PresetMenu.view,
+    viewInputs: {
+      items: presetItems,
+      itemToConfig: (item) => ({
+        content: h.span([], [item]),
+        className: themeItemClass,
+      }),
+      buttonContent: h.span([], [model.preset]),
+      buttonClassName: themeButtonClass,
+      itemsClassName: themeItemsClass,
+      ariaLabel: 'Change preset',
+      anchor: { placement: 'bottom-end', gap: 4, padding: 8 },
+    },
+    toParentMessage: (message) => Message.GotPresetMenuMessage({ message }),
+  })
+
+/**
  * The retry for a coverage read that failed. A `Tooltip` names it on hover
  * and on focus; per-row controls keep an accessible name and a native tooltip
  * instead, which is the right weight for a control that repeats its row.
@@ -293,8 +318,8 @@ const coverageRetryView = (model: Model, h: HtmlBuilder<Message>): Html =>
 
 const coverageControls = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =>
   Option.match(AsyncData.getError(model.coverage), {
-    onNone: () => [themeMenuView(model, h)],
-    onSome: () => [coverageRetryView(model, h), themeMenuView(model, h)],
+    onNone: () => [presetMenuView(model, h), themeMenuView(model, h)],
+    onSome: () => [coverageRetryView(model, h), presetMenuView(model, h), themeMenuView(model, h)],
   })
 
 const coverageView = (model: Model, h: HtmlBuilder<Message>): Html =>

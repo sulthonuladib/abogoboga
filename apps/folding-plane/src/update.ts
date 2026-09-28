@@ -9,7 +9,7 @@ import { call, isApiFailure } from './api'
 import { readCoverage } from './coverage'
 import type { Flags } from './flags'
 import { Message } from './message'
-import type { Model, Theme } from './model'
+import { type Model, Preset, type Theme } from './model'
 import * as ChainDetail from './page/chainDetail'
 import * as Chains from './page/chains'
 import * as CoinRoutes from './page/coinRoutes'
@@ -19,8 +19,8 @@ import * as ExchangeDetail from './page/exchangeDetail'
 import * as Exchanges from './page/exchanges'
 import * as Workers from './page/workers'
 import { AppRoute, chainsQueryFromRoute, coinsQueryFromRoute, exchangesQueryFromRoute, urlToAppRoute } from './route'
-import { THEME_COOKIE } from './theme'
-import { ThemeMenu } from './themeMenu'
+import { PRESET_COOKIE, THEME_COOKIE } from './theme'
+import { PresetMenu, ThemeMenu } from './themeMenu'
 
 type UpdateReturn = Update.Return<Model, Message>
 
@@ -46,30 +46,48 @@ const LoadExternal = Command.define('LoadExternal', {
   execute: ({ href }) => load(href).pipe(Effect.as(Message.CompletedLoadExternal())),
 })
 
+/**
+ * A recolor — theme or preset — touches nearly every element at once.
+ * Suppress transitions for one frame so the switch snaps instead of
+ * smearing, then restore them before the next interaction.
+ */
+const suppressTransitionsForOneFrame = (): void => {
+  const style = document.createElement('style')
+  style.append(
+    document.createTextNode('*,*::before,*::after{transition:none !important}'),
+  )
+  document.head.append(style)
+
+  const _flushReflow = document.body.offsetHeight
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => style.remove())
+  })
+}
+
 export const PersistTheme = Command.define('PersistTheme', {
   args: { theme: Schema.Literals(['Light', 'Dark']) },
   messages: [Message.CompletedPersistTheme],
   execute: ({ theme }) =>
     Effect.try(() => {
       document.cookie = `${THEME_COOKIE}=${theme}; path=/; max-age=31536000`
-
-      // A theme flip recolors nearly every element at once. Suppress
-      // transitions for one frame so the switch snaps instead of smearing,
-      // then restore them before the next interaction.
-      const style = document.createElement('style')
-      style.append(
-        document.createTextNode('*,*::before,*::after{transition:none !important}'),
-      )
-      document.head.append(style)
-
-      const _flushReflow = document.body.offsetHeight
-
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => style.remove())
-      })
+      suppressTransitionsForOneFrame()
     }).pipe(
       Effect.as(Message.CompletedPersistTheme()),
       Effect.catch(() => Effect.succeed(Message.CompletedPersistTheme())),
+    ),
+})
+
+export const PersistPreset = Command.define('PersistPreset', {
+  args: { preset: Preset },
+  messages: [Message.CompletedPersistPreset],
+  execute: ({ preset }) =>
+    Effect.try(() => {
+      document.cookie = `${PRESET_COOKIE}=${preset}; path=/; max-age=31536000`
+      suppressTransitionsForOneFrame()
+    }).pipe(
+      Effect.as(Message.CompletedPersistPreset()),
+      Effect.catch(() => Effect.succeed(Message.CompletedPersistPreset())),
     ),
 })
 
@@ -118,6 +136,25 @@ const foldThemeMenu = Update.foldChild({
     modifyFields(model, { themeMenu: () => nextThemeMenu }),
   toParentMessage: (message) => Message.GotThemeMenuMessage({ message }),
   foldOutMessage: foldThemeMenuOutMessage,
+})
+
+const foldPresetMenuOutMessage = Menu.OutMessage.match<
+  Update.Step<Model, Message>,
+  Menu.OutMessage<Preset>
+>({
+  Selected: ({ value }) => (model) => ({
+    model: modifyFields(model, { preset: () => value }),
+    commands: [PersistPreset({ preset: value })],
+  }),
+})
+
+const foldPresetMenu = Update.foldChild({
+  update: PresetMenu.update,
+  read: (model: Model) => Option.some(model.presetMenu),
+  write: (model, nextPresetMenu) =>
+    modifyFields(model, { presetMenu: () => nextPresetMenu }),
+  toParentMessage: (message) => Message.GotPresetMenuMessage({ message }),
+  foldOutMessage: foldPresetMenuOutMessage,
 })
 
 const foldCoverageTooltipOutMessage = Tooltip.OutMessage.match<
@@ -335,6 +372,8 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, Flags> = (
     route,
     theme: flags.theme,
     themeMenu: Menu.init({ id: 'theme-menu' }),
+    preset: flags.preset,
+    presetMenu: Menu.init({ id: 'preset-menu' }),
     coverage: flags.coverage,
     coverageTooltip: Tooltip.init({ id: 'coverage-tooltip' }),
     chains: Chains.initialModel,
@@ -456,8 +495,11 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     CompletedNavigateInternal: () => ({ model }),
     CompletedLoadExternal: () => ({ model }),
     CompletedPersistTheme: () => ({ model }),
+    CompletedPersistPreset: () => ({ model }),
 
     GotThemeMenuMessage: ({ message }) => foldThemeMenu(model, message),
+
+    GotPresetMenuMessage: ({ message }) => foldPresetMenu(model, message),
 
     GotCoverageTooltipMessage: ({ message }) => foldCoverageTooltip(model, message),
 

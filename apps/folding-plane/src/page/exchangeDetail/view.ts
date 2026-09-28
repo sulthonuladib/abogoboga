@@ -6,7 +6,7 @@ import type { CoinMetadata, CoinPage, MarketAssignment } from '../../api'
 import { coinRoutesUrl, defaultExchangesQuery, exchangesUrl, pageSizeChoices } from '../../route'
 import { badge } from '../../ui/badge'
 import { dialog } from '../../ui/dialog'
-import { textField, toggleField } from '../../ui/field'
+import { inlineCheck, textField, toggleField } from '../../ui/field'
 import { filterBar, filterRow, filterStatus, pageSizeSelect } from '../../ui/filters'
 import { formatCount, pendingCount } from '../../ui/format'
 import { icon } from '../../ui/icon'
@@ -406,7 +406,7 @@ const marketPageRows = (
           td(h, coinCell(market, coinsById, isIndexLoaded, h)),
           td(h, market.exchangeSymbol),
           td(h, badge(market.listed ? 'listed' : 'not listed', h, market.listed ? 'positive' : 'neutral')),
-          td(h, badge(market.tradeEnabled ? 'enabled' : 'disabled', h, market.tradeEnabled ? 'positive' : 'neutral')),
+          td(h, badge(market.tradeEnabled ? 'enabled' : 'disabled', h, market.tradeEnabled ? 'info' : 'neutral')),
           td(
             h,
             h.div([h.Class('flex items-center justify-end gap-1')], [
@@ -805,52 +805,38 @@ const currentLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
                       `${link.name} (exchange code ${link.exchangeChainCode})`,
                     ]),
                   ]),
-                  h.button(
-                    [
-                      h.Type('button'),
-                      h.OnClick(
-                        Message.ClickedToggleLink({
-                          marketId,
-                          chainId: link.id,
-                          linkId: link.linkId,
-                          withdrawEnabled: !withdrawEnabled,
-                          depositEnabled,
-                          exchangeChainCode: link.exchangeChainCode,
-                          exchangeChainName: link.exchangeChainName,
-                        }),
-                      ),
-                      h.AriaPressed(withdrawEnabled ? 'true' : 'false'),
-                      h.Class(
-                        withdrawEnabled
-                          ? 'rounded-lg bg-muted px-2 py-1 text-xs'
-                          : 'rounded-lg border px-2 py-1 text-xs',
-                      ),
-                    ],
-                    ['Withdraw'],
-                  ),
-                  h.button(
-                    [
-                      h.Type('button'),
-                      h.OnClick(
-                        Message.ClickedToggleLink({
-                          marketId,
-                          chainId: link.id,
-                          linkId: link.linkId,
-                          withdrawEnabled,
-                          depositEnabled: !depositEnabled,
-                          exchangeChainCode: link.exchangeChainCode,
-                          exchangeChainName: link.exchangeChainName,
-                        }),
-                      ),
-                      h.AriaPressed(depositEnabled ? 'true' : 'false'),
-                      h.Class(
-                        depositEnabled
-                          ? 'rounded-lg bg-muted px-2 py-1 text-xs'
-                          : 'rounded-lg border px-2 py-1 text-xs',
-                      ),
-                    ],
-                    ['Deposit'],
-                  ),
+                  inlineCheck({
+                    id: `link-withdraw-${link.linkId}`,
+                    label: 'Withdraw',
+                    isChecked: withdrawEnabled,
+                    onToggle: (isChecked) =>
+                      Message.ClickedToggleLink({
+                        marketId,
+                        chainId: link.id,
+                        linkId: link.linkId,
+                        withdrawEnabled: isChecked,
+                        depositEnabled,
+                        exchangeChainCode: link.exchangeChainCode,
+                        exchangeChainName: link.exchangeChainName,
+                      }),
+                    h,
+                  }),
+                  inlineCheck({
+                    id: `link-deposit-${link.linkId}`,
+                    label: 'Deposit',
+                    isChecked: depositEnabled,
+                    onToggle: (isChecked) =>
+                      Message.ClickedToggleLink({
+                        marketId,
+                        chainId: link.id,
+                        linkId: link.linkId,
+                        withdrawEnabled,
+                        depositEnabled: isChecked,
+                        exchangeChainCode: link.exchangeChainCode,
+                        exchangeChainName: link.exchangeChainName,
+                      }),
+                    h,
+                  }),
                   iconAction({
                     label: `Unlink ${link.code}`,
                     icon: icon('trash', h, 'size-3.5'),

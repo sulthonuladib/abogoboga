@@ -319,7 +319,7 @@ describe('chains listing', () => {
     scene(
       { update, view },
       given(loadedModel),
-      expect(role('combobox', { name: 'Rows per page' })).toHaveValue('20'),
+      expect(role('combobox', { name: 'Rows per page' })).toHaveValue('10'),
       change(role('combobox', { name: 'Rows per page' }), '50'),
       Command.resolve(
         NavigateChains({
