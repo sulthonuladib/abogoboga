@@ -6,7 +6,7 @@ import { pushUrl, replaceUrl } from 'foldkit/navigation'
 import { modifyFields } from 'foldkit/struct'
 
 import { type ApiFailure, type ApiOrigin, type CoinStatPage, Query, call } from '../../api'
-import { CoinsQuery, type Order, coinsUrl, defaultCoinsQuery } from '../../route'
+import { CoinsQuery, type Order, coinsUrl } from '../../route'
 import { trimmedOrEmpty } from '../../ui/format'
 import { searchDelay } from '../../ui/search'
 import { Message, OutMessage } from './message'
@@ -18,7 +18,6 @@ import {
   isFormValid,
   logoRules,
   nameRules,
-  pageSize,
   slugRules,
   symbolRules,
 } from './model'
@@ -41,12 +40,12 @@ const flipped = (order: Order): Order => (order === 'asc' ? 'desc' : 'asc')
  * of racing it, and only the last one reaches the URL.
  */
 export const SearchCoins = Command.define('SearchCoins', {
-  args: { search: Schema.String },
+  args: { query: CoinsQuery },
   messages: [Message.CompletedSearchCoins, Message.CompletedInterruptSearchCoins],
   interrupt: true,
-  execute: ({ search }) =>
+  execute: ({ query }) =>
     Effect.sleep(searchDelay).pipe(
-      Effect.andThen(replaceUrl(coinsUrl({ ...defaultCoinsQuery, search }))),
+      Effect.andThen(replaceUrl(coinsUrl(query))),
       Effect.as(Message.CompletedSearchCoins()),
       Effect.catch(() => Effect.succeed(Message.CompletedSearchCoins())),
     ),
@@ -75,12 +74,15 @@ export const readCoins = (
   query: CoinsQuery,
 ): Effect.Effect<CoinStatPage, ApiFailure, ApiOrigin | HttpClient.HttpClient> =>
   Query.fetchCoinStats({
-    limit: pageSize,
+    limit: query.limit,
     page: query.page,
     search: query.search,
+    searchBy: query.searchBy,
     flag: query.flag,
     sortBy: query.sort,
     order: query.order,
+    exchangeId: Option.getOrUndefined(query.exchangeId),
+    chainId: Option.getOrUndefined(query.chainId),
   })
 
 export const FetchCoins = Command.define('FetchCoins', {
@@ -139,6 +141,32 @@ export const DeleteCoin = Command.define('DeleteCoin', {
       Effect.catch((error) =>
         Effect.succeed(Message.FailedRemoveCoin({ detail: error.detail })),
       ),
+    ),
+})
+
+/**
+ * The two reads behind the scope picker. Opening it loads the first window of
+ * whichever directory the operator is choosing from; typing narrows it.
+ */
+export const FetchScopeExchanges = Command.define('FetchScopeExchanges', {
+  args: { search: Schema.String },
+  messages: [Message.SettledFetchScopeExchanges],
+  execute: ({ search }) =>
+    call(Query.searchExchanges(search)).pipe(
+      Effect.mapError((error) => error.detail),
+      Effect.result,
+      Effect.map((result) => Message.SettledFetchScopeExchanges({ result })),
+    ),
+})
+
+export const FetchScopeChains = Command.define('FetchScopeChains', {
+  args: { search: Schema.String },
+  messages: [Message.SettledFetchScopeChains],
+  execute: ({ search }) =>
+    call(Query.searchChains(search)).pipe(
+      Effect.mapError((error) => error.detail),
+      Effect.result,
+      Effect.map((result) => Message.SettledFetchScopeChains({ result })),
     ),
 })
 
@@ -207,11 +235,44 @@ const openRemoveDialog = Update.foldChildStep({
   foldOutMessage: foldRemoveDialogOutMessage,
 })
 
+const foldScopeDialogOutMessage = Dialog.OutMessage.match<Update.Step<Model, Message>>({
+  Opened: () => keepModel,
+  Closed: () => keepModel,
+})
+
+const foldScopeDialog = Update.foldChild({
+  update: Dialog.update,
+  read: (model: Model) => Option.some(model.scopeDialog),
+  write: (model, nextScopeDialog) =>
+    modifyFields(model, { scopeDialog: () => nextScopeDialog }),
+  toParentMessage: (message) => Message.GotScopeDialogMessage({ message }),
+  foldOutMessage: foldScopeDialogOutMessage,
+})
+
+const openScopeDialog = Update.foldChildStep({
+  update: Dialog.open,
+  read: (model: Model) => Option.some(model.scopeDialog),
+  write: (model, nextScopeDialog) =>
+    modifyFields(model, { scopeDialog: () => nextScopeDialog }),
+  toParentMessage: (message) => Message.GotScopeDialogMessage({ message }),
+  foldOutMessage: foldScopeDialogOutMessage,
+})
+
+const closeScopeDialog = Update.foldChildStep({
+  update: Dialog.close,
+  read: (model: Model) => Option.some(model.scopeDialog),
+  write: (model, nextScopeDialog) =>
+    modifyFields(model, { scopeDialog: () => nextScopeDialog }),
+  toParentMessage: (message) => Message.GotScopeDialogMessage({ message }),
+  foldOutMessage: foldScopeDialogOutMessage,
+})
+
 // LOAD
 
 const loadQuery = (model: Model, query: CoinsQuery): Update.Return<Model, Message> => ({
   model: modifyFields(model, {
     query: () => query,
+    loadedQuery: () => Option.some(query),
     coins: () => AsyncData.Loading(),
   }),
   commands: [FetchCoins({ query })],
@@ -228,9 +289,13 @@ const refresh: Update.Step<Model, Message> = (model) =>
 
 const sameQuery = (current: CoinsQuery, next: CoinsQuery): boolean =>
   current.search === next.search &&
+  current.searchBy.join(',') === next.searchBy.join(',') &&
   current.flag === next.flag &&
   current.sort === next.sort &&
   current.order === next.order &&
+  current.limit === next.limit &&
+  Option.getOrUndefined(current.exchangeId) === Option.getOrUndefined(next.exchangeId) &&
+  Option.getOrUndefined(current.chainId) === Option.getOrUndefined(next.chainId) &&
   current.page === next.page
 
 // INIT
@@ -248,6 +313,7 @@ export const init = (
     onSome: (coins) => ({
       model: modifyFields(initialModel, {
         query: () => query,
+        loadedQuery: () => Option.some(query),
         coins: () => coins,
       }),
     }),
@@ -256,28 +322,34 @@ export const init = (
 /**
  * Tell the page the URL changed. The page owns no route, so it derives its
  * query from the one it is given and returns the fetch that query needs. A
- * click that leaves the query as it was fetches nothing, unless the page
- * never loaded at all: arriving from another page on the query the listing
- * already holds still needs its first read.
+ * click that leaves the last loaded query as it was fetches nothing, while a
+ * search whose debounced navigation lands on a query the page has not read
+ * still issues its read.
  */
 export const informRouteChanged = (
   model: Model,
   query: CoinsQuery,
 ): Update.Return<Model, Message> =>
-  sameQuery(model.query, query) && !AsyncData.isIdle(model.coins)
-    ? { model }
-    : loadQuery(model, query)
+  Option.match(model.loadedQuery, {
+    onNone: () => loadQuery(model, query),
+    onSome: (loaded) => (sameQuery(loaded, query) ? { model } : loadQuery(model, query)),
+  })
 
 // UPDATE
 
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
-    UpdatedSearch: ({ value }) => ({
-      model: modifyFields(model, {
-        query: (query) => modifyFields(query, { search: () => value }),
-      }),
-      commands: [interruptSearch(), SearchCoins({ search: value })],
-    }),
+    UpdatedSearch: ({ value }) => {
+      const query = modifyFields(model.query, {
+        search: () => value,
+        page: () => 1,
+      })
+
+      return {
+        model: modifyFields(model, { query: () => query }),
+        commands: [interruptSearch(), SearchCoins({ query })],
+      }
+    },
 
     CompletedSearchCoins: () => ({ model }),
     CompletedInterruptSearchCoins: () => ({ model }),
@@ -301,6 +373,126 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       commands: [
         NavigateCoins({
           url: coinsUrl({ ...model.query, flag, page: 1 }),
+        }),
+      ],
+    }),
+
+    ChangedPageSize: ({ value }) => ({
+      model,
+      commands: [
+        NavigateCoins({
+          url: coinsUrl({ ...model.query, limit: value, page: 1 }),
+        }),
+      ],
+    }),
+
+    ToggledSearchField: ({ field, isChecked }) => {
+      const next = isChecked
+        ? model.query.searchBy.includes(field)
+          ? model.query.searchBy
+          : [...model.query.searchBy, field]
+        : model.query.searchBy.filter((candidate) => candidate !== field)
+
+      return next.length === 0
+        ? { model }
+        : {
+          model,
+          commands: [
+            NavigateCoins({
+              url: coinsUrl({ ...model.query, searchBy: next, page: 1 }),
+            }),
+          ],
+        }
+    },
+
+    ClickedScope: () =>
+      Update.combine(model, [
+        () => ({
+          model: modifyFields(model, {
+            scopeKind: () => 'exchange' as const,
+            scopeSearch: () => '',
+            scopeExchanges: () => AsyncData.Loading(),
+          }),
+          commands: [FetchScopeExchanges({ search: '' })],
+        }),
+        openScopeDialog,
+      ]),
+
+    ChangedScopeKind: ({ kind }) => ({
+      model: modifyFields(model, {
+        scopeKind: () => kind,
+        scopeSearch: () => '',
+        scopeExchanges: () => (kind === 'exchange' ? AsyncData.Loading() : model.scopeExchanges),
+        scopeChains: () => (kind === 'chain' ? AsyncData.Loading() : model.scopeChains),
+      }),
+      commands: kind === 'exchange'
+        ? [FetchScopeExchanges({ search: '' })]
+        : [FetchScopeChains({ search: '' })],
+    }),
+
+    UpdatedScopeSearch: ({ value }) => ({
+      model: modifyFields(model, { scopeSearch: () => value }),
+      commands: [
+        model.scopeKind === 'exchange'
+          ? FetchScopeExchanges({ search: value })
+          : FetchScopeChains({ search: value }),
+      ],
+    }),
+
+    SettledFetchScopeExchanges: ({ result }) => ({
+      model: modifyFields(model, { scopeExchanges: AsyncData.settle(result) }),
+    }),
+
+    SettledFetchScopeChains: ({ result }) => ({
+      model: modifyFields(model, { scopeChains: AsyncData.settle(result) }),
+    }),
+
+    PickedScopeExchange: ({ id }) =>
+      Update.combine(model, [
+        () => ({
+          model,
+          commands: [
+            NavigateCoins({
+              url: coinsUrl({
+                ...model.query,
+                exchangeId: Option.some(id),
+                chainId: Option.none(),
+                page: 1,
+              }),
+            }),
+          ],
+        }),
+        closeScopeDialog,
+      ]),
+
+    PickedScopeChain: ({ id }) =>
+      Update.combine(model, [
+        () => ({
+          model,
+          commands: [
+            NavigateCoins({
+              url: coinsUrl({
+                ...model.query,
+                exchangeId: Option.none(),
+                chainId: Option.some(id),
+                page: 1,
+              }),
+            }),
+          ],
+        }),
+        closeScopeDialog,
+      ]),
+
+    ClickedClearScope: () => ({
+      model,
+      commands: [
+        NavigateCoins({
+          url: coinsUrl({
+            ...model.query,
+            exchangeId: Option.none(),
+            chainId: Option.none(),
+            page: 1,
+          }),
         }),
       ],
     }),
@@ -454,5 +646,6 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     }),
 
     GotEditorMessage: ({ message }) => foldEditor(model, message),
+    GotScopeDialogMessage: ({ message }) => foldScopeDialog(model, message),
     GotRemoveDialogMessage: ({ message }) => foldRemoveDialog(model, message),
   })

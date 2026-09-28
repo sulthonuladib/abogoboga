@@ -267,7 +267,7 @@ describe('coin routes', () => {
       expect(text('Edit Binance market')).toExist(),
       click(role('button', { name: 'Save market' })),
       Command.resolve(
-        SaveMarket({ marketId: 100, exchangeSymbol: 'BTC/USDT', listed: true, tradeEnabled: true }),
+        SaveMarket({ marketId: 100, exchangeId: 10, cryptocurrencyId: 1, exchangeSymbol: 'BTC/USDT', listed: true, tradeEnabled: true }),
         Message.SucceededEdit(),
       ),
       Command.resolve(
@@ -290,6 +290,7 @@ describe('coin routes', () => {
       click(role('button', { name: 'Unassign Binance' })),
       ...resolveDialogOpen,
       expect(text('Unassign Binance?')).toExist(),
+      expect(role('dialog', { name: 'Unassign Binance?' })).toHaveAttr('data-size', 'sm'),
       expect(text('Binance no longer lists BTC/USDT. Re-assigning restores the market without its chain links.')).toExist(),
       click(role('button', { name: 'Unassign market' })),
       Command.resolve(
@@ -320,11 +321,17 @@ describe('coin routes', () => {
       ),
       ...resolveDialogOpen,
       expect(text('Chains for Binance')).toExist(),
+      expect(role('dialog', { name: 'Chains for Binance' })).toHaveAttr('data-size', 'lg'),
       expect(text('Ethereum (exchange code ERC20)')).toExist(),
+      expect(role('button', { name: 'Link another chain' })).toExist(),
+      expect(role('searchbox', { name: 'Search chains' })).toBeAbsent(),
       expect(role('button', { name: 'Withdraw' })).toHaveAttr('aria-pressed', 'true'),
       click(role('button', { name: 'Withdraw' })),
+      expect(role('button', { name: 'Withdraw' })).toHaveAttr('aria-pressed', 'false'),
       Command.resolve(
         ToggleChainLink({
+          marketId: 100,
+          chainId: 5,
           linkId: 50,
           exchangeChainCode: 'ERC20',
           exchangeChainName: 'Ethereum',
@@ -369,6 +376,9 @@ describe('coin routes', () => {
         Message.SettledFetchLinkChains({ result: Result.succeed(fixtureChains) }),
       ),
       ...resolveDialogOpen,
+      expect(role('searchbox', { name: 'Search chains' })).toBeAbsent(),
+      click(role('button', { name: 'Link another chain' })),
+      expect(role('searchbox', { name: 'Search chains' })).toExist(),
       type(role('searchbox', { name: 'Search chains' }), 'SOL'),
       Command.resolve(
         FetchLinkChains({ search: 'SOL' }),
@@ -377,7 +387,7 @@ describe('coin routes', () => {
       expect(role('button', { name: 'Add chain “SOL”' })).toExist(),
       click(role('button', { name: 'Add chain “SOL”' })),
       Command.resolve(
-        CreateChain({ search: 'SOL' }),
+        CreateChain({ name: 'SOL', code: 'SOL' }),
         Message.CreatedLinkChain({ id: 9, code: 'SOL', name: 'SOL' }),
       ),
       Command.resolve(
@@ -390,6 +400,7 @@ describe('coin routes', () => {
         AddChainLink({
           marketId: 100,
           chainId: 9,
+          exchangeChainName: 'SOL',
           exchangeChainCode: 'SPL',
           withdrawEnabled: true,
           depositEnabled: true,
@@ -417,6 +428,7 @@ describe('coin routes', () => {
       Command.resolve(Dialog.ShowDialog, Dialog.Message.SucceededShowDialog()),
       Mount.resolve(Dialog.AcquireResources, Dialog.Message.SucceededAcquireResources()),
       expect(text('Unlink ETH?')).toExist(),
+      expect(role('dialog', { name: 'Unlink ETH?' })).toHaveAttr('data-size', 'sm'),
       click(role('button', { name: 'Unlink chain' })),
       Command.resolve(
         RemoveChainLink({ linkId: 50 }),

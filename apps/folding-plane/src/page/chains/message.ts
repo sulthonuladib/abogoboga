@@ -1,4 +1,4 @@
-import { ChainOrderField } from '@lister/api/client'
+import { ChainOrderField, ChainSearchField } from '@lister/api/client'
 import { Dialog } from '@foldkit/ui'
 import { Schema } from 'effect'
 import { defineMessageUnion } from 'foldkit/message'
@@ -14,6 +14,8 @@ export const Message = defineMessageUnion({
   CompletedInterruptSearchChains: { outcome: Command.Interruptible.Outcome },
   CompletedNavigateChains: {},
   ClickedSort: { column: ChainOrderField },
+  ChangedPageSize: { value: Schema.Int },
+  ToggledSearchField: { field: ChainSearchField, isChecked: Schema.Boolean },
   ClickedRetry: {},
   ClickedNewChain: {},
   ClickedEditChain: { id: Schema.Int, name: Schema.String, code: Schema.String },

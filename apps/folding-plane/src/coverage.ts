@@ -37,11 +37,16 @@ export const readCoverage: Effect.Effect<
   unknown,
   ApiOrigin | HttpClient.HttpClient
 > = Effect.gen(function* () {
-  const coins = yield* Query.countCoins()
-  const exchanges = yield* Query.countExchanges()
-  const chains = yield* Query.countChains()
-  const markets = yield* Query.countMarkets()
-  const workers = yield* Query.listWorkers()
+  const [coins, exchanges, chains, markets, workers] = yield* Effect.all(
+    [
+      Query.countCoins(),
+      Query.countExchanges(),
+      Query.countChains(),
+      Query.countMarkets(),
+      Query.listWorkers(),
+    ],
+    { concurrency: 'unbounded' },
+  )
 
   return Coverage.make({
     coins: coins.meta.items,

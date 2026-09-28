@@ -1,12 +1,24 @@
-import { Dialog } from '@foldkit/ui'
+import { Button, Dialog } from '@foldkit/ui'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
 
 import { classNames } from './classNames'
 
 // STYLE
 
-const dialogClass =
-  'fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto'
+/**
+ * The three sizes a dialog panel takes. A destructive confirmation is compact,
+ * an editor fits its form, and a picker fits the list it searches without
+ * crowding the viewport.
+ */
+export type Size = 'sm' | 'md' | 'lg'
+
+const baseDialogClass = 'fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] overflow-y-auto'
+
+const sizeClass: Record<Size, string> = {
+  sm: 'w-[min(24rem,calc(100vw-2rem))]',
+  md: 'w-[min(32rem,calc(100vw-2rem))]',
+  lg: 'w-[min(40rem,calc(100vw-2rem))]',
+}
 
 const backdropClass = 'fixed inset-0 bg-foreground/40'
 
@@ -45,15 +57,22 @@ const confirmButton = <Message>(
   const { h } = input
   const tone = input.isDestructive ? destructiveClass : primaryClass
 
-  return h.button(
-    [
-      h.Type('button'),
-      input.isDisabled ? h.Disabled(true) : h.OnClick(input.onConfirm),
-      h.Class(
-        classNames(tone, input.isDisabled && 'cursor-not-allowed opacity-50'),
-      ),
-    ],
-    [input.label],
+  return Button.view(
+    {
+      onClick: input.onConfirm,
+      isDisabled: input.isDisabled,
+      toView: (attributes) =>
+        h.button(
+          [
+            ...attributes.button,
+            h.Class(
+              classNames(tone, input.isDisabled && 'cursor-not-allowed opacity-50'),
+            ),
+          ],
+          [input.label],
+        ),
+    },
+    h,
   )
 }
 
@@ -72,6 +91,7 @@ export const dialog = <Message>(
     title: string
     description?: string | undefined
     isDestructive?: boolean | undefined
+    size?: Size | undefined
     confirmLabel?: string | undefined
     isConfirmDisabled?: boolean | undefined
     onConfirm?: Message | undefined
@@ -79,15 +99,17 @@ export const dialog = <Message>(
     content: Html
     h: HtmlBuilder<Message>
   }>,
-): Html =>
-  input.h.submodel({
+): Html => {
+  const size = input.size ?? 'md'
+
+  return input.h.submodel({
     slotId: input.model.id,
     model: input.model,
     view: Dialog.view,
     viewInputs: {
       hasDescription: input.description !== undefined,
       toView: (render) =>
-        input.h.dialog([...render.dialog, input.h.Class(dialogClass)], [
+        input.h.dialog([...render.dialog, input.h.Class(classNames(baseDialogClass, sizeClass[size])), input.h.DataAttribute('size', size)], [
           input.h.div([...render.backdrop, input.h.Class(backdropClass)]),
           input.h.div([...render.panel, input.h.Class(panelClass)], [
             input.h.button(
@@ -138,3 +160,4 @@ export const dialog = <Message>(
     },
     toParentMessage: input.toParentMessage,
   })
+}

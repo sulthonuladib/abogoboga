@@ -6,7 +6,7 @@ import { pushUrl, replaceUrl } from 'foldkit/navigation'
 import { modifyFields } from 'foldkit/struct'
 
 import { type ApiFailure, type ApiOrigin, type ExchangePage, Query, call } from '../../api'
-import { ExchangesQuery, type Order, defaultExchangesQuery, exchangesUrl } from '../../route'
+import { ExchangesQuery, type Order, exchangesUrl } from '../../route'
 import { trimmedOrEmpty } from '../../ui/format'
 import { searchDelay } from '../../ui/search'
 import { Message, OutMessage } from './message'
@@ -18,7 +18,6 @@ import {
   isFormValid,
   logoRules,
   nameRules,
-  pageSize,
   slugRules,
 } from './model'
 
@@ -39,12 +38,12 @@ const flipped = (order: Order): Order => (order === 'asc' ? 'desc' : 'asc')
  * of racing it, and only the last one reaches the URL.
  */
 export const SearchExchanges = Command.define('SearchExchanges', {
-  args: { search: Schema.String },
+  args: { query: ExchangesQuery },
   messages: [Message.CompletedSearchExchanges, Message.CompletedInterruptSearchExchanges],
   interrupt: true,
-  execute: ({ search }) =>
+  execute: ({ query }) =>
     Effect.sleep(searchDelay).pipe(
-      Effect.andThen(replaceUrl(exchangesUrl({ ...defaultExchangesQuery, search }))),
+      Effect.andThen(replaceUrl(exchangesUrl(query))),
       Effect.as(Message.CompletedSearchExchanges()),
       Effect.catch(() => Effect.succeed(Message.CompletedSearchExchanges())),
     ),
@@ -72,7 +71,7 @@ export const NavigateExchanges = Command.define('NavigateExchanges', {
 export const readExchanges = (
   query: ExchangesQuery,
 ): Effect.Effect<ExchangePage, ApiFailure, ApiOrigin | HttpClient.HttpClient> =>
-  Query.listExchanges({ ...query, limit: pageSize })
+  Query.listExchanges(query)
 
 export const FetchExchanges = Command.define('FetchExchanges', {
   args: { query: ExchangesQuery },
@@ -206,6 +205,7 @@ const openRemoveDialog = Update.foldChildStep({
 const loadQuery = (model: Model, query: ExchangesQuery): Update.Return<Model, Message> => ({
   model: modifyFields(model, {
     query: () => query,
+    loadedQuery: () => Option.some(query),
     exchanges: () => AsyncData.Loading(),
   }),
   commands: [FetchExchanges({ query })],
@@ -222,8 +222,10 @@ const refresh: Update.Step<Model, Message> = (model) =>
 
 const sameQuery = (current: ExchangesQuery, next: ExchangesQuery): boolean =>
   current.search === next.search &&
+  current.searchBy.join(',') === next.searchBy.join(',') &&
   current.sort === next.sort &&
   current.order === next.order &&
+  current.limit === next.limit &&
   current.page === next.page
 
 // INIT
@@ -241,6 +243,7 @@ export const init = (
     onSome: (exchanges) => ({
       model: modifyFields(initialModel, {
         query: () => query,
+        loadedQuery: () => Option.some(query),
         exchanges: () => exchanges,
       }),
     }),
@@ -249,28 +252,34 @@ export const init = (
 /**
  * Tell the page the URL changed. The page owns no route, so it derives its
  * query from the one it is given and returns the fetch that query needs. A
- * click that leaves the query as it was fetches nothing, unless the page
- * never loaded at all: arriving from another page on the query the listing
- * already holds still needs its first read.
+ * click that leaves the last loaded query as it was fetches nothing, while a
+ * search whose debounced navigation lands on a query the page has not read
+ * still issues its read.
  */
 export const informRouteChanged = (
   model: Model,
   query: ExchangesQuery,
 ): Update.Return<Model, Message> =>
-  sameQuery(model.query, query) && !AsyncData.isIdle(model.exchanges)
-    ? { model }
-    : loadQuery(model, query)
+  Option.match(model.loadedQuery, {
+    onNone: () => loadQuery(model, query),
+    onSome: (loaded) => (sameQuery(loaded, query) ? { model } : loadQuery(model, query)),
+  })
 
 // UPDATE
 
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
-    UpdatedSearch: ({ value }) => ({
-      model: modifyFields(model, {
-        query: (query) => modifyFields(query, { search: () => value }),
-      }),
-      commands: [interruptSearch(), SearchExchanges({ search: value })],
-    }),
+    UpdatedSearch: ({ value }) => {
+      const query = modifyFields(model.query, {
+        search: () => value,
+        page: () => 1,
+      })
+
+      return {
+        model: modifyFields(model, { query: () => query }),
+        commands: [interruptSearch(), SearchExchanges({ query })],
+      }
+    },
 
     CompletedSearchExchanges: () => ({ model }),
     CompletedInterruptSearchExchanges: () => ({ model }),
@@ -287,6 +296,34 @@ export const update = (model: Model, message: Message): UpdateReturn =>
           }),
         ],
       }
+    },
+
+    ChangedPageSize: ({ value }) => ({
+      model,
+      commands: [
+        NavigateExchanges({
+          url: exchangesUrl({ ...model.query, limit: value, page: 1 }),
+        }),
+      ],
+    }),
+
+    ToggledSearchField: ({ field, isChecked }) => {
+      const next = isChecked
+        ? model.query.searchBy.includes(field)
+          ? model.query.searchBy
+          : [...model.query.searchBy, field]
+        : model.query.searchBy.filter((candidate) => candidate !== field)
+
+      return next.length === 0
+        ? { model }
+        : {
+          model,
+          commands: [
+            NavigateExchanges({
+              url: exchangesUrl({ ...model.query, searchBy: next, page: 1 }),
+            }),
+          ],
+        }
     },
 
     ClickedRetry: () => refresh(model),

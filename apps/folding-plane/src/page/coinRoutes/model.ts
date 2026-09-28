@@ -63,6 +63,19 @@ const RouteDetail = Schema.Struct({
   toId: Schema.Int,
 })
 
+const PendingToggle = Schema.Struct({
+  linkId: Schema.Int,
+  withdrawEnabled: Schema.Boolean,
+  depositEnabled: Schema.Boolean,
+})
+
+/**
+ * The chain-links dialog has two halves that share one open lifecycle: the
+ * manage list of current links, and the add form for a new one.
+ */
+export const LinkMode = Schema.Literals(['manage', 'add'])
+export type LinkMode = typeof LinkMode.Type
+
 // MODEL
 
 export const Model = Schema.Struct({
@@ -87,6 +100,7 @@ export const Model = Schema.Struct({
   unassigning: Schema.Option(SelectedMarket),
   // Chain-links dialog
   linksDialog: Dialog.Model,
+  linkMode: LinkMode,
   managing: Schema.Option(SelectedMarket),
   linkSearch: Schema.String,
   linkChains: LinkChains.schema,
@@ -94,6 +108,7 @@ export const Model = Schema.Struct({
   linkCode: FieldValidation.Field(Schema.String),
   linkWithdraw: Schema.Boolean,
   linkDeposit: Schema.Boolean,
+  pendingToggles: Schema.Array(PendingToggle),
   removingLink: Schema.Option(RemovingLink),
   unlinkDialog: Dialog.Model,
   // Route detail dialog
@@ -137,6 +152,7 @@ export const initFor = (coinId: number): Model => ({
   unassignDialog: Dialog.init({ id: 'coin-routes-unassign' }),
   unassigning: Option.none(),
   linksDialog: Dialog.init({ id: 'coin-routes-links' }),
+  linkMode: 'manage',
   managing: Option.none(),
   linkSearch: '',
   linkChains: AsyncData.Idle(),
@@ -144,6 +160,7 @@ export const initFor = (coinId: number): Model => ({
   linkCode: FieldValidation.NotValidated({ value: '' }),
   linkWithdraw: true,
   linkDeposit: true,
+  pendingToggles: [],
   removingLink: Option.none(),
   unlinkDialog: Dialog.init({ id: 'coin-routes-unlink' }),
   routeDialog: Dialog.init({ id: 'coin-routes-detail' }),

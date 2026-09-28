@@ -4,6 +4,7 @@ import { AsyncData, FieldValidation } from 'foldkit'
 import {
   Command,
   Mount,
+  change,
   click,
   expect,
   given,
@@ -19,7 +20,7 @@ import { ChainPageResponse } from '../../api'
 import { chainDetailUrl, chainsUrl, defaultChainsQuery } from '../../route'
 import { Message } from './message'
 import { Model, initialModel } from './model'
-import { AddChain, DeleteChain, FetchChains, update } from './update'
+import { AddChain, DeleteChain, FetchChains, NavigateChains, update } from './update'
 import { view } from './view'
 
 const fixturePage = Schema.decodeUnknownSync(ChainPageResponse)({
@@ -75,6 +76,7 @@ const emptyPage = Schema.decodeUnknownSync(ChainPageResponse)({
 
 const loadedModel: Model = modifyFields(initialModel, {
   query: () => defaultChainsQuery,
+  loadedQuery: () => Option.some(defaultChainsQuery),
   chains: () => AsyncData.succeed(fixturePage),
 })
 
@@ -213,6 +215,7 @@ describe('chains listing', () => {
       click(role('button', { name: 'Remove ETH' })),
       ...resolveDialogOpen,
       expect(text('Remove ETH?')).toExist(),
+      expect(role('dialog', { name: 'Remove ETH?' })).toHaveAttr('data-size', 'sm'),
       expect(text('ETH is unlinked from every market that routes through it. Re-adding the chain does not restore those links.')).toExist(),
       expect(role('button', { name: 'Remove chain' })).toBeEnabled(),
     )
@@ -256,6 +259,35 @@ describe('chains listing', () => {
       expect(text('Edit ETH')).toExist(),
       expect(role('textbox', { name: 'Code' })).toHaveValue('ETH'),
       expect(role('textbox', { name: 'Name' })).toHaveValue('Ethereum'),
+    )
+  })
+
+  test('a searched field is a navigation', () => {
+    scene(
+      { update, view },
+      given(loadedModel),
+      click(role('checkbox', { name: 'Code' })),
+      Command.resolve(
+        NavigateChains({
+          url: chainsUrl({ ...defaultChainsQuery, searchBy: ['name'], page: 1 }),
+        }),
+        Message.CompletedNavigateChains(),
+      ),
+    )
+  })
+
+  test('the page size is a navigation that resets to the first page', () => {
+    scene(
+      { update, view },
+      given(loadedModel),
+      expect(role('combobox', { name: 'Rows per page' })).toHaveValue('20'),
+      change(role('combobox', { name: 'Rows per page' }), '50'),
+      Command.resolve(
+        NavigateChains({
+          url: chainsUrl({ ...defaultChainsQuery, limit: 50, page: 1 }),
+        }),
+        Message.CompletedNavigateChains(),
+      ),
     )
   })
 })

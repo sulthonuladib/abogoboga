@@ -79,17 +79,23 @@ export const iconAction = <Message>(
     h: HtmlBuilder<Message>
   }>,
 ): Html =>
-  input.h.button(
-    [
-      input.h.Type('button'),
-      input.h.OnClick(input.onClick),
-      input.h.AriaLabel(input.label),
-      input.h.Title(input.label),
-      input.h.Class(
-        'inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:text-foreground',
-      ),
-    ],
-    [input.icon],
+  Button.view(
+    {
+      onClick: input.onClick,
+      toView: (attributes) =>
+        input.h.button(
+          [
+            ...attributes.button,
+            input.h.AriaLabel(input.label),
+            input.h.Title(input.label),
+            input.h.Class(
+              'inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:text-foreground',
+            ),
+          ],
+          [input.icon],
+        ),
+    },
+    input.h,
   )
 
 // STATS

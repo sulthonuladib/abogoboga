@@ -1,11 +1,8 @@
-import { Context, Effect, Layer, Option, Schema } from 'effect'
+import { Context, Effect, Layer, Predicate, Schema } from 'effect'
 import { Http } from 'foldkit'
-import {
-  HttpBody,
-  HttpClient,
-  HttpClientRequest,
-  HttpClientResponse,
-} from 'effect/unstable/http'
+import { HttpClient, HttpClientError } from 'effect/unstable/http'
+import { HttpApiClient } from 'effect/unstable/httpapi'
+import { Api } from '@lister/api/client'
 
 // ORIGIN
 
@@ -70,96 +67,117 @@ export class ApiFailure extends Schema.TaggedError<ApiFailure>()('ApiFailure', {
 export const isApiFailure = (error: unknown): error is ApiFailure =>
   error instanceof ApiFailure
 
-// TRANSPORT
+// CLIENT
 
-const isSuccess = (status: number): boolean => status >= 200 && status < 300
+/**
+ * The typed control-plane client. Every method, payload, and response is
+ * derived from the `Api` definition, so a path string or payload shape never
+ * appears in this app by hand.
+ */
+export type ApiClient = HttpApiClient.ForApi<typeof Api>
 
-const requestFor = (
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
-  origin: string,
-  path: string,
-  body: Option.Option<unknown>,
-) => {
-  const request = HttpClientRequest.make(method)(`${origin}${path}`)
+/**
+ * Build the typed client against the resolved origin. The transport-owned
+ * {@link HttpClient.HttpClient} it runs through is the same one every Command
+ * already provides, so a caller sees only the API services a page already
+ * required.
+ */
+export const apiClient: Effect.Effect<
+  ApiClient,
+  never,
+  ApiOrigin | HttpClient.HttpClient
+> = Effect.gen(function* () {
+  const origin = yield* ApiOrigin
 
-  return Option.match(body, {
-    onNone: () => HttpClientRequest.acceptJson(request),
-    onSome: (payload) =>
-      HttpClientRequest.acceptJson(
-        HttpClientRequest.setBody(request, HttpBody.jsonUnsafe(payload)),
-      ),
+  return yield* HttpApiClient.make(Api, { baseUrl: origin })
+})
+
+// ERROR MAPPING
+
+const fixedReasonByTag: Readonly<Record<string, string>> = {
+  CryptocurrencySlugExists: 'another coin already uses that slug',
+  CryptocurrencyCoingeckoIdExists: 'another coin already uses that CoinGecko id',
+  CryptocurrencyNotFound: 'that coin no longer exists',
+  ChainCodeExists: 'another chain already uses that code',
+  ChainNotFound: 'that chain no longer exists',
+  ExchangeSlugExists: 'another exchange already uses that slug',
+  ExchangeCoingeckoIdExists: 'another exchange already uses that CoinGecko id',
+  ExchangeNotFound: 'that exchange no longer exists',
+  MarketNotFound: 'that market no longer exists',
+  ChainLinkNotFound: 'that chain link no longer exists',
+  WorkerExchangeNotFound: 'that exchange no longer exists',
+}
+
+const messageReasonByTag: ReadonlySet<string> = new Set([
+  'WorkerConflict',
+  'WorkerControlFailure',
+  'InvalidRequest',
+])
+
+const tagOf = (error: unknown): string | undefined =>
+  Predicate.hasProperty(error, '_tag') && typeof error._tag === 'string'
+    ? error._tag
+    : undefined
+
+const messageOf = (error: unknown): string | undefined =>
+  Predicate.hasProperty(error, 'message') && typeof error.message === 'string'
+    ? error.message
+    : undefined
+
+const taggedReason = (tag: string, error: unknown): string | undefined => {
+  const fixed = fixedReasonByTag[tag]
+
+  if (fixed !== undefined) {
+    return fixed
+  }
+
+  return messageReasonByTag.has(tag) ? messageOf(error) : undefined
+}
+
+const describeError = (label: string, error: unknown): ApiFailure => {
+  if (Schema.isSchemaError(error)) {
+    return new ApiFailure({
+      path: label,
+      detail: `${label} answered with a shape this app cannot read`,
+    })
+  }
+
+  if (error instanceof HttpClientError.HttpClientError) {
+    return new ApiFailure({
+      path: label,
+      detail: 'could not reach the API. Check that the control plane is running.',
+    })
+  }
+
+  const tag = tagOf(error)
+  const reason = tag === undefined ? undefined : taggedReason(tag, error)
+
+  return new ApiFailure({
+    path: label,
+    detail: reason ?? `${label} could not be read`,
   })
 }
 
-const isDecodable = (path: string) =>
-  (response: HttpClientResponse.HttpClientResponse) =>
-    isSuccess(response.status)
-      ? Effect.succeed(response)
-      : Effect.fail(
-        new ApiFailure({ path, detail: `the API answered ${response.status}` }),
-      )
-
-const decodeJson = <A, I>(path: string, schema: Schema.Codec<A, I>) =>
-  (response: HttpClientResponse.HttpClientResponse) =>
-    Effect.gen(function* () {
-      const json = yield* response.json.pipe(
-        Effect.mapError(
-          () =>
-            new ApiFailure({
-              path,
-              detail: `${path} answered with a body this app cannot read`,
-            }),
-        ),
-      )
-
-      return yield* Schema.decodeUnknownEffect(schema)(json).pipe(
-        Effect.mapError((error) =>
-          new ApiFailure({
-            path,
-            detail: `${path} answered with a shape this app cannot read: ${error.message}`,
-          }),
-        ),
-      )
-    })
-
 /**
- * Send one request to the control plane and decode its body.
+ * Run one typed endpoint against the control plane.
  *
  * Every way this can go wrong, from an unreachable host to a body that does not
- * match the response schema, arrives as an {@link ApiFailure}. Callers never
- * handle a transport error or a Schema error of their own.
+ * match the endpoint schema or a declared failure the server returned, arrives
+ * as an {@link ApiFailure}. Callers never handle a transport error or a Schema
+ * error of their own.
+ *
+ * @param label - The endpoint's name, used only to describe a failure.
+ * @param callEndpoint - Builds the endpoint request from the typed client.
+ * @returns The decoded success value or an {@link ApiFailure}.
  */
-export const request = <A, I>(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
-  path: string,
-  body: Option.Option<unknown>,
-  schema: Schema.Codec<A, I>,
+export const apiRequest = <A, E>(
+  label: string,
+  callEndpoint: (client: ApiClient) => Effect.Effect<A, E>,
 ): Effect.Effect<A, ApiFailure, ApiOrigin | HttpClient.HttpClient> =>
   Effect.gen(function* () {
-    const origin = yield* ApiOrigin
-    const response = yield* HttpClient.execute(requestFor(method, origin, path, body)).pipe(
-      Effect.catchTag('HttpClientError', () =>
-        Effect.fail(
-          new ApiFailure({
-            path,
-            detail: 'could not reach the API. Check that the control plane is running.',
-          }),
-        ),
-      ),
-      Effect.flatMap(isDecodable(path)),
+    const client = yield* apiClient
+
+    return yield* callEndpoint(client).pipe(
+      Effect.mapError((error) => describeError(label, error)),
     )
-
-    return yield* decodeJson(path, schema)(response)
   })
-
-export const get = <A, I>(path: string, schema: Schema.Codec<A, I>) =>
-  request('GET', path, Option.none(), schema)
-
-export const post = <A, I>(path: string, body: unknown, schema: Schema.Codec<A, I>) =>
-  request('POST', path, Option.some(body), schema)
-
-export const patch = <A, I>(path: string, body: unknown, schema: Schema.Codec<A, I>) =>
-  request('PATCH', path, Option.some(body), schema)
-
-export const del = <A, I>(path: string, schema: Schema.Codec<A, I>) =>
-  request('DELETE', path, Option.none(), schema)

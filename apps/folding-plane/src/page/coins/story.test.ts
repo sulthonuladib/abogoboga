@@ -56,6 +56,7 @@ const fixturePage = Schema.decodeUnknownSync(CryptocurrencyStatsPageResponse)({
 
 const loadedModel = modifyFields(initialModel, {
   query: () => defaultCoinsQuery,
+  loadedQuery: () => Option.some(defaultCoinsQuery),
   coins: () => AsyncData.succeed(fixturePage),
 })
 
@@ -110,7 +111,7 @@ describe('update', () => {
       model((next) => {
         expect(next.query.search).toBe('bt')
       }),
-      Command.resolve(SearchCoins({ search: 'bt' }), Message.CompletedSearchCoins()),
+      Command.resolve(SearchCoins({ query: { ...defaultCoinsQuery, search: 'bt' } }), Message.CompletedSearchCoins()),
       Command.resolve(
         SearchCoins.Interrupt((outcome) =>
           Message.CompletedInterruptSearchCoins({ outcome })
@@ -120,6 +121,66 @@ describe('update', () => {
       Command.expectNone(),
       expectNoOutMessage(),
     )
+  })
+
+  test('a search keeps the current filter and sort and resets the page', () => {
+    const filtered = {
+      ...defaultCoinsQuery,
+      flag: 'blocked' as const,
+      sort: 'markets' as const,
+      order: 'desc' as const,
+      page: 3,
+    }
+    const target = {
+      ...defaultCoinsQuery,
+      flag: 'blocked' as const,
+      sort: 'markets' as const,
+      order: 'desc' as const,
+      search: 'bt',
+      page: 1,
+    }
+
+    story(
+      update,
+      given(modifyFields(loadedModel, { query: () => filtered })),
+      message(Message.UpdatedSearch({ value: 'bt' })),
+      model((next) => {
+        expect(next.query).toEqual(target)
+      }),
+      Command.resolve(SearchCoins({ query: target }), Message.CompletedSearchCoins()),
+      Command.resolve(
+        SearchCoins.Interrupt((outcome) =>
+          Message.CompletedInterruptSearchCoins({ outcome })
+        ),
+        Message.CompletedInterruptSearchCoins({ outcome: Interruptible.Outcome.NotFound() }),
+      ),
+      Command.expectNone(),
+      expectNoOutMessage(),
+    )
+  })
+
+  test('a landed search issues exactly one read though the draft already holds the text', () => {
+    const typed = update(loadedModel, Message.UpdatedSearch({ value: 'bt' })).model
+    const landed = informRouteChanged(typed, { ...defaultCoinsQuery, search: 'bt' })
+
+    expect(landed.commands?.map((command) => command.name)).toEqual([FetchCoins.name])
+    expect(AsyncData.isLoading(landed.model.coins)).toBe(true)
+  })
+
+  test('a searched-field, scope, or size change is fetched with the new query', () => {
+    const query = {
+      ...defaultCoinsQuery,
+      searchBy: ['slug'] as const,
+      exchangeId: Option.some(10),
+      chainId: Option.some(5),
+      limit: 50,
+      page: 2,
+    }
+    const next = informRouteChanged(loadedModel, query)
+
+    expect(next.commands?.map((command) => command.name)).toEqual([FetchCoins.name])
+    expect(next.model.query).toEqual(query)
+    expect(AsyncData.isLoading(next.model.coins)).toBe(true)
   })
 
   test('sorting a new column navigates ascending from the first page', () => {

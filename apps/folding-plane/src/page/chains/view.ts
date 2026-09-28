@@ -3,9 +3,10 @@ import { Array, Option } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
 
 import type { ChainPage } from '../../api'
-import { type ChainsQuery, chainDetailUrl, chainsUrl } from '../../route'
+import { type ChainsQuery, chainDetailUrl, chainsUrl, pageSizeChoices } from '../../route'
 import { dialog } from '../../ui/dialog'
 import { textField } from '../../ui/field'
+import { pageSizeSelect, searchFieldsField } from '../../ui/filters'
 import { formatDate } from '../../ui/format'
 import { icon } from '../../ui/icon'
 import { action, iconAction, pageHeader } from '../../ui/pageHeader'
@@ -59,20 +60,34 @@ export const view = Submodel.defineView<Model, Message>((model, h) =>
 
 // CONTROLS
 
+const searchFieldChoices = [
+  { field: 'name', label: 'Name' },
+  { field: 'code', label: 'Code' },
+] as const
+
 const controlsView = (model: Model, h: HtmlBuilder<Message>): Html =>
-  h.div([h.Class('flex flex-wrap items-center gap-3')], [
-    searchField({
-      id: 'chain-search',
-      value: model.query.search,
-      placeholder: 'Search by name or code',
-      onInput: (value) => Message.UpdatedSearch({ value }),
+  h.div([h.Class('flex flex-col gap-3')], [
+    h.div([h.Class('flex flex-wrap items-center gap-3')], [
+      searchField({
+        id: 'chain-search',
+        value: model.query.search,
+        placeholder: 'Search chains',
+        onInput: (value) => Message.UpdatedSearch({ value }),
+        h,
+      }),
+      h.p([h.Class('text-sm text-muted-foreground')], [
+        model.query.search === ''
+          ? 'All chains'
+          : `Matching “${model.query.search}”`,
+      ]),
+    ]),
+    searchFieldsField({
+      legend: 'Search fields',
+      choices: searchFieldChoices,
+      selected: model.query.searchBy,
+      onToggle: (field, isChecked) => Message.ToggledSearchField({ field, isChecked }),
       h,
     }),
-    h.p([h.Class('text-sm text-muted-foreground')], [
-      model.query.search === ''
-        ? 'All chains'
-        : `Matching “${model.query.search}”`,
-    ]),
   ])
 
 // CHAINS
@@ -208,7 +223,16 @@ const pager = (
   query: ChainsQuery,
   h: HtmlBuilder<Message>,
 ): Html =>
-  pagination({ meta, toHref: (page) => chainsUrl({ ...query, page }), h })
+  h.div([h.Class('flex flex-wrap items-center justify-between gap-3')], [
+    pagination({ meta, toHref: (page) => chainsUrl({ ...query, page }), h }),
+    pageSizeSelect({
+      id: 'chains-page-size',
+      value: query.limit,
+      choices: pageSizeChoices,
+      onChange: (value) => Message.ChangedPageSize({ value }),
+      h,
+    }),
+  ])
 
 // DIALOG
 
@@ -254,6 +278,7 @@ const removeView = (model: Model, h: HtmlBuilder<Message>): Html =>
       'Markets linked to this chain lose the link, and the routes through it disappear.',
     confirmLabel: 'Remove chain',
     isDestructive: true,
+    size: 'sm',
     onConfirm: Message.ClickedConfirmRemoveChain(),
     toParentMessage: (message) => Message.GotRemoveDialogMessage({ message }),
     content: h.div([h.Class('flex flex-col gap-3')], [

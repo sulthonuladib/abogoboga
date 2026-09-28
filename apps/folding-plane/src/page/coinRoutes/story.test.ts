@@ -266,7 +266,7 @@ describe('update', () => {
       })),
       message(Message.ClickedConfirmEdit()),
       Command.resolve(
-        SaveMarket({ marketId: 100, exchangeSymbol: 'BTCUSDT', listed: true, tradeEnabled: true }),
+        SaveMarket({ marketId: 100, exchangeId: 10, cryptocurrencyId: 1, exchangeSymbol: 'BTCUSDT', listed: true, tradeEnabled: true }),
         Message.SucceededEdit(),
       ),
       expectOutMessage(OutMessage.ChangedCatalogue()),
@@ -319,6 +319,8 @@ describe('update', () => {
       })),
       message(
         Message.ClickedToggleLink({
+          marketId: 100,
+          chainId: 5,
           linkId: 50,
           withdrawEnabled: false,
           depositEnabled: true,
@@ -328,6 +330,8 @@ describe('update', () => {
       ),
       Command.resolve(
         ToggleChainLink({
+          marketId: 100,
+          chainId: 5,
           linkId: 50,
           exchangeChainCode: 'ERC20',
           exchangeChainName: 'Ethereum',
@@ -341,6 +345,94 @@ describe('update', () => {
         FetchMetadata({ coinId: 1 }),
         Message.SettledFetchMetadata({ result: Result.succeed(fullMetadata) }),
       ),
+      Command.expectNone(),
+    )
+  })
+
+  test('a toggle flips the row at once and rolls back when the write fails', () => {
+    story(
+      update,
+      given(modifyFields(initFor(1), {
+        metadata: () => AsyncData.succeed(fullMetadata),
+        managing: () =>
+          Option.some({ marketId: 100, exchangeId: 10, name: 'Binance', symbol: 'BTC/USDT' }),
+      })),
+      message(
+        Message.ClickedToggleLink({
+          marketId: 100,
+          chainId: 5,
+          linkId: 50,
+          withdrawEnabled: false,
+          depositEnabled: true,
+          exchangeChainCode: 'ERC20',
+          exchangeChainName: 'Ethereum',
+        }),
+      ),
+      model((next) => {
+        expect(next.pendingToggles).toEqual([
+          { linkId: 50, withdrawEnabled: false, depositEnabled: true },
+        ])
+      }),
+      Command.resolve(
+        ToggleChainLink({
+          marketId: 100,
+          chainId: 5,
+          linkId: 50,
+          withdrawEnabled: false,
+          depositEnabled: true,
+          exchangeChainCode: 'ERC20',
+          exchangeChainName: 'Ethereum',
+        }),
+        Message.FailedToggleLink({ linkId: 50, detail: 'that chain link no longer exists' }),
+      ),
+      model((next) => {
+        expect(next.pendingToggles).toEqual([])
+        expect(next.linksNotice).toEqual(Option.some('that chain link no longer exists'))
+      }),
+      Command.expectNone(),
+      expectNoOutMessage(),
+    )
+  })
+
+  test('a successful toggle clears the pending row when the matrix lands', () => {
+    story(
+      update,
+      given(modifyFields(initFor(1), {
+        metadata: () => AsyncData.succeed(fullMetadata),
+        managing: () =>
+          Option.some({ marketId: 100, exchangeId: 10, name: 'Binance', symbol: 'BTC/USDT' }),
+      })),
+      message(
+        Message.ClickedToggleLink({
+          marketId: 100,
+          chainId: 5,
+          linkId: 50,
+          withdrawEnabled: false,
+          depositEnabled: true,
+          exchangeChainCode: 'ERC20',
+          exchangeChainName: 'Ethereum',
+        }),
+      ),
+      Command.resolve(
+        ToggleChainLink({
+          marketId: 100,
+          chainId: 5,
+          linkId: 50,
+          withdrawEnabled: false,
+          depositEnabled: true,
+          exchangeChainCode: 'ERC20',
+          exchangeChainName: 'Ethereum',
+        }),
+        Message.SucceededToggleLink(),
+      ),
+      expectOutMessage(OutMessage.ChangedCatalogue()),
+      Command.resolve(
+        FetchMetadata({ coinId: 1 }),
+        Message.SettledFetchMetadata({ result: Result.succeed(fullMetadata) }),
+      ),
+      model((next) => {
+        expect(next.pendingToggles).toEqual([])
+      }),
       Command.expectNone(),
     )
   })
@@ -398,7 +490,7 @@ describe('update', () => {
       })),
       message(Message.ClickedCreateChain()),
       Command.resolve(
-        CreateChain({ search: 'SOL' }),
+        CreateChain({ name: 'SOL', code: 'SOL' }),
         Message.CreatedLinkChain({ id: 9, code: 'SOL', name: 'SOL' }),
       ),
       Command.resolve(
@@ -408,6 +500,24 @@ describe('update', () => {
       model((next) => {
         expect(next.linkChain).toEqual(Option.some({ id: 9, code: 'SOL', name: 'SOL' }))
       }),
+      expectNoOutMessage(),
+    )
+  })
+
+  test('creating a chain normalizes the typed text into a code and a name', () => {
+    story(
+      update,
+      given(modifyFields(initFor(1), { linkSearch: () => 'solana' })),
+      message(Message.ClickedCreateChain()),
+      Command.resolve(
+        CreateChain({ name: 'Solana', code: 'SOLANA' }),
+        Message.CreatedLinkChain({ id: 9, code: 'SOLANA', name: 'Solana' }),
+      ),
+      Command.resolve(
+        FetchLinkChains({ search: 'solana' }),
+        Message.SettledFetchLinkChains({ result: Result.fail('unreachable') }),
+      ),
+      Command.expectNone(),
       expectNoOutMessage(),
     )
   })
@@ -427,6 +537,7 @@ describe('update', () => {
         AddChainLink({
           marketId: 101,
           chainId: 5,
+          exchangeChainName: 'Ethereum',
           exchangeChainCode: 'ERC20',
           withdrawEnabled: true,
           depositEnabled: true,

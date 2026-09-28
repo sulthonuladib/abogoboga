@@ -50,6 +50,7 @@ const fixturePage = Schema.decodeUnknownSync(ChainPageResponse)({
 
 const loadedModel = modifyFields(initialModel, {
   query: () => defaultChainsQuery,
+  loadedQuery: () => Option.some(defaultChainsQuery),
   chains: () => AsyncData.succeed(fixturePage),
 })
 
@@ -97,7 +98,7 @@ describe('update', () => {
       model((next) => {
         expect(next.query.search).toBe('eth')
       }),
-      Command.resolve(SearchChains({ search: 'eth' }), Message.CompletedSearchChains()),
+      Command.resolve(SearchChains({ query: { ...defaultChainsQuery, search: 'eth' } }), Message.CompletedSearchChains()),
       Command.resolve(
         SearchChains.Interrupt((outcome) =>
           Message.CompletedInterruptSearchChains({ outcome })
@@ -107,6 +108,62 @@ describe('update', () => {
       Command.expectNone(),
       expectNoOutMessage(),
     )
+  })
+
+  test('a search keeps the current sort and resets the page', () => {
+    const filtered = {
+      ...defaultChainsQuery,
+      sort: 'createdAt' as const,
+      order: 'desc' as const,
+      page: 3,
+    }
+    const target = {
+      ...defaultChainsQuery,
+      sort: 'createdAt' as const,
+      order: 'desc' as const,
+      search: 'eth',
+      page: 1,
+    }
+
+    story(
+      update,
+      given(modifyFields(loadedModel, { query: () => filtered })),
+      message(Message.UpdatedSearch({ value: 'eth' })),
+      model((next) => {
+        expect(next.query).toEqual(target)
+      }),
+      Command.resolve(SearchChains({ query: target }), Message.CompletedSearchChains()),
+      Command.resolve(
+        SearchChains.Interrupt((outcome) =>
+          Message.CompletedInterruptSearchChains({ outcome })
+        ),
+        Message.CompletedInterruptSearchChains({ outcome: Interruptible.Outcome.NotFound() }),
+      ),
+      Command.expectNone(),
+      expectNoOutMessage(),
+    )
+  })
+
+  test('a landed search issues exactly one read though the draft already holds the text', () => {
+    const typed = update(loadedModel, Message.UpdatedSearch({ value: 'eth' })).model
+    const landed = informRouteChanged(typed, { ...defaultChainsQuery, search: 'eth' })
+
+    expect(landed.commands?.map((command) => command.name)).toEqual([FetchChains.name])
+    expect(AsyncData.isLoading(landed.model.chains)).toBe(true)
+  })
+
+  test('a searched-field or size change is fetched with the new query', () => {
+    const query = {
+      ...defaultChainsQuery,
+      searchBy: ['code'] as const,
+      limit: 10,
+      page: 2,
+    }
+    const next = informRouteChanged(loadedModel, query)
+
+    expect(next.commands?.map((command) => command.name)).toEqual([FetchChains.name])
+    expect(next.model.query).toEqual(query)
+    expect(AsyncData.isLoading(next.model.chains)).toBe(true)
   })
 
   test('sorting a new column navigates ascending from the first page', () => {

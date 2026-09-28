@@ -106,10 +106,22 @@ export type CryptocurrencyStatsSort = "symbol" | "markets" | "chains" | "blocked
  *
  * `window` selects offset paging (`Page`) or keyset paging (`Keyset`).
  */
+/**
+ * Search fields the stats query matches when the caller does not name a
+ * subset: the symbol and the display name, the legacy coin-search behavior.
+ */
+export const defaultStatsSearchBy: ReadonlyArray<CryptocurrencySearchField> = ["symbol", "name"]
+
+/**
+ * Query accepted by {@link CryptocurrencyService.stats}.
+ *
+ * `window` selects offset paging (`Page`) or keyset paging (`Keyset`).
+ */
 export type CryptocurrencyStatsQuery = {
   readonly window: ListWindow
   readonly limit: number
   readonly search: string
+  readonly searchBy?: ReadonlyArray<CryptocurrencySearchField> | undefined
   readonly flag: CryptocurrencyStatsFlag
   readonly sortBy: CryptocurrencyStatsSort
   readonly order: "asc" | "desc"
@@ -326,6 +338,7 @@ export class Cryptocurrency extends Context.Service<
         query: CryptocurrencyStatsQuery
       ): Effect.fn.Return<CryptocurrencyStatsPage, CryptocurrencyError> {
         const result = yield* store.listStats(query)
+        const searchBy = (query.searchBy ?? defaultStatsSearchBy).join(",")
 
         if (Predicate.isTagged(result, "Page")) {
           return {
@@ -335,7 +348,7 @@ export class Cryptocurrency extends Context.Service<
               page: result.page,
               limit: query.limit,
               search: query.search,
-              searchBy: "symbol",
+              searchBy,
               order: query.order,
               orderBy: query.sortBy
             })
@@ -351,7 +364,7 @@ export class Cryptocurrency extends Context.Service<
             limit: query.limit,
             hasMore: result.hasMore,
             search: query.search,
-            searchBy: "symbol",
+            searchBy,
             order: query.order,
             orderBy: query.sortBy
           }),

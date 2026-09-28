@@ -3,10 +3,11 @@ import { Array, Option } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
 
 import type { CoinStat, CoinStatPage } from '../../api'
-import { type CoinsQuery, coinRoutesUrl, coinsUrl } from '../../route'
+import { type CoinsQuery, coinRoutesUrl, coinsUrl, pageSizeChoices } from '../../route'
 import { badge } from '../../ui/badge'
 import { dialog } from '../../ui/dialog'
 import { selectField, textField } from '../../ui/field'
+import { pageSizeSelect, searchFieldsField } from '../../ui/filters'
 import { formatCount } from '../../ui/format'
 import { icon } from '../../ui/icon'
 import { action, iconAction, pageHeader } from '../../ui/pageHeader'
@@ -55,6 +56,7 @@ export const view = Submodel.defineView<Model, Message>((model, h) =>
     controlsView(model, h),
     coinsView(model, h),
     pagerView(model, h),
+    scopeView(model, h),
     editorView(model, h),
     removeView(model, h),
   ]))
@@ -67,11 +69,32 @@ const flagChoices = [
   { value: 'single', label: 'Single market' },
 ] as const
 
+const searchFieldChoices = [
+  { field: 'symbol', label: 'Symbol' },
+  { field: 'name', label: 'Name' },
+  { field: 'id', label: 'Id' },
+  { field: 'slug', label: 'Slug' },
+  { field: 'coingeckoId', label: 'CoinGecko id' },
+] as const
+
+const scopeLabel = (query: CoinsQuery): string =>
+  Option.match(query.exchangeId, {
+    onSome: (id) => `Exchange #${id}`,
+    onNone: () =>
+      Option.match(query.chainId, {
+        onSome: (id) => `Chain #${id}`,
+        onNone: () => 'Scope',
+      }),
+  })
+
+const hasScope = (query: CoinsQuery): boolean =>
+  Option.isSome(query.exchangeId) || Option.isSome(query.chainId)
+
 const flagLabel = (flag: CoinsQuery['flag']): string =>
   flag === 'blocked' ? 'Blocked routes' : flag === 'single' ? 'Single market' : 'All coins'
 
 const statusText = (query: CoinsQuery): string => {
-  if (query.search === '' && query.flag === 'all') {
+  if (query.search === '' && query.flag === 'all' && !hasScope(query)) {
     return 'All coins'
   }
 
@@ -85,32 +108,73 @@ const statusText = (query: CoinsQuery): string => {
     parts.push(flagLabel(query.flag))
   }
 
+  if (hasScope(query)) {
+    parts.push(scopeLabel(query))
+  }
+
   return parts.join(' · ')
 }
 
+const scopeControl = (model: Model, h: HtmlBuilder<Message>): Html =>
+  h.div([h.Class('flex items-center gap-2')], [
+    h.button(
+      [
+        h.Type('button'),
+        h.OnClick(Message.ClickedScope()),
+        h.Class(
+          'h-9 rounded-lg bg-card px-3 text-sm shadow-[var(--shadow-border)] transition-[scale,box-shadow,background-color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted',
+        ),
+      ],
+      [scopeLabel(model.query)],
+    ),
+    ...(hasScope(model.query)
+      ? [
+        h.button(
+          [
+            h.Type('button'),
+            h.OnClick(Message.ClickedClearScope()),
+            h.AriaLabel('Clear scope'),
+            h.Class('text-xs text-muted-foreground underline-offset-4 hover:underline'),
+          ],
+          ['Clear'],
+        ),
+      ]
+      : []),
+  ])
+
 const controlsView = (model: Model, h: HtmlBuilder<Message>): Html =>
-  h.div([h.Class('flex flex-wrap items-center gap-3')], [
-    searchField({
-      id: 'coin-search',
-      value: model.query.search,
-      placeholder: 'Search by symbol or name',
-      onInput: (value) => Message.UpdatedSearch({ value }),
-      h,
-    }),
-    h.div([h.Class('w-full sm:w-48')], [
-      selectField({
-        id: 'coin-coverage',
-        label: 'Coverage',
-        value: model.query.flag,
-        choices: [...flagChoices],
-        onChange: (value) =>
-          Message.ChangedFlag({
-            flag: value === 'blocked' ? 'blocked' : value === 'single' ? 'single' : 'all',
-          }),
+  h.div([h.Class('flex flex-col gap-3')], [
+    h.div([h.Class('flex flex-wrap items-center gap-3')], [
+      searchField({
+        id: 'coin-search',
+        value: model.query.search,
+        placeholder: 'Search coins',
+        onInput: (value) => Message.UpdatedSearch({ value }),
         h,
       }),
+      h.div([h.Class('w-full sm:w-48')], [
+        selectField({
+          id: 'coin-coverage',
+          label: 'Coverage',
+          value: model.query.flag,
+          choices: [...flagChoices],
+          onChange: (value) =>
+            Message.ChangedFlag({
+              flag: value === 'blocked' ? 'blocked' : value === 'single' ? 'single' : 'all',
+            }),
+          h,
+        }),
+      ]),
+      scopeControl(model, h),
+      h.p([h.Class('text-sm text-muted-foreground')], [statusText(model.query)]),
     ]),
-    h.p([h.Class('text-sm text-muted-foreground')], [statusText(model.query)]),
+    searchFieldsField({
+      legend: 'Search fields',
+      choices: searchFieldChoices,
+      selected: model.query.searchBy,
+      onToggle: (field, isChecked) => Message.ToggledSearchField({ field, isChecked }),
+      h,
+    }),
   ])
 
 // COINS
@@ -281,7 +345,137 @@ const pager = (
   query: CoinsQuery,
   h: HtmlBuilder<Message>,
 ): Html =>
-  pagination({ meta, toHref: (page) => coinsUrl({ ...query, page }), h })
+  h.div([h.Class('flex flex-wrap items-center justify-between gap-3')], [
+    pagination({ meta, toHref: (page) => coinsUrl({ ...query, page }), h }),
+    pageSizeSelect({
+      id: 'coins-page-size',
+      value: query.limit,
+      choices: pageSizeChoices,
+      onChange: (value) => Message.ChangedPageSize({ value }),
+      h,
+    }),
+  ])
+
+// SCOPE
+
+const scopeHint = (text: string, h: HtmlBuilder<Message>): Html =>
+  h.p([h.Class('text-xs text-muted-foreground')], [text])
+
+const scopeError = (detail: string, h: HtmlBuilder<Message>): Html =>
+  h.p([h.Class('text-xs text-destructive')], [detail])
+
+const scopeExchangeList = (
+  exchanges: ReadonlyArray<{ id: number, name: string, slug: string }>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.div(
+    [
+      h.Role('listbox'),
+      h.AriaLabel('Exchanges'),
+      h.Class('flex max-h-44 flex-col gap-1 overflow-y-auto'),
+    ],
+    exchanges.map((exchange) =>
+      h.button(
+        [
+          h.Type('button'),
+          h.OnClick(Message.PickedScopeExchange({ id: exchange.id, name: exchange.name })),
+          h.Role('option'),
+          h.Class('rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-muted/60'),
+        ],
+        [
+          h.span([h.Class('font-medium')], [exchange.name]),
+          ' ',
+          h.span([h.Class('text-xs text-muted-foreground')], [exchange.slug]),
+        ],
+      )
+    ),
+  )
+
+const scopeChainList = (
+  chains: ReadonlyArray<{ id: number, name: string, code: string }>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.div(
+    [
+      h.Role('listbox'),
+      h.AriaLabel('Chains'),
+      h.Class('flex max-h-44 flex-col gap-1 overflow-y-auto'),
+    ],
+    chains.map((chain) =>
+      h.button(
+        [
+          h.Type('button'),
+          h.OnClick(Message.PickedScopeChain({ id: chain.id, code: chain.code, name: chain.name })),
+          h.Role('option'),
+          h.Class('rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-muted/60'),
+        ],
+        [
+          h.span([h.Class('font-medium uppercase')], [chain.code]),
+          ' ',
+          h.span([h.Class('text-xs text-muted-foreground')], [chain.name]),
+        ],
+      )
+    ),
+  )
+
+const scopeExchangeOptions = (model: Model, h: HtmlBuilder<Message>): Html =>
+  AsyncData.match(model.scopeExchanges, {
+    onIdle: () => scopeHint('Search for the exchange to scope by.', h),
+    onLoading: () => scopeHint('Loading exchanges…', h),
+    onFailure: (detail) => scopeError(detail, h),
+    onRefreshing: (page) => scopeExchangeList(page.data, h),
+    onStale: ({ data }) => scopeExchangeList(data.data, h),
+    onSuccess: (page) =>
+      page.data.length === 0
+        ? scopeHint('No exchanges match.', h)
+        : scopeExchangeList(page.data, h),
+  })
+
+const scopeChainOptions = (model: Model, h: HtmlBuilder<Message>): Html =>
+  AsyncData.match(model.scopeChains, {
+    onIdle: () => scopeHint('Search for the chain to scope by.', h),
+    onLoading: () => scopeHint('Loading chains…', h),
+    onFailure: (detail) => scopeError(detail, h),
+    onRefreshing: (page) => scopeChainList(page.data, h),
+    onStale: ({ data }) => scopeChainList(data.data, h),
+    onSuccess: (page) =>
+      page.data.length === 0
+        ? scopeHint('No chains match.', h)
+        : scopeChainList(page.data, h),
+  })
+
+const scopeView = (model: Model, h: HtmlBuilder<Message>): Html =>
+  dialog({
+    model: model.scopeDialog,
+    title: 'Scope the coin listing',
+    description: 'Show only the coins listed on one exchange, or the coins that carry one chain.',
+    toParentMessage: (message) => Message.GotScopeDialogMessage({ message }),
+    content: h.div([h.Class('flex flex-col gap-4')], [
+      selectField({
+        id: 'scope-kind',
+        label: 'Scope by',
+        value: model.scopeKind,
+        choices: [
+          { value: 'exchange', label: 'Exchange' },
+          { value: 'chain', label: 'Chain' },
+        ],
+        onChange: (value) =>
+          Message.ChangedScopeKind({ kind: value === 'chain' ? 'chain' : 'exchange' }),
+        h,
+      }),
+      searchField({
+        id: 'scope-search',
+        value: model.scopeSearch,
+        placeholder: 'Search',
+        onInput: (value) => Message.UpdatedScopeSearch({ value }),
+        h,
+      }),
+      model.scopeKind === 'exchange'
+        ? scopeExchangeOptions(model, h)
+        : scopeChainOptions(model, h),
+    ]),
+    h,
+  })
 
 // DIALOG
 
@@ -367,6 +561,7 @@ const removeView = (model: Model, h: HtmlBuilder<Message>): Html =>
       'Market assignments and chain links for this coin are deleted with it, and worker coverage shrinks.',
     confirmLabel: 'Remove coin',
     isDestructive: true,
+    size: 'sm',
     onConfirm: Message.ClickedConfirmRemoveCoin(),
     toParentMessage: (message) => Message.GotRemoveDialogMessage({ message }),
     content: h.div([h.Class('flex flex-col gap-3')], [

@@ -2,6 +2,7 @@ export { badge, type Variant } from './badge'
 export { classNames } from './classNames'
 export { dialog } from './dialog'
 export { selectField, textField, toggleField, type Choice } from './field'
+export { pageSizeSelect, searchFieldsField } from './filters'
 export {
   formatAgo,
   formatCount,
@@ -10,7 +11,7 @@ export {
   pendingCount,
   trimmedOrEmpty,
 } from './format'
-export { icon, type Name } from './icon'
+export { icon, iconSwap, type Name } from './icon'
 export { logo } from './logo'
 export { action, iconAction, pageHeader, statStrip, type Stat } from './pageHeader'
 export { pagination } from './pagination'

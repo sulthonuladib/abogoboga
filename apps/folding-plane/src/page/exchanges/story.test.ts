@@ -54,6 +54,7 @@ const fixturePage = Schema.decodeUnknownSync(ExchangePageResponse)({
 
 const loadedModel = modifyFields(initialModel, {
   query: () => defaultExchangesQuery,
+  loadedQuery: () => Option.some(defaultExchangesQuery),
   exchanges: () => AsyncData.succeed(fixturePage),
 })
 
@@ -101,7 +102,7 @@ describe('update', () => {
       model((next) => {
         expect(next.query.search).toBe('bin')
       }),
-      Command.resolve(SearchExchanges({ search: 'bin' }), Message.CompletedSearchExchanges()),
+      Command.resolve(SearchExchanges({ query: { ...defaultExchangesQuery, search: 'bin' } }), Message.CompletedSearchExchanges()),
       Command.resolve(
         SearchExchanges.Interrupt((outcome) =>
           Message.CompletedInterruptSearchExchanges({ outcome })
@@ -111,6 +112,62 @@ describe('update', () => {
       Command.expectNone(),
       expectNoOutMessage(),
     )
+  })
+
+  test('a search keeps the current sort and resets the page', () => {
+    const filtered = {
+      ...defaultExchangesQuery,
+      sort: 'createdAt' as const,
+      order: 'desc' as const,
+      page: 3,
+    }
+    const target = {
+      ...defaultExchangesQuery,
+      sort: 'createdAt' as const,
+      order: 'desc' as const,
+      search: 'bin',
+      page: 1,
+    }
+
+    story(
+      update,
+      given(modifyFields(loadedModel, { query: () => filtered })),
+      message(Message.UpdatedSearch({ value: 'bin' })),
+      model((next) => {
+        expect(next.query).toEqual(target)
+      }),
+      Command.resolve(SearchExchanges({ query: target }), Message.CompletedSearchExchanges()),
+      Command.resolve(
+        SearchExchanges.Interrupt((outcome) =>
+          Message.CompletedInterruptSearchExchanges({ outcome })
+        ),
+        Message.CompletedInterruptSearchExchanges({ outcome: Interruptible.Outcome.NotFound() }),
+      ),
+      Command.expectNone(),
+      expectNoOutMessage(),
+    )
+  })
+
+  test('a landed search issues exactly one read though the draft already holds the text', () => {
+    const typed = update(loadedModel, Message.UpdatedSearch({ value: 'bin' })).model
+    const landed = informRouteChanged(typed, { ...defaultExchangesQuery, search: 'bin' })
+
+    expect(landed.commands?.map((command) => command.name)).toEqual([FetchExchanges.name])
+    expect(AsyncData.isLoading(landed.model.exchanges)).toBe(true)
+  })
+
+  test('a searched-field or size change is fetched with the new query', () => {
+    const query = {
+      ...defaultExchangesQuery,
+      searchBy: ['id'] as const,
+      limit: 10,
+      page: 2,
+    }
+    const next = informRouteChanged(loadedModel, query)
+
+    expect(next.commands?.map((command) => command.name)).toEqual([FetchExchanges.name])
+    expect(next.model.query).toEqual(query)
+    expect(AsyncData.isLoading(next.model.exchanges)).toBe(true)
   })
 
   test('sorting a new column navigates ascending from the first page', () => {

@@ -35,6 +35,7 @@ const statsQuery = (payload: typeof CryptocurrencyStatsPayload.Type): Cryptocurr
   window: toListWindow(payload),
   limit: payload.limit,
   search: payload.search,
+  searchBy: [...new Set(payload.searchBy)],
   flag: payload.flag,
   sortBy: payload.sortBy,
   order: payload.order,

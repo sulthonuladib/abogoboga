@@ -1,7 +1,6 @@
 import { AsyncData, Submodel } from 'foldkit'
 import { Array, Option } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
-import { Input } from '@foldkit/ui'
 
 import type { CoinMetadata } from '../../api'
 import { coinsUrl, defaultCoinsQuery, exchangeDetailUrl } from '../../route'
@@ -11,6 +10,7 @@ import { textField, toggleField } from '../../ui/field'
 import { formatCount } from '../../ui/format'
 import { icon } from '../../ui/icon'
 import { action, iconAction, pageHeader } from '../../ui/pageHeader'
+import { pickerSearch } from '../../ui/picker'
 import { emptyState, errorPanel, sectionHeading } from '../../ui/states'
 import {
   body,
@@ -24,45 +24,6 @@ import {
 import { Message } from './message'
 import { Model, isAssignValid, isEditValid, isLinkValid } from './model'
 import { statusLabel, statusOf, viableFor } from './update'
-
-// PICKER SEARCH
-
-const pickerControlClass =
-  'h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
-
-/**
- * A search box inside a picker dialog. Unlike the listing search, it carries
- * an accessible name so the exchange picker and the chain picker can be told
- * apart when both dialogs are open.
- */
-const pickerSearch = <M>(
-  input: Readonly<{
-    id: string
-    label: string
-    value: string
-    placeholder: string
-    onInput: (value: string) => M
-    h: HtmlBuilder<M>
-  }>,
-): Html =>
-  Input.view(
-    {
-      id: input.id,
-      value: input.value,
-      onInput: input.onInput,
-      type: 'search',
-      placeholder: input.placeholder,
-      toView: (attributes) =>
-        input.h.div([input.h.Class('w-full')], [
-          input.h.input([
-            ...attributes.input,
-            input.h.AriaLabel(input.label),
-            input.h.Class(pickerControlClass),
-          ]),
-        ]),
-    },
-    input.h,
-  )
 
 // VIEW
 
@@ -457,6 +418,7 @@ const assignView = (model: Model, h: HtmlBuilder<Message>): Html =>
     model: model.assignDialog,
     title: 'Assign market',
     description: 'Pick the exchange that lists this coin and the symbol it trades under there.',
+    size: 'lg',
     confirmLabel: 'Confirm assign',
     isConfirmDisabled: !isAssignValid(model) || model.isSaving,
     onConfirm: Message.ClickedConfirmAssign(),
@@ -602,6 +564,7 @@ const unassignView = (model: Model, h: HtmlBuilder<Message>): Html =>
     description: 'The market and all of its chain links are deleted; worker coverage for this coin shrinks.',
     confirmLabel: 'Unassign market',
     isDestructive: true,
+    size: 'sm',
     onConfirm: Message.ClickedConfirmUnassign(),
     toParentMessage: (message) => Message.GotUnassignDialogMessage({ message }),
     content: h.div([h.Class('flex flex-col gap-3')], [
@@ -631,6 +594,7 @@ const linksOf = (
 const linksView = (model: Model, h: HtmlBuilder<Message>): Html =>
   dialog({
     model: model.linksDialog,
+    size: 'lg',
     title: Option.match(model.managing, {
       onNone: () => 'Chain links',
       onSome: ({ name }) => `Chains for ${name}`,
@@ -638,51 +602,83 @@ const linksView = (model: Model, h: HtmlBuilder<Message>): Html =>
     description: 'A route exists between two markets only when one side can withdraw and the other can deposit on the same chain.',
     confirmLabel: 'Add chain link',
     isConfirmDisabled: !isLinkValid(model) || model.isSaving,
-    onConfirm: Message.ClickedAddLink(),
+    onConfirm: model.linkMode === 'add' ? Message.ClickedAddLink() : undefined,
     toParentMessage: (message) => Message.GotLinksDialogMessage({ message }),
-    content: h.div([h.Class('flex flex-col gap-4')], [
-      ...noticeView(model.linksNotice, h),
-      currentLinks(model, h),
-      h.div([h.Class('flex flex-col gap-4 rounded-2xl border border-dashed p-3')], [
-        h.p([h.Class('text-sm font-medium')], ['Link another chain']),
-        pickerSearch({
-          id: 'link-chain-search',
-          label: 'Search chains',
-          value: model.linkSearch,
-          placeholder: 'Search chains',
-          onInput: (value) => Message.UpdatedLinkSearch({ value }),
-          h,
-        }),
-        chainPicker(model, h),
-        textField({
-          id: 'link-code',
-          label: 'Exchange chain code',
-          field: model.linkCode,
-          hint: 'The code this exchange uses, for example ERC20.',
-          placeholder: 'ERC20',
-          onInput: (value) => Message.UpdatedLinkCode({ value }),
-          h,
-        }),
-        h.div([h.Class('flex items-center gap-4')], [
-          toggleField({
-            id: 'link-withdraw',
-            label: 'Withdraw',
-            isChecked: model.linkWithdraw,
-            onToggle: (isChecked) => Message.ToggledLinkWithdraw({ isChecked }),
-            h,
-          }),
-          toggleField({
-            id: 'link-deposit',
-            label: 'Deposit',
-            isChecked: model.linkDeposit,
-            onToggle: (isChecked) => Message.ToggledLinkDeposit({ isChecked }),
-            h,
-          }),
-        ]),
-      ]),
-    ]),
+    content: renderLinkHalf(model, h),
     h,
   })
+
+const renderLinkHalf = (model: Model, h: HtmlBuilder<Message>): Html => {
+  if (model.linkMode === 'add') {
+    return addLinkForm(model, h)
+  }
+
+  return manageLinks(model, h)
+}
+
+const manageLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
+  h.div([h.Class('flex flex-col gap-4')], [
+    ...noticeView(model.linksNotice, h),
+    currentLinks(model, h),
+    h.button(
+      [
+        h.Type('button'),
+        h.OnClick(Message.ClickedAddAnotherLink()),
+        h.Class('self-start rounded-lg border border-dashed px-3 py-1.5 text-sm hover:bg-muted/60'),
+      ],
+      ['Link another chain'],
+    ),
+  ])
+
+const addLinkForm = (model: Model, h: HtmlBuilder<Message>): Html =>
+  h.div([h.Class('flex flex-col gap-4')], [
+    ...noticeView(model.linksNotice, h),
+    h.button(
+      [
+        h.Type('button'),
+        h.OnClick(Message.ClickedBackToLinkList()),
+        h.Class('self-start text-xs text-muted-foreground hover:text-foreground'),
+      ],
+      ['← Back to links'],
+    ),
+    h.div([h.Class('flex flex-col gap-4 rounded-2xl border border-dashed p-2')], [
+      h.p([h.Class('text-sm font-medium')], ['Link another chain']),
+      pickerSearch({
+        id: 'link-chain-search',
+        label: 'Search chains',
+        value: model.linkSearch,
+        placeholder: 'Search chains',
+        onInput: (value) => Message.UpdatedLinkSearch({ value }),
+        h,
+      }),
+      chainPicker(model, h),
+      textField({
+        id: 'link-code',
+        label: 'Exchange chain code',
+        field: model.linkCode,
+        hint: 'The code this exchange uses, for example ERC20.',
+        placeholder: 'ERC20',
+        onInput: (value) => Message.UpdatedLinkCode({ value }),
+        h,
+      }),
+      h.div([h.Class('flex items-center gap-4')], [
+        toggleField({
+          id: 'link-withdraw',
+          label: 'Withdraw',
+          isChecked: model.linkWithdraw,
+          onToggle: (isChecked) => Message.ToggledLinkWithdraw({ isChecked }),
+          h,
+        }),
+        toggleField({
+          id: 'link-deposit',
+          label: 'Deposit',
+          isChecked: model.linkDeposit,
+          onToggle: (isChecked) => Message.ToggledLinkDeposit({ isChecked }),
+          h,
+        }),
+      ]),
+    ]),
+  ])
 
 const currentLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
   Option.match(AsyncData.getData(model.metadata), {
@@ -697,9 +693,14 @@ const currentLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
             return h.p([h.Class('text-sm text-muted-foreground')], ['No chains linked yet.'])
           }
 
-          return h.ul([h.Class('flex flex-col divide-y rounded-2xl border')], [
-            ...links.map((link) =>
-              h.li(
+          return h.ul([h.Class('flex flex-col divide-y rounded-lg border')], [
+            ...links.map((link) => {
+              const pending = model.pendingToggles.find((toggle) => toggle.linkId === link.linkId)
+              const withdrawEnabled = pending?.withdrawEnabled ?? link.withdrawEnabled
+              const depositEnabled = pending?.depositEnabled ?? link.depositEnabled
+
+              return h.keyed('li')(
+                String(link.linkId),
                 [h.Class('flex flex-wrap items-center gap-2 px-3 py-2')],
                 [
                   h.div([h.Class('min-w-0 flex-1')], [
@@ -713,16 +714,18 @@ const currentLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
                       h.Type('button'),
                       h.OnClick(
                         Message.ClickedToggleLink({
+                          marketId,
+                          chainId: link.id,
                           linkId: link.linkId,
-                          withdrawEnabled: !link.withdrawEnabled,
-                          depositEnabled: link.depositEnabled,
+                          withdrawEnabled: !withdrawEnabled,
+                          depositEnabled,
                           exchangeChainCode: link.exchangeChainCode,
                           exchangeChainName: link.exchangeChainName,
                         }),
                       ),
-                      h.AriaPressed(link.withdrawEnabled ? 'true' : 'false'),
+                      h.AriaPressed(withdrawEnabled ? 'true' : 'false'),
                       h.Class(
-                        link.withdrawEnabled
+                        withdrawEnabled
                           ? 'rounded-lg bg-muted px-2 py-1 text-xs'
                           : 'rounded-lg border px-2 py-1 text-xs',
                       ),
@@ -734,16 +737,18 @@ const currentLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
                       h.Type('button'),
                       h.OnClick(
                         Message.ClickedToggleLink({
+                          marketId,
+                          chainId: link.id,
                           linkId: link.linkId,
-                          withdrawEnabled: link.withdrawEnabled,
-                          depositEnabled: !link.depositEnabled,
+                          withdrawEnabled,
+                          depositEnabled: !depositEnabled,
                           exchangeChainCode: link.exchangeChainCode,
                           exchangeChainName: link.exchangeChainName,
                         }),
                       ),
-                      h.AriaPressed(link.depositEnabled ? 'true' : 'false'),
+                      h.AriaPressed(depositEnabled ? 'true' : 'false'),
                       h.Class(
-                        link.depositEnabled
+                        depositEnabled
                           ? 'rounded-lg bg-muted px-2 py-1 text-xs'
                           : 'rounded-lg border px-2 py-1 text-xs',
                       ),
@@ -758,7 +763,7 @@ const currentLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
                   }),
                 ],
               )
-            ),
+            }),
           ])
         },
       }),
@@ -810,22 +815,9 @@ const chainOptions = (
         ],
       )
     }),
-    ...(search === '' || exact || chains.length > 0 && exact
+    ...(search === '' || exact
       ? []
-      : search === ''
-        ? []
-        : [
-          h.button(
-            [
-              h.Type('button'),
-              h.OnClick(Message.ClickedCreateChain()),
-              h.Class('rounded-lg border border-dashed px-2.5 py-1.5 text-left text-sm hover:bg-muted/60'),
-            ],
-            [`Add chain “${search}”`],
-          ),
-        ]),
-    ...(chains.length === 0 && search !== ''
-      ? [
+      : [
         h.button(
           [
             h.Type('button'),
@@ -834,8 +826,7 @@ const chainOptions = (
           ],
           [`Add chain “${search}”`],
         ),
-      ]
-      : []),
+      ]),
   ])
 }
 
@@ -851,6 +842,7 @@ const unlinkView = (model: Model, h: HtmlBuilder<Message>): Html =>
     description: 'Routes through this chain disappear immediately; re-linking restores them.',
     confirmLabel: 'Unlink chain',
     isDestructive: true,
+    size: 'sm',
     onConfirm: Message.ClickedConfirmUnlink(),
     toParentMessage: (message) => Message.GotUnlinkDialogMessage({ message }),
     content: h.div([h.Class('flex flex-col gap-3')], [

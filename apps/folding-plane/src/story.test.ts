@@ -12,7 +12,7 @@ import { Message } from './message'
 import * as Chains from './page/chains'
 import * as Dashboard from './page/dashboard'
 import * as Exchanges from './page/exchanges'
-import { AppRoute } from './route'
+import { AppRoute, defaultChainsQuery } from './route'
 import { themeFromCookieHeader } from './theme'
 import { FetchCoverage, PersistTheme, update } from './update'
 
@@ -24,8 +24,10 @@ const urlOrThrow = (raw: string) =>
 
 const chainsRoute = AppRoute.Chains({
   search: Option.none(),
+  searchBy: Option.none(),
   sort: Option.none(),
   order: Option.none(),
+  limit: Option.none(),
   page: Option.none(),
 })
 
@@ -55,7 +57,10 @@ describe('route change', () => {
       given(modifyFields(initialModel, {
         route: () => chainsRoute,
         chains: (chains) =>
-          modifyFields(chains, { chains: () => AsyncData.Loading() }),
+          modifyFields(chains, {
+            loadedQuery: () => Option.some(defaultChainsQuery),
+            chains: () => AsyncData.Loading(),
+          }),
       })),
       message(Message.ChangedUrl({ url: urlOrThrow('http://localhost/chains') })),
       model((next) => {

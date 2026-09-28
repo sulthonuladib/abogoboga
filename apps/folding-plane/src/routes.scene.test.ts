@@ -10,9 +10,13 @@ import { view } from './view'
 
 const coinsRoute = AppRoute.Coins({
   search: Option.none(),
+  searchBy: Option.none(),
   flag: Option.none(),
   sort: Option.none(),
   order: Option.none(),
+  limit: Option.none(),
+  exchangeId: Option.none(),
+  chainId: Option.none(),
   page: Option.none(),
 })
 
@@ -20,15 +24,19 @@ const coinRoutesRoute = AppRoute.CoinRoutes({ coinId: 1 })
 
 const exchangesRoute = AppRoute.Exchanges({
   search: Option.none(),
+  searchBy: Option.none(),
   sort: Option.none(),
   order: Option.none(),
+  limit: Option.none(),
   page: Option.none(),
 })
 
 const chainsRoute = AppRoute.Chains({
   search: Option.none(),
+  searchBy: Option.none(),
   sort: Option.none(),
   order: Option.none(),
+  limit: Option.none(),
   page: Option.none(),
 })
 

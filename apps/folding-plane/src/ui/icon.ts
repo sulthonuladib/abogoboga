@@ -67,3 +67,48 @@ export const icon = <Message>(
     ],
     marks[name].map((mark) => h.path([h.D(mark.path)])),
   )
+
+// ICON SWAP
+
+const crossFadeClass =
+  'transition-[opacity,filter,scale] duration-300 ease-[cubic-bezier(0.2,0,0,1)]'
+
+/**
+ * A mark that changes with its state, crossfading its outline and filled
+ * variants rather than swapping assets. Both SVGs stay in the DOM with the
+ * filled one overlaid, so entering and leaving both animate. The wrapper owns
+ * the layout size, and the state also shows as color on the surrounding
+ * control, so the change survives with motion off.
+ */
+export const iconSwap = <Message>(
+  name: Name,
+  isActive: boolean,
+  h: HtmlBuilder<Message>,
+  sizeClass: string = 'size-4',
+): Html =>
+  h.span([h.Class(classNames('relative inline-flex shrink-0', sizeClass))], [
+    h.span(
+      [
+        h.Class(
+          classNames(
+            'inline-flex size-full items-center justify-center',
+            crossFadeClass,
+            isActive ? 'scale-[0.25] opacity-0 blur-[4px]' : 'scale-100 opacity-100 blur-0',
+          ),
+        ),
+      ],
+      [icon(name, h, 'size-full')],
+    ),
+    h.span(
+      [
+        h.Class(
+          classNames(
+            'absolute inset-0 inline-flex items-center justify-center',
+            crossFadeClass,
+            isActive ? 'scale-100 opacity-100 blur-0' : 'scale-[0.25] opacity-0 blur-[4px]',
+          ),
+        ),
+      ],
+      [icon(name, h, 'size-full', true)],
+    ),
+  ])

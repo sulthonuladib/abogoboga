@@ -14,16 +14,35 @@ import { modifyFields } from 'foldkit/struct'
 import { describe, test } from 'vitest'
 
 import { initialModel } from './model'
+import { Coverage } from './coverage'
 import { chainsUrl, dashboardRouter, defaultChainsQuery } from './route'
 import { ThemeMenu } from './themeMenu'
 import { update } from './update'
 import { view } from './view'
+
+const coverageFigures = Coverage.make({
+  coins: 41,
+  exchanges: 7,
+  chains: 9,
+  markets: 13,
+  runningWorkers: 2,
+  totalWorkers: 3,
+  reconnectingShards: 1,
+})
 
 const failedCoverageModel = modifyFields(initialModel, {
   coverage: () =>
     AsyncData.fail(
       'could not reach the API. Check that the control plane is running.',
     ),
+})
+
+const refreshingCoverageModel = modifyFields(initialModel, {
+  coverage: () => AsyncData.Refreshing({ data: coverageFigures }),
+})
+
+const staleCoverageModel = modifyFields(initialModel, {
+  coverage: () => AsyncData.Stale({ error: 'unreachable', data: coverageFigures }),
 })
 
 const openMenuModel = modifyFields(initialModel, {
@@ -76,6 +95,26 @@ describe('shell', () => {
     scene(
       { update, view },
       given(failedCoverageModel),
+      expect(role('button', { name: 'Retry coverage' })).toExist(),
+    )
+  })
+
+  test('a refresh keeps the previous figures on screen', () => {
+    scene(
+      { update, view },
+      given(refreshingCoverageModel),
+      expect(text('Coins')).toExist(),
+      expect(text('41')).toExist(),
+      expect(role('button', { name: 'Retry coverage' })).toBeAbsent(),
+    )
+  })
+
+  test('a failed refresh keeps the figures, names them stale, and offers a retry', () => {
+    scene(
+      { update, view },
+      given(staleCoverageModel),
+      expect(text('41')).toExist(),
+      expect(text('Totals may be out of date.')).toExist(),
       expect(role('button', { name: 'Retry coverage' })).toExist(),
     )
   })

@@ -16,11 +16,18 @@ import {
 import { modifyFields } from 'foldkit/struct'
 import { describe, test } from 'vitest'
 
-import { CryptocurrencyStatsPageResponse } from '../../api'
+import { CryptocurrencyStatsPageResponse, ExchangePageResponse } from '../../api'
 import { coinRoutesUrl, coinsUrl, defaultCoinsQuery } from '../../route'
 import { Message } from './message'
 import { Model, initialModel } from './model'
-import { AddCoin, DeleteCoin, FetchCoins, NavigateCoins, update } from './update'
+import {
+  AddCoin,
+  DeleteCoin,
+  FetchCoins,
+  FetchScopeExchanges,
+  NavigateCoins,
+  update,
+} from './update'
 import { view } from './view'
 
 const fixturePage = Schema.decodeUnknownSync(CryptocurrencyStatsPageResponse)({
@@ -88,6 +95,7 @@ const emptyPage = Schema.decodeUnknownSync(CryptocurrencyStatsPageResponse)({
 
 const loadedModel: Model = modifyFields(initialModel, {
   query: () => defaultCoinsQuery,
+  loadedQuery: () => Option.some(defaultCoinsQuery),
   coins: () => AsyncData.succeed(fixturePage),
 })
 
@@ -95,6 +103,36 @@ const resolveDialogOpen = [
   Command.resolve(Dialog.ShowDialog, Dialog.Message.SucceededShowDialog()),
   Mount.resolve(Dialog.AcquireResources, Dialog.Message.SucceededAcquireResources()),
 ] as const
+
+const fixtureExchanges = Schema.decodeUnknownSync(ExchangePageResponse)({
+  data: [
+    {
+      id: 10,
+      coingeckoId: 'binance',
+      name: 'Binance',
+      slug: 'binance',
+      logo: '',
+      registeredOnCmc: true,
+      baseCurrency: 'usdt',
+      createdAt: '2024-01-02T03:04:05.000Z',
+      updatedAt: '2024-01-02T03:04:05.000Z',
+    },
+  ],
+  meta: {
+    items: 1,
+    pages: 1,
+    page: 1,
+    limit: 20,
+    from: 1,
+    to: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+    search: '',
+    searchBy: 'name',
+    order: 'asc',
+    orderBy: 'name',
+  },
+})
 
 describe('coins listing', () => {
   test('page numbers are links that mark the current page', () => {
@@ -186,6 +224,60 @@ describe('coins listing', () => {
     )
   })
 
+  test('a searched field is a navigation that keeps the others', () => {
+    scene(
+      { update, view },
+      given(loadedModel),
+      click(role('checkbox', { name: 'Slug' })),
+      Command.resolve(
+        NavigateCoins({
+          url: coinsUrl({ ...defaultCoinsQuery, searchBy: ['symbol', 'name', 'slug'], page: 1 }),
+        }),
+        Message.CompletedNavigateCoins(),
+      ),
+    )
+  })
+
+  test('the page size is a navigation that resets to the first page', () => {
+    scene(
+      { update, view },
+      given(loadedModel),
+      expect(role('combobox', { name: 'Rows per page' })).toHaveValue('20'),
+      change(role('combobox', { name: 'Rows per page' }), '50'),
+      Command.resolve(
+        NavigateCoins({
+          url: coinsUrl({ ...defaultCoinsQuery, limit: 50, page: 1 }),
+        }),
+        Message.CompletedNavigateCoins(),
+      ),
+    )
+  })
+
+  test('scoping to an exchange is a navigation and closes the picker', () => {
+    scene(
+      { update, view },
+      given(loadedModel),
+      click(role('button', { name: 'Scope' })),
+      Command.resolve(
+        FetchScopeExchanges({ search: '' }),
+        Message.SettledFetchScopeExchanges({ result: Result.succeed(fixtureExchanges) }),
+      ),
+      ...resolveDialogOpen,
+      click(role('option', { name: 'Binance binance' })),
+      Command.resolve(
+        NavigateCoins({
+          url: coinsUrl({ ...defaultCoinsQuery, exchangeId: Option.some(10), page: 1 }),
+        }),
+        Message.CompletedNavigateCoins(),
+      ),
+      Command.resolve(
+        Dialog.CloseDialog({ id: 'coin-scope' }),
+        Dialog.Message.CompletedCloseDialog(),
+      ),
+      Mount.expectEnded(Dialog.AcquireResources),
+    )
+  })
+
   test('a failed read shows the reason with a retry', () => {
     scene(
       { update, view },
@@ -266,6 +358,7 @@ describe('coins listing', () => {
       click(role('button', { name: 'Remove BTC' })),
       ...resolveDialogOpen,
       expect(text('Remove BTC?')).toExist(),
+      expect(role('dialog', { name: 'Remove BTC?' })).toHaveAttr('data-size', 'sm'),
       expect(text('BTC is removed with every market and chain link that names it. Re-adding the coin does not restore those routes.')).toExist(),
       expect(role('button', { name: 'Remove coin' })).toBeEnabled(),
     )
