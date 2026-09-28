@@ -6,7 +6,7 @@ import { pushUrl, replaceUrl } from 'foldkit/navigation'
 import { modifyFields } from 'foldkit/struct'
 
 import { type ApiFailure, type ApiOrigin, type ChainPage, Query, call } from '../../api'
-import { ChainsQuery, type Order, chainsUrl, defaultChainsQuery } from '../../route'
+import { ChainsQuery, type Order, chainsUrl } from '../../route'
 import { trimmedOrEmpty } from '../../ui/format'
 import { searchDelay } from '../../ui/search'
 import { Message, OutMessage } from './message'
@@ -17,7 +17,6 @@ import {
   initialModel,
   isFormValid,
   nameRules,
-  pageSize,
 } from './model'
 
 type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage>
@@ -35,12 +34,12 @@ const flipped = (order: Order): Order => (order === 'asc' ? 'desc' : 'asc')
  * of racing it, and only the last one reaches the URL.
  */
 export const SearchChains = Command.define('SearchChains', {
-  args: { search: Schema.String },
+  args: { query: ChainsQuery },
   messages: [Message.CompletedSearchChains, Message.CompletedInterruptSearchChains],
   interrupt: true,
-  execute: ({ search }) =>
+  execute: ({ query }) =>
     Effect.sleep(searchDelay).pipe(
-      Effect.andThen(replaceUrl(chainsUrl({ ...defaultChainsQuery, search }))),
+      Effect.andThen(replaceUrl(chainsUrl(query))),
       Effect.as(Message.CompletedSearchChains()),
       Effect.catch(() => Effect.succeed(Message.CompletedSearchChains())),
     ),
@@ -68,7 +67,7 @@ export const NavigateChains = Command.define('NavigateChains', {
 export const readChains = (
   query: ChainsQuery,
 ): Effect.Effect<ChainPage, ApiFailure, ApiOrigin | HttpClient.HttpClient> =>
-  Query.listChains({ ...query, limit: pageSize })
+  Query.listChains(query)
 
 export const FetchChains = Command.define('FetchChains', {
   args: { query: ChainsQuery },
@@ -187,6 +186,7 @@ const openRemoveDialog = Update.foldChildStep({
 const loadQuery = (model: Model, query: ChainsQuery): Update.Return<Model, Message> => ({
   model: modifyFields(model, {
     query: () => query,
+    loadedQuery: () => Option.some(query),
     chains: () => AsyncData.Loading(),
   }),
   commands: [FetchChains({ query })],
@@ -203,8 +203,10 @@ const refresh: Update.Step<Model, Message> = (model) =>
 
 const sameQuery = (current: ChainsQuery, next: ChainsQuery): boolean =>
   current.search === next.search &&
+  current.searchBy.join(',') === next.searchBy.join(',') &&
   current.sort === next.sort &&
   current.order === next.order &&
+  current.limit === next.limit &&
   current.page === next.page
 
 // INIT
@@ -222,6 +224,7 @@ export const init = (
     onSome: (chains) => ({
       model: modifyFields(initialModel, {
         query: () => query,
+        loadedQuery: () => Option.some(query),
         chains: () => chains,
       }),
     }),
@@ -230,28 +233,34 @@ export const init = (
 /**
  * Tell the page the URL changed. The page owns no route, so it derives its
  * query from the one it is given and returns the fetch that query needs. A
- * click that leaves the query as it was fetches nothing, unless the page
- * never loaded at all: arriving from another page on the query the listing
- * already holds still needs its first read.
+ * click that leaves the last loaded query as it was fetches nothing, while a
+ * search whose debounced navigation lands on a query the page has not read
+ * still issues its read.
  */
 export const informRouteChanged = (
   model: Model,
   query: ChainsQuery,
 ): Update.Return<Model, Message> =>
-  sameQuery(model.query, query) && !AsyncData.isIdle(model.chains)
-    ? { model }
-    : loadQuery(model, query)
+  Option.match(model.loadedQuery, {
+    onNone: () => loadQuery(model, query),
+    onSome: (loaded) => (sameQuery(loaded, query) ? { model } : loadQuery(model, query)),
+  })
 
 // UPDATE
 
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
-    UpdatedSearch: ({ value }) => ({
-      model: modifyFields(model, {
-        query: (query) => modifyFields(query, { search: () => value }),
-      }),
-      commands: [interruptSearch(), SearchChains({ search: value })],
-    }),
+    UpdatedSearch: ({ value }) => {
+      const query = modifyFields(model.query, {
+        search: () => value,
+        page: () => 1,
+      })
+
+      return {
+        model: modifyFields(model, { query: () => query }),
+        commands: [interruptSearch(), SearchChains({ query })],
+      }
+    },
 
     CompletedSearchChains: () => ({ model }),
     CompletedInterruptSearchChains: () => ({ model }),
@@ -268,6 +277,34 @@ export const update = (model: Model, message: Message): UpdateReturn =>
           }),
         ],
       }
+    },
+
+    ChangedPageSize: ({ value }) => ({
+      model,
+      commands: [
+        NavigateChains({
+          url: chainsUrl({ ...model.query, limit: value, page: 1 }),
+        }),
+      ],
+    }),
+
+    ToggledSearchField: ({ field, isChecked }) => {
+      const next = isChecked
+        ? model.query.searchBy.includes(field)
+          ? model.query.searchBy
+          : [...model.query.searchBy, field]
+        : model.query.searchBy.filter((candidate) => candidate !== field)
+
+      return next.length === 0
+        ? { model }
+        : {
+          model,
+          commands: [
+            NavigateChains({
+              url: chainsUrl({ ...model.query, searchBy: next, page: 1 }),
+            }),
+          ],
+        }
     },
 
     ClickedRetry: () => refresh(model),

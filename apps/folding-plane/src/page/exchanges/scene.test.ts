@@ -4,6 +4,7 @@ import { AsyncData, FieldValidation } from 'foldkit'
 import {
   Command,
   Mount,
+  change,
   click,
   expect,
   given,
@@ -19,7 +20,7 @@ import { ExchangePageResponse } from '../../api'
 import { defaultExchangesQuery, exchangeDetailUrl, exchangesUrl } from '../../route'
 import { Message } from './message'
 import { Model, initialModel } from './model'
-import { AddExchange, DeleteExchange, FetchExchanges, update } from './update'
+import { AddExchange, DeleteExchange, FetchExchanges, NavigateExchanges, update } from './update'
 import { view } from './view'
 
 const fixturePage = Schema.decodeUnknownSync(ExchangePageResponse)({
@@ -83,6 +84,7 @@ const emptyPage = Schema.decodeUnknownSync(ExchangePageResponse)({
 
 const loadedModel: Model = modifyFields(initialModel, {
   query: () => defaultExchangesQuery,
+  loadedQuery: () => Option.some(defaultExchangesQuery),
   exchanges: () => AsyncData.succeed(fixturePage),
 })
 
@@ -278,6 +280,35 @@ describe('exchanges listing', () => {
       expect(role('textbox', { name: 'Name' })).toHaveValue('Binance'),
       expect(role('textbox', { name: 'Slug' })).toHaveValue('binance'),
       expect(role('textbox', { name: 'CoinGecko id' })).toHaveValue('binance'),
+    )
+  })
+
+  test('a searched field is a navigation', () => {
+    scene(
+      { update, view },
+      given(loadedModel),
+      click(role('checkbox', { name: 'Id' })),
+      Command.resolve(
+        NavigateExchanges({
+          url: exchangesUrl({ ...defaultExchangesQuery, searchBy: ['name', 'slug', 'id'], page: 1 }),
+        }),
+        Message.CompletedNavigateExchanges(),
+      ),
+    )
+  })
+
+  test('the page size is a navigation that resets to the first page', () => {
+    scene(
+      { update, view },
+      given(loadedModel),
+      expect(role('combobox', { name: 'Rows per page' })).toHaveValue('20'),
+      change(role('combobox', { name: 'Rows per page' }), '10'),
+      Command.resolve(
+        NavigateExchanges({
+          url: exchangesUrl({ ...defaultExchangesQuery, limit: 10, page: 1 }),
+        }),
+        Message.CompletedNavigateExchanges(),
+      ),
     )
   })
 })

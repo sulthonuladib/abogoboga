@@ -5,10 +5,6 @@ import { AsyncData, FieldValidation } from 'foldkit'
 import { ExchangePageResponse } from '../../api'
 import { ExchangesQuery, defaultExchangesQuery } from '../../route'
 
-// WINDOW
-
-export const pageSize = 20
-
 // FORM
 
 const maxLength = 255
@@ -52,6 +48,7 @@ export const Exchanges = AsyncData.Schema(ExchangePageResponse, Schema.String)
 
 export const Model = Schema.Struct({
   query: ExchangesQuery,
+  loadedQuery: Schema.Option(ExchangesQuery),
   exchanges: Exchanges.schema,
   editor: Dialog.Model,
   editing: Schema.Option(Editing),
@@ -75,6 +72,7 @@ export type Exchanges = typeof Exchanges.schema.Type
 
 export const init = (query: ExchangesQuery): Model => ({
   query,
+  loadedQuery: Option.none(),
   exchanges: AsyncData.Idle(),
   editor: Dialog.init({ id: 'exchange-editor' }),
   editing: Option.none(),

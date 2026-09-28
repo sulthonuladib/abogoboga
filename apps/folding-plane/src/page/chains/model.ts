@@ -5,10 +5,6 @@ import { AsyncData, FieldValidation } from 'foldkit'
 import { ChainPageResponse } from '../../api'
 import { ChainsQuery, defaultChainsQuery } from '../../route'
 
-// WINDOW
-
-export const pageSize = 20
-
 // FORM
 
 const maxLength = 255
@@ -36,6 +32,7 @@ export const Chains = AsyncData.Schema(ChainPageResponse, Schema.String)
 
 export const Model = Schema.Struct({
   query: ChainsQuery,
+  loadedQuery: Schema.Option(ChainsQuery),
   chains: Chains.schema,
   editor: Dialog.Model,
   editing: Schema.Option(Editing),
@@ -55,6 +52,7 @@ export type Chains = typeof Chains.schema.Type
 
 export const init = (query: ChainsQuery): Model => ({
   query,
+  loadedQuery: Option.none(),
   chains: AsyncData.Idle(),
   editor: Dialog.init({ id: 'chain-editor' }),
   editing: Option.none(),

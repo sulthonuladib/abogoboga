@@ -7,11 +7,13 @@ import {
   type Market
 } from "@lister/domain"
 import type {
+  CryptocurrencySearchField,
   CryptocurrencyStat,
   CryptocurrencyStatsFlag,
   CryptocurrencyStatsPage,
   CryptocurrencyStatsSort
 } from "../Cryptocurrency.ts"
+import { defaultStatsSearchBy } from "../Cryptocurrency.ts"
 import { paginationMeta } from "../Pagination.ts"
 
 /**
@@ -49,6 +51,7 @@ export type ListingStatsOracleQuery = {
   readonly page: number
   readonly limit: number
   readonly search: string
+  readonly searchBy?: ReadonlyArray<CryptocurrencySearchField> | undefined
   readonly flag: CryptocurrencyStatsFlag
   readonly sortBy: CryptocurrencyStatsSort
   readonly order: "asc" | "desc"
@@ -179,7 +182,7 @@ export function buildListingStatsOracle(
       page: query.page,
       limit: query.limit,
       search: query.search,
-      searchBy: "symbol",
+      searchBy: (query.searchBy ?? defaultStatsSearchBy).join(","),
       order: query.order,
       orderBy: query.sortBy
     })

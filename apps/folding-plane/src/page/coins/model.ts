@@ -2,12 +2,12 @@ import { Dialog } from '@foldkit/ui'
 import { Option, Schema } from 'effect'
 import { AsyncData, FieldValidation } from 'foldkit'
 
-import { CryptocurrencyStatsPageResponse } from '../../api'
+import {
+  ChainPageResponse,
+  CryptocurrencyStatsPageResponse,
+  ExchangePageResponse,
+} from '../../api'
 import { CoinsQuery, defaultCoinsQuery } from '../../route'
-
-// WINDOW
-
-export const pageSize = 20
 
 // FORM
 
@@ -50,13 +50,27 @@ export const logoRules = FieldValidation.makeRules({
 const Editing = Schema.Struct({ id: Schema.Int })
 const Removing = Schema.Struct({ id: Schema.Int, symbol: Schema.String })
 
+// SCOPE
+
+export const ScopeKind = Schema.Literals(['exchange', 'chain'])
+export type ScopeKind = typeof ScopeKind.Type
+
+export const ScopeExchanges = AsyncData.Schema(ExchangePageResponse, Schema.String)
+export const ScopeChains = AsyncData.Schema(ChainPageResponse, Schema.String)
+
 // MODEL
 
 export const Coins = AsyncData.Schema(CryptocurrencyStatsPageResponse, Schema.String)
 
 export const Model = Schema.Struct({
   query: CoinsQuery,
+  loadedQuery: Schema.Option(CoinsQuery),
   coins: Coins.schema,
+  scopeDialog: Dialog.Model,
+  scopeKind: ScopeKind,
+  scopeSearch: Schema.String,
+  scopeExchanges: ScopeExchanges.schema,
+  scopeChains: ScopeChains.schema,
   editor: Dialog.Model,
   editing: Schema.Option(Editing),
   symbol: FieldValidation.Field(Schema.String),
@@ -78,7 +92,13 @@ export type Coins = typeof Coins.schema.Type
 
 export const init = (query: CoinsQuery): Model => ({
   query,
+  loadedQuery: Option.none(),
   coins: AsyncData.Idle(),
+  scopeDialog: Dialog.init({ id: 'coin-scope' }),
+  scopeKind: 'exchange',
+  scopeSearch: '',
+  scopeExchanges: AsyncData.Idle(),
+  scopeChains: AsyncData.Idle(),
   editor: Dialog.init({ id: 'coin-editor' }),
   editing: Option.none(),
   symbol: FieldValidation.NotValidated({ value: '' }),

@@ -18,6 +18,9 @@ import {
   chainsUrl,
   coinsUrl,
   dashboardRouter,
+  defaultChainsQuery,
+  defaultCoinsQuery,
+  defaultExchangesQuery,
   exchangesUrl,
 } from './route'
 import { ThemeMenu, themeItems } from './themeMenu'
@@ -43,19 +46,19 @@ const navItems: ReadonlyArray<NavItem> = [
   },
   {
     label: 'Coins',
-    href: () => coinsUrl({ search: '', flag: 'all', sort: 'symbol', order: 'asc', page: 1 }),
+    href: () => coinsUrl(defaultCoinsQuery),
     mark: 'coin',
     isCurrent: (route) => route._tag === 'Coins' || route._tag === 'CoinRoutes',
   },
   {
     label: 'Exchanges',
-    href: () => exchangesUrl({ search: '', sort: 'name', order: 'asc', page: 1 }),
+    href: () => exchangesUrl(defaultExchangesQuery),
     mark: 'exchange',
     isCurrent: (route) => route._tag === 'Exchanges' || route._tag === 'ExchangeDetail',
   },
   {
     label: 'Chains',
-    href: () => chainsUrl({ search: '', sort: 'name', order: 'asc', page: 1 }),
+    href: () => chainsUrl(defaultChainsQuery),
     mark: 'chain',
     isCurrent: (route) => route._tag === 'Chains' || route._tag === 'ChainDetail',
   },
@@ -306,6 +309,14 @@ const coverageView = (model: Model, h: HtmlBuilder<Message>): Html =>
         ],
       ),
       h.dl([h.Class('mt-2 flex flex-col gap-1.5 text-xs')], coverageRows(model, h)),
+      ...(AsyncData.isStale(model.coverage)
+        ? [
+          h.p(
+            [h.Class('mt-1 text-xs text-muted-foreground'), h.Role('status')],
+            ['Totals may be out of date.'],
+          ),
+        ]
+        : []),
     ],
   )
 

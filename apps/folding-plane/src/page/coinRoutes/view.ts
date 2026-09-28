@@ -698,8 +698,13 @@ const currentLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
           }
 
           return h.ul([h.Class('flex flex-col divide-y rounded-2xl border')], [
-            ...links.map((link) =>
-              h.li(
+            ...links.map((link) => {
+              const pending = model.pendingToggles.find((toggle) => toggle.linkId === link.linkId)
+              const withdrawEnabled = pending?.withdrawEnabled ?? link.withdrawEnabled
+              const depositEnabled = pending?.depositEnabled ?? link.depositEnabled
+
+              return h.keyed('li')(
+                String(link.linkId),
                 [h.Class('flex flex-wrap items-center gap-2 px-3 py-2')],
                 [
                   h.div([h.Class('min-w-0 flex-1')], [
@@ -713,16 +718,18 @@ const currentLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
                       h.Type('button'),
                       h.OnClick(
                         Message.ClickedToggleLink({
+                          marketId,
+                          chainId: link.id,
                           linkId: link.linkId,
-                          withdrawEnabled: !link.withdrawEnabled,
-                          depositEnabled: link.depositEnabled,
+                          withdrawEnabled: !withdrawEnabled,
+                          depositEnabled,
                           exchangeChainCode: link.exchangeChainCode,
                           exchangeChainName: link.exchangeChainName,
                         }),
                       ),
-                      h.AriaPressed(link.withdrawEnabled ? 'true' : 'false'),
+                      h.AriaPressed(withdrawEnabled ? 'true' : 'false'),
                       h.Class(
-                        link.withdrawEnabled
+                        withdrawEnabled
                           ? 'rounded-lg bg-muted px-2 py-1 text-xs'
                           : 'rounded-lg border px-2 py-1 text-xs',
                       ),
@@ -734,16 +741,18 @@ const currentLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
                       h.Type('button'),
                       h.OnClick(
                         Message.ClickedToggleLink({
+                          marketId,
+                          chainId: link.id,
                           linkId: link.linkId,
-                          withdrawEnabled: link.withdrawEnabled,
-                          depositEnabled: !link.depositEnabled,
+                          withdrawEnabled,
+                          depositEnabled: !depositEnabled,
                           exchangeChainCode: link.exchangeChainCode,
                           exchangeChainName: link.exchangeChainName,
                         }),
                       ),
-                      h.AriaPressed(link.depositEnabled ? 'true' : 'false'),
+                      h.AriaPressed(depositEnabled ? 'true' : 'false'),
                       h.Class(
-                        link.depositEnabled
+                        depositEnabled
                           ? 'rounded-lg bg-muted px-2 py-1 text-xs'
                           : 'rounded-lg border px-2 py-1 text-xs',
                       ),
@@ -758,7 +767,7 @@ const currentLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
                   }),
                 ],
               )
-            ),
+            }),
           ])
         },
       }),
@@ -810,22 +819,9 @@ const chainOptions = (
         ],
       )
     }),
-    ...(search === '' || exact || chains.length > 0 && exact
+    ...(search === '' || exact
       ? []
-      : search === ''
-        ? []
-        : [
-          h.button(
-            [
-              h.Type('button'),
-              h.OnClick(Message.ClickedCreateChain()),
-              h.Class('rounded-lg border border-dashed px-2.5 py-1.5 text-left text-sm hover:bg-muted/60'),
-            ],
-            [`Add chain “${search}”`],
-          ),
-        ]),
-    ...(chains.length === 0 && search !== ''
-      ? [
+      : [
         h.button(
           [
             h.Type('button'),
@@ -834,8 +830,7 @@ const chainOptions = (
           ],
           [`Add chain “${search}”`],
         ),
-      ]
-      : []),
+      ]),
   ])
 }
 

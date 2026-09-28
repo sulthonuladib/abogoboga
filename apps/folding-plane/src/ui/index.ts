@@ -2,6 +2,7 @@ export { badge, type Variant } from './badge'
 export { classNames } from './classNames'
 export { dialog } from './dialog'
 export { selectField, textField, toggleField, type Choice } from './field'
+export { pageSizeSelect, searchFieldsField } from './filters'
 export {
   formatAgo,
   formatCount,

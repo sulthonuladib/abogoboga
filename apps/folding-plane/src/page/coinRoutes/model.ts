@@ -63,6 +63,12 @@ const RouteDetail = Schema.Struct({
   toId: Schema.Int,
 })
 
+const PendingToggle = Schema.Struct({
+  linkId: Schema.Int,
+  withdrawEnabled: Schema.Boolean,
+  depositEnabled: Schema.Boolean,
+})
+
 // MODEL
 
 export const Model = Schema.Struct({
@@ -94,6 +100,7 @@ export const Model = Schema.Struct({
   linkCode: FieldValidation.Field(Schema.String),
   linkWithdraw: Schema.Boolean,
   linkDeposit: Schema.Boolean,
+  pendingToggles: Schema.Array(PendingToggle),
   removingLink: Schema.Option(RemovingLink),
   unlinkDialog: Dialog.Model,
   // Route detail dialog
@@ -144,6 +151,7 @@ export const initFor = (coinId: number): Model => ({
   linkCode: FieldValidation.NotValidated({ value: '' }),
   linkWithdraw: true,
   linkDeposit: true,
+  pendingToggles: [],
   removingLink: Option.none(),
   unlinkDialog: Dialog.init({ id: 'coin-routes-unlink' }),
   routeDialog: Dialog.init({ id: 'coin-routes-detail' }),

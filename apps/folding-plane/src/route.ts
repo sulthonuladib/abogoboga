@@ -1,4 +1,10 @@
-import { ChainOrderField, ExchangeOrderField } from '@lister/api/client'
+import {
+  ChainOrderField,
+  ChainSearchField,
+  CryptocurrencySearchField,
+  ExchangeOrderField,
+  ExchangeSearchField,
+} from '@lister/api/client'
 import { Option, Schema, pipe } from 'effect'
 import { Route } from 'foldkit'
 import { defineRouteUnion, int, literal, slash } from 'foldkit/route'
@@ -14,6 +20,20 @@ export type CoverageFlag = typeof CoverageFlag.Type
 export const CoverageSort = Schema.Literals(['symbol', 'markets', 'chains', 'blocked'])
 export type CoverageSort = typeof CoverageSort.Type
 
+// FILTERS
+
+/**
+ * The page sizes a listing offers. The API accepts any non-negative limit up
+ * to 100, so a larger limit in an old bookmark still parses.
+ */
+export const pageSizeChoices = [10, 20, 50] as const
+
+export const defaultPageSize = 20
+
+export const defaultCoinsSearchBy: ReadonlyArray<CryptocurrencySearchField> = ['symbol', 'name']
+export const defaultExchangesSearchBy: ReadonlyArray<ExchangeSearchField> = ['name', 'slug']
+export const defaultChainsSearchBy: ReadonlyArray<ChainSearchField> = ['name', 'code']
+
 // QUERY
 
 /**
@@ -23,9 +43,13 @@ export type CoverageSort = typeof CoverageSort.Type
  */
 export const CoinsQuery = Schema.Struct({
   search: Schema.String,
+  searchBy: Schema.Array(CryptocurrencySearchField),
   flag: CoverageFlag,
   sort: CoverageSort,
   order: Order,
+  limit: Schema.Int,
+  exchangeId: Schema.Option(Schema.Int),
+  chainId: Schema.Option(Schema.Int),
   page: Schema.Int,
 })
 
@@ -33,8 +57,10 @@ export type CoinsQuery = typeof CoinsQuery.Type
 
 export const ExchangesQuery = Schema.Struct({
   search: Schema.String,
+  searchBy: Schema.Array(ExchangeSearchField),
   sort: ExchangeOrderField,
   order: Order,
+  limit: Schema.Int,
   page: Schema.Int,
 })
 
@@ -42,8 +68,10 @@ export type ExchangesQuery = typeof ExchangesQuery.Type
 
 export const ChainsQuery = Schema.Struct({
   search: Schema.String,
+  searchBy: Schema.Array(ChainSearchField),
   sort: ChainOrderField,
   order: Order,
+  limit: Schema.Int,
   page: Schema.Int,
 })
 
@@ -51,23 +79,31 @@ export type ChainsQuery = typeof ChainsQuery.Type
 
 export const defaultCoinsQuery: CoinsQuery = {
   search: '',
+  searchBy: defaultCoinsSearchBy,
   flag: 'all',
   sort: 'symbol',
   order: 'asc',
+  limit: defaultPageSize,
+  exchangeId: Option.none(),
+  chainId: Option.none(),
   page: 1,
 }
 
 export const defaultExchangesQuery: ExchangesQuery = {
   search: '',
+  searchBy: defaultExchangesSearchBy,
   sort: 'name',
   order: 'asc',
+  limit: defaultPageSize,
   page: 1,
 }
 
 export const defaultChainsQuery: ChainsQuery = {
   search: '',
+  searchBy: defaultChainsSearchBy,
   sort: 'name',
   order: 'asc',
+  limit: defaultPageSize,
   page: 1,
 }
 
@@ -83,34 +119,72 @@ const whenSet = <A>(value: A, isDefault: boolean): Option.Option<A> =>
 const whenNonEmpty = (value: string): Option.Option<string> =>
   Option.fromNullishOr(value === '' ? null : value)
 
+/**
+ * Search fields travel as a comma-joined list. The default leaves the URL as
+ * the page's own address, so the common query stays short.
+ */
+const searchByText = (fields: ReadonlyArray<string>): string => fields.join(',')
+
+const whenSearchBy = (
+  fields: ReadonlyArray<string>,
+  fallback: ReadonlyArray<string>,
+): Option.Option<string> =>
+  whenSet(searchByText(fields), searchByText(fields) === searchByText(fallback))
+
 const readPage = (page: Option.Option<number>): number =>
   Option.getOrElse(page, () => firstPage)
 
 const readSearch = (search: Option.Option<string>): string =>
   Option.getOrElse(search, () => '')
 
+const readSearchBy = <A>(
+  schema: Schema.Codec<A, string>,
+  raw: Option.Option<string>,
+  fallback: ReadonlyArray<A>,
+): ReadonlyArray<A> => {
+  if (Option.isNone(raw)) {
+    return fallback
+  }
+
+  const parsed = raw.value.split(',').flatMap((token) =>
+    Option.match(Schema.decodeUnknownOption(schema)(token.trim()), {
+      onNone: () => [],
+      onSome: (value) => [value],
+    }))
+
+  return parsed.length === 0 ? fallback : parsed
+}
+
 // ROUTE
 
 const CoinsQueryFields = {
   search: Schema.OptionFromOptional(Schema.String),
+  searchBy: Schema.OptionFromOptional(Schema.String),
   flag: Schema.OptionFromOptional(CoverageFlag),
   sort: Schema.OptionFromOptional(CoverageSort),
   order: Schema.OptionFromOptional(Order),
-  page: Schema.OptionFromOptional(Schema.Int),
+  limit: Schema.OptionFromOptional(Schema.FiniteFromString),
+  exchangeId: Schema.OptionFromOptional(Schema.FiniteFromString),
+  chainId: Schema.OptionFromOptional(Schema.FiniteFromString),
+  page: Schema.OptionFromOptional(Schema.FiniteFromString),
 }
 
 const ExchangesQueryFields = {
   search: Schema.OptionFromOptional(Schema.String),
+  searchBy: Schema.OptionFromOptional(Schema.String),
   sort: Schema.OptionFromOptional(ExchangeOrderField),
   order: Schema.OptionFromOptional(Order),
-  page: Schema.OptionFromOptional(Schema.Int),
+  limit: Schema.OptionFromOptional(Schema.FiniteFromString),
+  page: Schema.OptionFromOptional(Schema.FiniteFromString),
 }
 
 const ChainsQueryFields = {
   search: Schema.OptionFromOptional(Schema.String),
+  searchBy: Schema.OptionFromOptional(Schema.String),
   sort: Schema.OptionFromOptional(ChainOrderField),
   order: Schema.OptionFromOptional(Order),
-  page: Schema.OptionFromOptional(Schema.Int),
+  limit: Schema.OptionFromOptional(Schema.FiniteFromString),
+  page: Schema.OptionFromOptional(Schema.FiniteFromString),
 }
 
 export const AppRoute = defineRouteUnion({
@@ -201,9 +275,13 @@ export const urlToAppRoute = Route.parseUrlWithFallback(
 export const coinsUrl = (query: CoinsQuery): string =>
   coinsRouter({
     search: whenNonEmpty(query.search),
+    searchBy: whenSearchBy(query.searchBy, defaultCoinsQuery.searchBy),
     flag: whenSet(query.flag, query.flag === defaultCoinsQuery.flag),
     sort: whenSet(query.sort, query.sort === defaultCoinsQuery.sort),
     order: whenSet(query.order, query.order === defaultCoinsQuery.order),
+    limit: whenSet(query.limit, query.limit === defaultCoinsQuery.limit),
+    exchangeId: query.exchangeId,
+    chainId: query.chainId,
     page: whenSet(query.page, query.page === firstPage),
   })
 
@@ -212,8 +290,10 @@ export const coinRoutesUrl = (coinId: number): string => coinRoutesRouter({ coin
 export const exchangesUrl = (query: ExchangesQuery): string =>
   exchangesRouter({
     search: whenNonEmpty(query.search),
+    searchBy: whenSearchBy(query.searchBy, defaultExchangesQuery.searchBy),
     sort: whenSet(query.sort, query.sort === defaultExchangesQuery.sort),
     order: whenSet(query.order, query.order === defaultExchangesQuery.order),
+    limit: whenSet(query.limit, query.limit === defaultExchangesQuery.limit),
     page: whenSet(query.page, query.page === firstPage),
   })
 
@@ -223,8 +303,10 @@ export const exchangeDetailUrl = (exchangeId: number): string =>
 export const chainsUrl = (query: ChainsQuery): string =>
   chainsRouter({
     search: whenNonEmpty(query.search),
+    searchBy: whenSearchBy(query.searchBy, defaultChainsQuery.searchBy),
     sort: whenSet(query.sort, query.sort === defaultChainsQuery.sort),
     order: whenSet(query.order, query.order === defaultChainsQuery.order),
+    limit: whenSet(query.limit, query.limit === defaultChainsQuery.limit),
     page: whenSet(query.page, query.page === firstPage),
   })
 
@@ -234,22 +316,42 @@ export const chainDetailUrl = (chainId: number): string => chainDetailRouter({ c
 
 export const coinsQueryFromRoute = (route: CoinsRoute): CoinsQuery => ({
   search: readSearch(route.search),
+  searchBy: readSearchBy(
+    CryptocurrencySearchField,
+    route.searchBy,
+    defaultCoinsQuery.searchBy,
+  ),
   flag: Option.getOrElse(route.flag, () => defaultCoinsQuery.flag),
   sort: Option.getOrElse(route.sort, () => defaultCoinsQuery.sort),
   order: Option.getOrElse(route.order, () => defaultCoinsQuery.order),
+  limit: Option.getOrElse(route.limit, () => defaultCoinsQuery.limit),
+  exchangeId: route.exchangeId,
+  chainId: route.chainId,
   page: readPage(route.page),
 })
 
 export const exchangesQueryFromRoute = (route: ExchangesRoute): ExchangesQuery => ({
   search: readSearch(route.search),
+  searchBy: readSearchBy(
+    ExchangeSearchField,
+    route.searchBy,
+    defaultExchangesQuery.searchBy,
+  ),
   sort: Option.getOrElse(route.sort, () => defaultExchangesQuery.sort),
   order: Option.getOrElse(route.order, () => defaultExchangesQuery.order),
+  limit: Option.getOrElse(route.limit, () => defaultExchangesQuery.limit),
   page: readPage(route.page),
 })
 
 export const chainsQueryFromRoute = (route: ChainsRoute): ChainsQuery => ({
   search: readSearch(route.search),
+  searchBy: readSearchBy(
+    ChainSearchField,
+    route.searchBy,
+    defaultChainsQuery.searchBy,
+  ),
   sort: Option.getOrElse(route.sort, () => defaultChainsQuery.sort),
   order: Option.getOrElse(route.order, () => defaultChainsQuery.order),
+  limit: Option.getOrElse(route.limit, () => defaultChainsQuery.limit),
   page: readPage(route.page),
 })

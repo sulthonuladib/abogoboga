@@ -3,10 +3,16 @@ import { Array, Option } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
 
 import type { ExchangePage } from '../../api'
-import { type ExchangesQuery, exchangeDetailUrl, exchangesUrl } from '../../route'
+import {
+  type ExchangesQuery,
+  exchangeDetailUrl,
+  exchangesUrl,
+  pageSizeChoices,
+} from '../../route'
 import { badge } from '../../ui/badge'
 import { dialog } from '../../ui/dialog'
 import { selectField, textField, toggleField } from '../../ui/field'
+import { pageSizeSelect, searchFieldsField } from '../../ui/filters'
 import { formatDate } from '../../ui/format'
 import { icon } from '../../ui/icon'
 import { action, iconAction, pageHeader } from '../../ui/pageHeader'
@@ -60,20 +66,36 @@ export const view = Submodel.defineView<Model, Message>((model, h) =>
 
 // CONTROLS
 
+const searchFieldChoices = [
+  { field: 'name', label: 'Name' },
+  { field: 'slug', label: 'Slug' },
+  { field: 'id', label: 'Id' },
+  { field: 'coingeckoId', label: 'CoinGecko id' },
+] as const
+
 const controlsView = (model: Model, h: HtmlBuilder<Message>): Html =>
-  h.div([h.Class('flex flex-wrap items-center gap-3')], [
-    searchField({
-      id: 'exchange-search',
-      value: model.query.search,
-      placeholder: 'Search by name or slug',
-      onInput: (value) => Message.UpdatedSearch({ value }),
+  h.div([h.Class('flex flex-col gap-3')], [
+    h.div([h.Class('flex flex-wrap items-center gap-3')], [
+      searchField({
+        id: 'exchange-search',
+        value: model.query.search,
+        placeholder: 'Search exchanges',
+        onInput: (value) => Message.UpdatedSearch({ value }),
+        h,
+      }),
+      h.p([h.Class('text-sm text-muted-foreground')], [
+        model.query.search === ''
+          ? 'All exchanges'
+          : `Matching “${model.query.search}”`,
+      ]),
+    ]),
+    searchFieldsField({
+      legend: 'Search fields',
+      choices: searchFieldChoices,
+      selected: model.query.searchBy,
+      onToggle: (field, isChecked) => Message.ToggledSearchField({ field, isChecked }),
       h,
     }),
-    h.p([h.Class('text-sm text-muted-foreground')], [
-      model.query.search === ''
-        ? 'All exchanges'
-        : `Matching “${model.query.search}”`,
-    ]),
   ])
 
 // EXCHANGES
@@ -217,7 +239,16 @@ const pager = (
   query: ExchangesQuery,
   h: HtmlBuilder<Message>,
 ): Html =>
-  pagination({ meta, toHref: (page) => exchangesUrl({ ...query, page }), h })
+  h.div([h.Class('flex flex-wrap items-center justify-between gap-3')], [
+    pagination({ meta, toHref: (page) => exchangesUrl({ ...query, page }), h }),
+    pageSizeSelect({
+      id: 'exchanges-page-size',
+      value: query.limit,
+      choices: pageSizeChoices,
+      onChange: (value) => Message.ChangedPageSize({ value }),
+      h,
+    }),
+  ])
 
 // DIALOG
 

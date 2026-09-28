@@ -34,6 +34,7 @@ import { EffectDrizzleQueryError } from "drizzle-orm/effect-core/errors"
 import { Effect, Layer, Option, Predicate, Schema } from "effect"
 import {
   CryptocurrencyStore,
+  defaultStatsSearchBy,
   type CryptocurrencyCreate,
   type CryptocurrencyExchangeListing,
   type CryptocurrencyListQuery,
@@ -430,8 +431,15 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
         const term = query.search.trim()
 
         if (term !== "") {
-          const pattern = `%${term.toLowerCase()}%`
-          const match = or(ilike(cryptocurrencyTable.symbol, pattern), ilike(cryptocurrencyTable.name, pattern))
+          const pattern = literalLikePattern(term)
+          const numeric = Number(term)
+          const match = or(
+            ...(query.searchBy ?? defaultStatsSearchBy).map((field: CryptocurrencySearchField) =>
+              field === "id"
+                ? eq(cryptocurrencyTable.id, Number.isNaN(numeric) ? -1 : numeric)
+                : ilike(cryptocurrencyTable[field], pattern)
+            )
+          )
 
           if (match !== undefined) conditions.push(match)
         }

@@ -28,6 +28,30 @@ const validateChainCode = FieldValidation.validate(chainCodeRules)
 
 type MarketFlags = Readonly<{ chainId: number, withdrawEnabled: boolean, depositEnabled: boolean }>
 
+// NORMALIZE
+
+const normalizeChainName = (value: string): string => {
+  const trimmed = value.trim()
+
+  return trimmed === '' ? trimmed : trimmed.slice(0, 1).toUpperCase() + trimmed.slice(1)
+}
+
+const normalizeChainCode = (value: string): string => value.trim().toUpperCase()
+
+// PENDING
+
+const upsertPendingToggle = (
+  toggles: ReadonlyArray<Model['pendingToggles'][number]>,
+  next: Model['pendingToggles'][number],
+): ReadonlyArray<Model['pendingToggles'][number]> =>
+  [...toggles.filter((toggle) => toggle.linkId !== next.linkId), next]
+
+const removePendingToggle = (
+  toggles: ReadonlyArray<Model['pendingToggles'][number]>,
+  linkId: number,
+): ReadonlyArray<Model['pendingToggles'][number]> =>
+  toggles.filter((toggle) => toggle.linkId !== linkId)
+
 const flagsOf = (
   metadata: CoinMetadata,
   marketId: number,
@@ -139,6 +163,8 @@ export const AssignMarket = Command.define('AssignMarket', {
 export const SaveMarket = Command.define('SaveMarket', {
   args: {
     marketId: Schema.Int,
+    exchangeId: Schema.Int,
+    cryptocurrencyId: Schema.Int,
     exchangeSymbol: Schema.String,
     listed: Schema.Boolean,
     tradeEnabled: Schema.Boolean,
@@ -166,10 +192,10 @@ export const UnassignMarket = Command.define('UnassignMarket', {
 })
 
 export const CreateChain = Command.define('CreateChain', {
-  args: { search: Schema.String },
+  args: { name: Schema.String, code: Schema.String },
   messages: [Message.CreatedLinkChain, Message.FailedCreateChain],
-  execute: ({ search }) =>
-    call(Query.findOrCreateChain({ name: search, code: search })).pipe(
+  execute: ({ name, code }) =>
+    call(Query.findOrCreateChain({ name, code })).pipe(
       Effect.map((chain) =>
         Message.CreatedLinkChain({ id: chain.id, code: chain.code, name: chain.name })
       ),
@@ -183,17 +209,16 @@ export const AddChainLink = Command.define('AddChainLink', {
   args: {
     marketId: Schema.Int,
     chainId: Schema.Int,
+    exchangeChainName: Schema.NullOr(Schema.String),
     exchangeChainCode: Schema.String,
     withdrawEnabled: Schema.Boolean,
     depositEnabled: Schema.Boolean,
   },
   messages: [Message.SucceededAddLink, Message.FailedAddLink],
-  execute: ({ marketId, chainId, ...input }) =>
+  execute: ({ marketId, ...input }) =>
     call(
       Query.addChainLink({
         exchangeCryptocurrencyId: marketId,
-        chainId,
-        exchangeChainName: null,
         ...input,
       }),
     ).pipe(
@@ -208,6 +233,8 @@ export const AddChainLink = Command.define('AddChainLink', {
 
 export const ToggleChainLink = Command.define('ToggleChainLink', {
   args: {
+    marketId: Schema.Int,
+    chainId: Schema.Int,
     linkId: Schema.Int,
     exchangeChainCode: Schema.String,
     exchangeChainName: Schema.NullOr(Schema.String),
@@ -215,13 +242,17 @@ export const ToggleChainLink = Command.define('ToggleChainLink', {
     depositEnabled: Schema.Boolean,
   },
   messages: [Message.SucceededToggleLink, Message.FailedToggleLink],
-  execute: ({ linkId, ...input }) =>
+  execute: ({ linkId, marketId, chainId, ...input }) =>
     call(
-      Query.updateChainLink(linkId, input),
+      Query.updateChainLink(linkId, {
+        exchangeCryptocurrencyId: marketId,
+        chainId,
+        ...input,
+      }),
     ).pipe(
       Effect.map(() => Message.SucceededToggleLink()),
       Effect.catch((error) =>
-        Effect.succeed(Message.FailedToggleLink({ detail: error.detail })),
+        Effect.succeed(Message.FailedToggleLink({ linkId, detail: error.detail })),
       ),
     ),
 })
@@ -425,7 +456,10 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     ClickedRetry: () => refreshMetadata(model),
 
     SettledFetchMetadata: ({ result }) => ({
-      model: modifyFields(model, { metadata: AsyncData.settle(result) }),
+      model: modifyFields(model, {
+        metadata: AsyncData.settle(result),
+        pendingToggles: () => [],
+      }),
     }),
 
     // Assign
@@ -563,11 +597,13 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 
       return Option.match(validated.editing, {
         onNone: () => ({ model: validated }),
-        onSome: ({ marketId }) => ({
+        onSome: ({ marketId, exchangeId }) => ({
           model: modifyFields(validated, { isSaving: () => true }),
           commands: [
             SaveMarket({
               marketId,
+              exchangeId,
+              cryptocurrencyId: validated.coinId,
               exchangeSymbol,
               listed: validated.editListed,
               tradeEnabled: validated.editTradeEnabled,
@@ -684,13 +720,21 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       }),
     }),
 
-    ClickedCreateChain: () =>
-      trimmedOrEmpty(model.linkSearch) === ''
+    ClickedCreateChain: () => {
+      const search = trimmedOrEmpty(model.linkSearch)
+
+      return search === ''
         ? { model }
         : {
           model: modifyFields(model, { isSaving: () => true }),
-          commands: [CreateChain({ search: trimmedOrEmpty(model.linkSearch) })],
-        },
+          commands: [
+            CreateChain({
+              name: normalizeChainName(search),
+              code: normalizeChainCode(search),
+            }),
+          ],
+        }
+    },
 
     CreatedLinkChain: ({ id, code, name }) => ({
       model: modifyFields(model, {
@@ -735,12 +779,13 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         onSome: ({ marketId }) =>
           Option.match(validated.linkChain, {
             onNone: () => ({ model: validated }),
-            onSome: ({ id }) => ({
+            onSome: ({ id, name }) => ({
               model: modifyFields(validated, { isSaving: () => true }),
               commands: [
                 AddChainLink({
                   marketId,
                   chainId: id,
+                  exchangeChainName: name,
                   exchangeChainCode,
                   withdrawEnabled: validated.linkWithdraw,
                   depositEnabled: validated.linkDeposit,
@@ -775,18 +820,22 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       }),
     }),
 
-    ClickedToggleLink: ({ linkId, withdrawEnabled, depositEnabled, exchangeChainCode, exchangeChainName }) => ({
-      model,
+    ClickedToggleLink: ({ marketId, chainId, linkId, withdrawEnabled, depositEnabled, exchangeChainCode, exchangeChainName }) => ({
+      model: modifyFields(model, {
+        pendingToggles: (toggles) =>
+          upsertPendingToggle(toggles, { linkId, withdrawEnabled, depositEnabled }),
+      }),
       commands: [
-        ToggleChainLink({ linkId, withdrawEnabled, depositEnabled, exchangeChainCode, exchangeChainName }),
+        ToggleChainLink({ marketId, chainId, linkId, withdrawEnabled, depositEnabled, exchangeChainCode, exchangeChainName }),
       ],
     }),
 
     SucceededToggleLink: () =>
       Update.withOutMessage(refreshMetadata(model), OutMessage.ChangedCatalogue()),
 
-    FailedToggleLink: ({ detail }) => ({
+    FailedToggleLink: ({ linkId, detail }) => ({
       model: modifyFields(model, {
+        pendingToggles: (toggles) => removePendingToggle(toggles, linkId),
         linksNotice: () => Option.some(detail),
       }),
     }),

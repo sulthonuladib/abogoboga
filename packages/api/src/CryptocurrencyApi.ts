@@ -59,6 +59,13 @@ export const CryptocurrencyListPayload = Schema.Struct({
  */
 export const CryptocurrencyStatsPayload = Schema.Struct({
   ...PaginationQueryFields,
+  searchBy: Schema.Array(CryptocurrencySearchField).pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.check(Schema.isMaxLength(8)),
+    Schema.withDecodingDefaultTypeKey(
+      Effect.succeed(["symbol", "name"] satisfies ReadonlyArray<CryptocurrencySearchFieldType>)
+    )
+  ),
   flag: Schema.Literals(["all", "blocked", "single"]).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed("all" satisfies CryptocurrencyStatsFlag))
   ),

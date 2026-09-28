@@ -267,7 +267,7 @@ describe('coin routes', () => {
       expect(text('Edit Binance market')).toExist(),
       click(role('button', { name: 'Save market' })),
       Command.resolve(
-        SaveMarket({ marketId: 100, exchangeSymbol: 'BTC/USDT', listed: true, tradeEnabled: true }),
+        SaveMarket({ marketId: 100, exchangeId: 10, cryptocurrencyId: 1, exchangeSymbol: 'BTC/USDT', listed: true, tradeEnabled: true }),
         Message.SucceededEdit(),
       ),
       Command.resolve(
@@ -323,8 +323,11 @@ describe('coin routes', () => {
       expect(text('Ethereum (exchange code ERC20)')).toExist(),
       expect(role('button', { name: 'Withdraw' })).toHaveAttr('aria-pressed', 'true'),
       click(role('button', { name: 'Withdraw' })),
+      expect(role('button', { name: 'Withdraw' })).toHaveAttr('aria-pressed', 'false'),
       Command.resolve(
         ToggleChainLink({
+          marketId: 100,
+          chainId: 5,
           linkId: 50,
           exchangeChainCode: 'ERC20',
           exchangeChainName: 'Ethereum',
@@ -377,7 +380,7 @@ describe('coin routes', () => {
       expect(role('button', { name: 'Add chain “SOL”' })).toExist(),
       click(role('button', { name: 'Add chain “SOL”' })),
       Command.resolve(
-        CreateChain({ search: 'SOL' }),
+        CreateChain({ name: 'SOL', code: 'SOL' }),
         Message.CreatedLinkChain({ id: 9, code: 'SOL', name: 'SOL' }),
       ),
       Command.resolve(
@@ -390,6 +393,7 @@ describe('coin routes', () => {
         AddChainLink({
           marketId: 100,
           chainId: 9,
+          exchangeChainName: 'SOL',
           exchangeChainCode: 'SPL',
           withdrawEnabled: true,
           depositEnabled: true,
