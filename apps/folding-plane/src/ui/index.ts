@@ -11,7 +11,7 @@ export {
   pendingCount,
   trimmedOrEmpty,
 } from './format'
-export { icon, type Name } from './icon'
+export { icon, iconSwap, type Name } from './icon'
 export { logo } from './logo'
 export { action, iconAction, pageHeader, statStrip, type Stat } from './pageHeader'
 export { pagination } from './pagination'

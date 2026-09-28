@@ -25,7 +25,7 @@ import {
 } from './route'
 import { ThemeMenu, themeItems } from './themeMenu'
 import { formatCount, pendingCount } from './ui/format'
-import { icon } from './ui/icon'
+import { icon, iconSwap } from './ui/icon'
 import { classNames } from './ui/classNames'
 
 // NAVIGATION
@@ -210,7 +210,7 @@ const sectionLink = (
       h.keyed('a')(item.value, [
         ...item.link,
         h.Class(linkClass(item.isCurrent)),
-      ], [icon(section.mark, h, 'size-4', item.isCurrent), item.value]),
+      ], [iconSwap(section.mark, item.isCurrent, h, 'size-4'), item.value]),
   })
 
 // COVERAGE

@@ -548,7 +548,7 @@ const addLinkForm = (model: Model, h: HtmlBuilder<Message>): Html =>
       ],
       ['← Back to links'],
     ),
-    h.div([h.Class('flex flex-col gap-4 rounded-2xl border border-dashed p-3')], [
+    h.div([h.Class('flex flex-col gap-4 rounded-2xl border border-dashed p-2')], [
       h.p([h.Class('text-sm font-medium')], ['Link another chain']),
       pickerSearch({
         id: 'link-chain-search',
@@ -600,7 +600,7 @@ const currentLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
             return h.p([h.Class('text-sm text-muted-foreground')], ['No chains linked yet.'])
           }
 
-          return h.ul([h.Class('flex flex-col divide-y rounded-2xl border')], [
+          return h.ul([h.Class('flex flex-col divide-y rounded-lg border')], [
             ...links.map((link) => {
               const pending = model.pendingToggles.find((toggle) => toggle.linkId === link.linkId)
               const withdrawEnabled = pending?.withdrawEnabled ?? link.withdrawEnabled
