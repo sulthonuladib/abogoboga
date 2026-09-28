@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { BunServices } from "@effect/platform-bun"
+import { BunWorker } from "@effect/platform-bun"
 import { DomainEvents, Eligibility, Supervisor } from "@lister/crawler"
 import type { BootstrapCoin } from "@lister/worker-contract"
 import { Duration, Effect, Layer, Option, Stream } from "effect"
@@ -14,7 +14,7 @@ import { WorkersHandlers } from "./WorkersHandlers.ts"
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url))
 
-const dummyWorker = join(repoRoot, "packages/worker-contract/src/testing/dummy-worker.ts")
+const dummyWorker = join(repoRoot, "packages/worker-contract/src/testing/dummy-rpc-worker.ts")
 
 const registry = [
   { exchangeId: 1, exchangeSlug: "dummy-ex" },
@@ -43,7 +43,7 @@ const eligibilityLayer = Layer.succeed(
 const directoryLayer = Layer.succeed(
   ExchangeDirectory,
   ExchangeDirectory.of({
-    list: () => Effect.succeed(registry.map((entry) => ({ ...entry }))),
+    list: Effect.succeed(registry.map((entry) => ({ ...entry }))),
     find: (exchangeId) =>
       Effect.succeed(
         Option.map(
@@ -54,7 +54,7 @@ const directoryLayer = Layer.succeed(
   })
 )
 
-const base = Layer.mergeAll(DomainEvents.layer, BunServices.layer)
+const base = Layer.mergeAll(DomainEvents.layer, BunWorker.layerPlatform)
 
 const dependencies = Layer.mergeAll(
   Supervisor.layer({ workerScript: dummyWorker }).pipe(Layer.provide(base)),
@@ -104,7 +104,8 @@ describe("workers HttpApi over the live supervisor", () => {
 
         const settled = yield* waitFor(
           client.workers.list(),
-          (statuses) => statuses[0]?.shards[0]?.pid !== null
+          (statuses) =>
+            statuses[0]?.shards[0]?.phase === "running" && statuses[0]?.shards[0]?.lastTickAt !== null
         )
 
         const duplicateStart = yield* Effect.flip(client.workers.start({ params: { exchangeId: 1 } }))
@@ -125,6 +126,7 @@ describe("workers HttpApi over the live supervisor", () => {
     expect(result.started.shards).toHaveLength(1)
     expect(result.started.eligibleCoins).toBe(2)
     expect(result.settled[0]?.shards[0]?.size).toBe(2)
+    expect(result.settled[0]?.shards[0]?.lastTickAt).toBeGreaterThan(0)
 
     expect(result.duplicateStart._tag).toBe("WorkerConflict")
     expect(result.unknown._tag).toBe("WorkerExchangeNotFound")

@@ -5,38 +5,16 @@ import {
   type WorkerSourceFactory,
   WorkerSourceError
 } from "@lister/worker-contract"
-import { Clock, Deferred, Effect, Option, Queue, Ref, Schema, Stream } from "effect"
+import { Clock, Deferred, Effect, Option, Ref, Schema, Stream } from "effect"
 import * as Socket from "effect/unstable/socket/Socket"
 
 import {
-  ControlRequest,
-  DepthSnapshot,
-  DepthUpdateEvent,
-  normalizeSymbol,
-  restBaseUrl,
-  snapshotLimit,
-  streamNameFor,
+  PartialDepthMessage,
+  partialDepthStreamFor,
+  type ControlRequest,
   wsUrl
 } from "./binance.ts"
-import {
-  applyEvent,
-  applySnapshot,
-  emptyBook,
-  tickFor,
-  type LocalBook
-} from "./orderbook.ts"
-
-/**
- * Maximum depth levels emitted per side on every tick. The crawl only needs
- * enough depth to reach the IDR executable target, so a bounded top-of-book
- * keeps stdout small while the local book itself stays deep.
- */
-const emitDepth = 50
-
-/**
- * Maximum snapshot re-fetches when a snapshot lands behind the buffered deltas.
- */
-const maxSnapshotAttempts = 3
+import { tickFromPartialBook } from "./partialBook.ts"
 
 /**
  * Build a worker source failure with an optional underlying cause.
@@ -48,27 +26,13 @@ const sourceError = (message: string, cause?: unknown): WorkerSourceError =>
   new WorkerSourceError({ message, cause })
 
 /**
- * Replace one book in the subscription map immutably.
- */
-const setBook = (
-  map: ReadonlyMap<string, LocalBook>,
-  symbol: string,
-  book: LocalBook
-): ReadonlyMap<string, LocalBook> => {
-  const next = new Map(map)
-
-  next.set(symbol, book)
-
-  return next
-}
-
-/**
- * Parse one WebSocket text frame into a depth update, ignoring control
- * messages (subscribe acks) and malformed payloads.
+ * Parse one combined WebSocket frame, ignoring subscription acknowledgements
+ * and malformed payloads.
  *
  * @param frame - Raw JSON frame.
+ * @returns A decoded partial-depth message, or `null` for a non-data frame.
  */
-const parseFrame = (frame: string): DepthUpdateEvent | null => {
+const parseFrame = (frame: string): PartialDepthMessage | null => {
   let raw: unknown
 
   try {
@@ -77,36 +41,22 @@ const parseFrame = (frame: string): DepthUpdateEvent | null => {
     return null
   }
 
-  return Option.getOrNull(Schema.decodeUnknownOption(DepthUpdateEvent)(raw))
+  return Option.getOrNull(Schema.decodeUnknownOption(PartialDepthMessage)(raw))
 }
 
 /**
- * binance worker owner hook.
+ * Binance worker owner hook using complete top-20 partial-depth updates.
  *
- * Keeps one raw WebSocket (`/ws`) open and uses live `SUBSCRIBE`/`UNSUBSCRIBE`
- * control messages so the subscription set follows the host's stdin commands.
- * Each subscribed pair maintains a local order book: a REST snapshot seeds it
- * and diff-depth updates keep it current, with the standard Binance
- * gap/staleness rules driving resynchronization.
- *
- * - `initial` seeds the subscription set at boot.
- * - `subscribe`/`unsubscribe` mutate that set live.
- * - every `ticks` value is a `CanonicalTick`; the host writes each as one JSON
- *   line on stdout.
+ * Bootstrap and live subscriptions are sent as batched stream-control
+ * messages. Each combined-stream envelope identifies its coin, so no REST
+ * snapshot or local diff-depth book is needed.
  */
 export const source: WorkerSourceFactory = (initial, context) =>
   Effect.gen(function*() {
     const exchangeSlug = context.exchangeSlug
-
-    // Normalized pair symbol → local book.
-    const books = yield* Ref.make<ReadonlyMap<string, LocalBook>>(new Map())
-    // Snapshot-derived ticks (subscribe/resync), merged into `ticks` below.
-    const snapshotTicks = yield* Queue.unbounded<CanonicalTick>()
-    // Monotonic id for SUBSCRIBE/UNSUBSCRIBE control messages.
+    const subscriptions = yield* Ref.make<ReadonlyMap<string, BootstrapCoin>>(new Map())
     const ids = yield* Ref.make(0)
-    // Closed when the host tears the worker down; interrupts `ticks`.
     const closed = yield* Deferred.make<void>()
-
     const socket = yield* Socket.makeWebSocket(wsUrl).pipe(Effect.provide(BunSocket.layerWebSocketConstructor))
 
     const nextId = (): Effect.Effect<number> => Ref.modify(ids, (n) => [n, n + 1])
@@ -122,198 +72,100 @@ export const source: WorkerSourceFactory = (initial, context) =>
         })
       )
 
-    const fetchSnapshot = (symbol: string): Effect.Effect<DepthSnapshot, WorkerSourceError> =>
-      Effect.tryPromise({
-        try: () =>
-          fetch(`${restBaseUrl}/api/v3/depth?symbol=${encodeURIComponent(symbol)}&limit=${snapshotLimit}`).then(
-            (response) => {
-              if (!response.ok) {
-                throw new Error(`depth snapshot failed with HTTP ${response.status}`)
-              }
-
-              return response.json()
-            }
-          ),
-        catch: (cause) => sourceError(`binance: depth snapshot request failed for ${symbol}`, cause)
-      }).pipe(
-        Effect.flatMap((raw) =>
-          Schema.decodeUnknownEffect(DepthSnapshot)(raw).pipe(
-            Effect.mapError((cause) => sourceError(`binance: invalid depth snapshot for ${symbol}`, cause))
-          )
-        )
-      )
-
-    const loadSnapshot = (symbol: string): Effect.Effect<void, WorkerSourceError> =>
+    const sendStreams = (
+      method: ControlRequest["method"],
+      streams: ReadonlyArray<string>
+    ): Effect.Effect<void, WorkerSourceError> =>
       Effect.gen(function*() {
-        for (let attempt = 0; attempt < maxSnapshotAttempts; attempt++) {
-          const snapshot = yield* fetchSnapshot(symbol)
+        const [first, ...rest] = streams
 
-          const outcome = yield* Ref.modify(
-            books,
-            (map): readonly ["gone" | "stale" | "applied", ReadonlyMap<string, LocalBook>] => {
-              const book = map.get(symbol)
+        if (first === undefined) return
 
-              if (book === undefined) return ["gone", map]
+        yield* send({ method, params: [first, ...rest], id: yield* nextId() })
+      })
 
-              const applied = applySnapshot(book, snapshot)
+    const subscribe = (coins: ReadonlyArray<BootstrapCoin>): Effect.Effect<void, WorkerSourceError> =>
+      Effect.gen(function*() {
+        const streams = yield* Ref.modify(subscriptions, (current) => {
+          const next = new Map(current)
+          const added: Array<string> = []
 
-              if (applied.kind === "stale") return ["stale", map]
+          for (const coin of coins) {
+            const stream = partialDepthStreamFor(coin.symbol)
 
-              return ["applied", setBook(map, symbol, applied.book)]
-            }
-          )
+            if (next.has(stream)) continue
 
-          if (outcome === "gone") return
-
-          if (outcome === "applied") {
-            const book = yield* Ref.get(books).pipe(Effect.map((m) => m.get(symbol)))
-
-            if (book !== undefined && book.ready) {
-              const millis = yield* Clock.currentTimeMillis
-
-              yield* Queue.offer(snapshotTicks, tickFor(book, exchangeSlug, millis, emitDepth))
-            }
-
-            return
+            next.set(stream, coin)
+            added.push(stream)
           }
 
-          // Snapshot landed behind the buffered deltas; re-fetch and retry.
-        }
-
-        yield* Effect.logWarning(`binance: depth snapshot did not converge for ${symbol}`)
-      })
-
-    const resync = (symbol: string): Effect.Effect<void, WorkerSourceError> =>
-      Effect.gen(function*() {
-        yield* Ref.update(books, (map) => {
-          const book = map.get(symbol)
-
-          if (book === undefined) return map
-
-          return setBook(map, symbol, { ...book, ready: false, buffer: [] })
+          return [added, next]
         })
 
-        yield* loadSnapshot(symbol)
+        yield* sendStreams("SUBSCRIBE", streams)
       })
 
-    const subscribeOne = (coin: BootstrapCoin): Effect.Effect<void, WorkerSourceError> =>
+    const unsubscribe = (coins: ReadonlyArray<BootstrapCoin>): Effect.Effect<void, never> =>
       Effect.gen(function*() {
-        const symbol = normalizeSymbol(coin.symbol)
+        const streams = yield* Ref.modify(subscriptions, (current) => {
+          const next = new Map(current)
+          const removed: Array<string> = []
 
-        const registered = yield* Ref.modify(books, (map) => {
-          if (map.has(symbol)) return [false as const, map]
+          for (const coin of coins) {
+            const stream = partialDepthStreamFor(coin.symbol)
 
-          return [true as const, setBook(map, symbol, emptyBook(coin, symbol))]
+            if (!next.delete(stream)) continue
+
+            removed.push(stream)
+          }
+
+          return [removed, next]
         })
 
-        if (!registered) return
-
-        yield* send({ method: "SUBSCRIBE", params: [streamNameFor(symbol)], id: yield* nextId() })
-        yield* loadSnapshot(symbol)
-      })
-
-    const unsubscribeOne = (coin: BootstrapCoin): Effect.Effect<void, never> =>
-      Effect.gen(function*() {
-        const symbol = normalizeSymbol(coin.symbol)
-
-        yield* send({ method: "UNSUBSCRIBE", params: [streamNameFor(symbol)], id: yield* nextId() }).pipe(
+        yield* sendStreams("UNSUBSCRIBE", streams).pipe(
           Effect.catch((error) =>
-            Effect.logWarning(`binance: unsubscribe failed for ${symbol}: ${error.message ?? "unknown"}`)
+            Effect.logWarning(`binance: unsubscribe failed: ${error.message ?? "unknown"}`)
           )
         )
-
-        yield* Ref.update(books, (map) => {
-          const next = new Map(map)
-
-          next.delete(symbol)
-
-          return next
-        })
       })
 
-    const handleFrame = (frame: string): Effect.Effect<CanonicalTick | null, WorkerSourceError> =>
+    const handleFrame = (frame: string): Effect.Effect<CanonicalTick | null> =>
       Effect.gen(function*() {
-        const event = parseFrame(frame)
+        const message = parseFrame(frame)
 
-        if (event === null) return null
+        if (message === null) return null
 
-        const symbol = normalizeSymbol(event.s)
+        const coin = yield* Ref.get(subscriptions).pipe(Effect.map((current) => current.get(message.stream)))
 
-        const outcome = yield* Ref.modify(
-          books,
-          (map): readonly [LocalBook | "resync" | null, ReadonlyMap<string, LocalBook>] => {
-            const book = map.get(symbol)
+        if (coin === undefined) return null
 
-            if (book === undefined) return [null, map]
+        const receivedAt = yield* Clock.currentTimeMillis
 
-            if (!book.ready) {
-              return [null, setBook(map, symbol, { ...book, buffer: [...book.buffer, event] })]
-            }
-
-            const result = applyEvent(book, event)
-
-            if (result.kind === "ignored") return [null, map]
-
-            if (result.kind === "resync") return ["resync", map]
-
-            return [result.book, setBook(map, symbol, result.book)]
-          }
-        )
-
-        if (outcome === null) return null
-
-        if (outcome === "resync") {
-          const book = yield* Ref.get(books).pipe(Effect.map((m) => m.get(symbol)))
-
-          if (book !== undefined) yield* resync(symbol)
-
-          return null
-        }
-
-        return tickFor(outcome, exchangeSlug, event.E, emitDepth)
+        return tickFromPartialBook(coin, message.data, exchangeSlug, receivedAt)
       })
 
-    const depthTicks = Stream.unwrap(
+    const ticks = Stream.unwrap(
       Effect.gen(function*() {
         const pull = yield* Socket.readerString(socket).pipe(
           Effect.mapError((cause) => sourceError("binance: websocket open failed", cause))
         )
 
-        yield* Effect.forEach(
-          initial,
-          (coin) =>
-            subscribeOne(coin).pipe(
-              Effect.catch((error) =>
-                Effect.logWarning(
-                  `binance: bootstrap subscribe failed for ${coin.symbol}: ${error.message ?? "unknown"}`
-                )
-              )
-            ),
-          { concurrency: "unbounded", discard: true }
-        )
+        yield* subscribe(initial)
 
         return Stream.fromEffectRepeat(
           pull.pipe(Effect.mapError((cause) => sourceError("binance: websocket read failed", cause)))
         ).pipe(
           Stream.flatMap((frames) => Stream.fromIterable(frames)),
-          // Depth updates must apply in order, so frames are processed sequentially.
           Stream.mapEffect(handleFrame),
           Stream.filter((tick): tick is CanonicalTick => tick !== null)
         )
       })
-    )
-
-    const ticks = Stream.merge(depthTicks, Stream.fromQueue(snapshotTicks)).pipe(
-      Stream.interruptWhen(Deferred.await(closed))
-    )
+    ).pipe(Stream.interruptWhen(Deferred.await(closed)))
 
     return {
-      subscribe: (coins) => Effect.forEach(coins, subscribeOne, { discard: true }),
-      unsubscribe: (coins) => Effect.forEach(coins, unsubscribeOne, { discard: true }),
+      subscribe,
+      unsubscribe,
       ticks,
-      close: Effect.gen(function*() {
-        yield* Deferred.succeed(closed, undefined)
-        yield* Queue.shutdown(snapshotTicks)
-      })
+      close: Deferred.succeed(closed, undefined).pipe(Effect.asVoid)
     }
   })

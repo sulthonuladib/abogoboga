@@ -440,7 +440,7 @@ const chainLinkDeleteRoute = route("DELETE", "/partials/chain-links/:id", (_requ
     )
 
     const parent = yield* markets.getById(existing.exchangeCryptocurrencyId).pipe(
-      Effect.map(Option.some),
+      Effect.asSome,
       Effect.catchTag("MarketError", () => Effect.succeed(Option.none<MarketModel>()))
     )
 
@@ -491,7 +491,7 @@ const chainLinkToggleRoute = route("POST", "/partials/chain-links/:id/toggle", (
     )
 
     const parent = yield* markets.getById(existing.exchangeCryptocurrencyId).pipe(
-      Effect.map(Option.some),
+      Effect.asSome,
       Effect.catchTag("MarketError", () => Effect.succeed(Option.none<MarketModel>()))
     )
 

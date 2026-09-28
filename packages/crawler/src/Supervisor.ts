@@ -1,7 +1,8 @@
-import { BootstrapCoin, CanonicalTick, WorkerCommand, decodeTickLine, encodeCommandLine, workerArgvMarker } from "@lister/worker-contract"
+import { BootstrapCoin, BootstrapContext, CanonicalTick, WorkerRpc, type WorkerStatus } from "@lister/worker-contract"
 import {
   Array as Arr,
   Cause,
+  Clock,
   Context,
   Duration,
   Effect,
@@ -9,10 +10,13 @@ import {
   Layer,
   Queue,
   Ref,
+  Schedule,
   Schema,
   Stream
 } from "effect"
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process"
+import { RpcClient, RpcClientError, RpcWorker } from "effect/unstable/rpc"
+import { Spawner, WorkerPlatform } from "effect/unstable/workers/Worker"
+import type { WorkerError } from "effect/unstable/workers/WorkerError"
 import { DomainEvents, workerEvent } from "./WorkerEvents.ts"
 
 /**
@@ -28,7 +32,7 @@ export const shardCapacity = 20 as const
  * supervisor mirrors those limits here so a shard never asks a worker for more
  * pairs than it can subscribe to.
  *
- * @param exchangeSlug - Exchange slug carried in worker argv.
+ * @param exchangeSlug - Exchange slug carried in the worker bootstrap message.
  * @returns The exchange's shard capacity, or {@link shardCapacity} when it has
  * no dedicated limit.
  */
@@ -54,12 +58,12 @@ export const respawnBaseDelayMillis = 100 as const
 export const respawnMaxDelayMillis = 5_000 as const
 
 /**
- * Lifecycle phase of one shard process.
+ * Lifecycle phase reported by one shard worker.
  */
-export const ShardPhase = Schema.Literals(["starting", "running", "backoff"])
+export const ShardPhase = Schema.Literals(["starting", "running", "reconnecting"])
 
 /**
- * Lifecycle phase of one shard process.
+ * Lifecycle phase reported by one shard worker.
  */
 export type ShardPhase = typeof ShardPhase.Type
 
@@ -71,12 +75,14 @@ export interface ShardSnapshot {
   readonly shardId: string
   /** Coins the shard is subscribed to, in placement order. */
   readonly coins: ReadonlyArray<BootstrapCoin>
-  /** Operating-system process id, or `null` while a respawn is pending. */
-  readonly pid: number | null
-  /** Completed crash respawns for this shard. */
+  /** Current worker-reported reconnect attempt, or `null` outside reconnecting. */
+  readonly attempt: number | null
+  /** Completed supervisor safety-net recoveries for this shard. */
   readonly restarts: number
-  /** Current lifecycle phase. */
+  /** Current worker-reported connection phase. */
   readonly phase: ShardPhase
+  /** Local epoch-millisecond receipt time of the latest tick, or `null` before the first tick. */
+  readonly lastTickAt: number | null
 }
 
 /**
@@ -85,7 +91,7 @@ export interface ShardSnapshot {
 export interface ExchangeSnapshot {
   /** Database exchange id. */
   readonly exchangeId: number
-  /** Exchange slug carried in worker argv. */
+  /** Exchange slug carried in the worker bootstrap message. */
   readonly exchangeSlug: string
   /** Current shard snapshots in placement order. */
   readonly shards: ReadonlyArray<ShardSnapshot>
@@ -100,7 +106,7 @@ export class SupervisorConflict extends Schema.TaggedError<SupervisorConflict>()
 }) {}
 
 /**
- * Expected failure while spawning a shard or writing a live command to it.
+ * Expected failure while starting a shard or issuing a live command to it.
  */
 export class SupervisorSpawnError extends Schema.TaggedError<SupervisorSpawnError>()("SupervisorSpawnError", {
   exchangeId: Schema.Int,
@@ -114,13 +120,15 @@ export class SupervisorSpawnError extends Schema.TaggedError<SupervisorSpawnErro
  */
 export type ShardChangeError = SupervisorConflict | SupervisorSpawnError
 
+type WorkerRecoveryError = SupervisorSpawnError | WorkerError | RpcClientError.RpcClientError
+
 /**
  * Options for {@link Supervisor.layer}.
  *
  * @template R - Services required by the tick handler at layer construction.
  */
 export interface SupervisorLayerOptions<R = never> {
-  /** Absolute path of the worker entrypoint spawned for each shard. */
+  /** Absolute path of the worker entrypoint used when no resolver is supplied. */
   readonly workerScript: string
   /**
    * Per-exchange worker entrypoint resolver. Defaults to always returning
@@ -138,8 +146,6 @@ export interface SupervisorLayerOptions<R = never> {
    * shard because a tick handler failed.
    */
   readonly onTick?: ((tick: CanonicalTick, context: TickContext) => Effect.Effect<void, never, R>) | undefined
-  /** Sink for worker stderr lines. */
-  readonly onLog?: ((line: string) => Effect.Effect<void, never, never>) | undefined
 }
 
 /**
@@ -148,9 +154,9 @@ export interface SupervisorLayerOptions<R = never> {
 export interface TickContext {
   /** Database exchange id. */
   readonly exchangeId: number
-  /** Exchange slug carried in worker argv. */
+  /** Exchange slug carried in the worker bootstrap message. */
   readonly exchangeSlug: string
-  /** Supervisor-assigned shard identity. */
+  /** Supervisor-assigned shard identity carried in the worker bootstrap message. */
   readonly shardId: string
 }
 
@@ -166,29 +172,6 @@ export const shardCoins = (
   coins: ReadonlyArray<BootstrapCoin>,
   capacity: number = shardCapacity
 ): ReadonlyArray<ReadonlyArray<BootstrapCoin>> => Arr.chunksOf(coins, capacity).map((chunk) => [...chunk])
-
-/**
- * Build the argv that launches one worker shard.
- *
- * @param workerScript - Absolute path of the worker entrypoint.
- * @param exchangeSlug - Exchange slug carried in the argv signature.
- * @param shardId - Shard identity carried in the argv signature.
- * @param coins - Bootstrap coins for the shard.
- * @returns The full argv, starting with the `bun` executable.
- */
-export const buildWorkerArgv = (
-  workerScript: string,
-  exchangeSlug: string,
-  shardId: string,
-  coins: ReadonlyArray<BootstrapCoin>
-): ReadonlyArray<string> => [
-  "bun",
-  workerScript,
-  workerArgvMarker,
-  exchangeSlug,
-  shardId,
-  coins.map((coin) => `${coin.symbol}:${coin.coingeckoId}`).join(",")
-]
 
 /**
  * Subscription identity of one coin: `SYMBOL:coingeckoId`.
@@ -209,11 +192,16 @@ export const coinKey = (coin: Pick<BootstrapCoin, "symbol" | "coingeckoId">): st
 interface ShardState {
   readonly shardId: string
   readonly coins: Map<string, BootstrapCoin>
-  handle: ChildProcessSpawner.ChildProcessHandle | null
-  stdin: Queue.Queue<Uint8Array> | null
+  readonly commands: Queue.Queue<ShardCommand>
   restarts: number
+  attempt: number | null
   phase: ShardPhase
+  lastTickAt: number | null
 }
+
+type ShardCommand =
+  | { readonly type: "subscribe"; readonly coins: readonly [BootstrapCoin, ...BootstrapCoin[]] }
+  | { readonly type: "unsubscribe"; readonly coins: readonly [BootstrapCoin, ...BootstrapCoin[]] }
 
 /**
  * Mutable per-exchange state owned by the supervisor.
@@ -225,29 +213,26 @@ interface ExchangeState {
   nextShard: number
 }
 
-const exitCodeNumber = (code: ChildProcessSpawner.ExitCode): number => Number(code)
-
-const textEncoder = new TextEncoder()
-
 const shardKey = (exchangeId: number, shardId: string): string => `${exchangeId}/${shardId}`
 
-const backoffFor = (attempt: number): number =>
-  Math.min(respawnBaseDelayMillis * 2 ** attempt, respawnMaxDelayMillis)
+const recoverySchedule = Schedule.min([
+  Schedule.exponential(Duration.millis(respawnBaseDelayMillis)),
+  Schedule.spaced(Duration.millis(respawnMaxDelayMillis))
+])
 
 /**
- * In-process sharded supervisor for crawler worker subprocesses.
+ * In-process sharded supervisor for crawler RPC workers.
  *
  * The supervisor owns every running exchange: it chunks the eligible coin set
  * into shards of at most the exchange's configured capacity (see
- * {@link shardCapacityFor}) coins, spawns one
- * `ChildProcessSpawner` handle per shard, forwards stdout ticks and stderr logs
- * to the configured handlers, and publishes lifecycle events through
- * {@link DomainEvents}.
+ * {@link shardCapacityFor}) coins, spawns one Bun worker per shard, forwards
+ * RPC ticks and worker status to the configured handlers, and publishes
+ * lifecycle events through {@link DomainEvents}.
  *
- * A crashed shard is respawned with the same coin set after capped exponential
- * backoff; a clean exit drops the shard from tracking; stopping an exchange
- * terminates its shards and cancels pending respawns. Shard processes are bound
- * to the supervisor `Scope`, so closing the layer terminates everything.
+ * Dead worker streams are re-acquired with capped exponential backoff; workers
+ * are bootstrapped from each shard's current coin set. Stopping an exchange
+ * terminates its workers and cancels pending recovery. Worker threads are bound
+ * to the supervisor scope, so closing the layer terminates everything.
  */
 export class Supervisor extends Context.Service<Supervisor, {
   /** Live snapshots of every running exchange, in registration order. */
@@ -294,26 +279,25 @@ export class Supervisor extends Context.Service<Supervisor, {
   readonly shutdown: Effect.Effect<void>
 }>()("lister/crawler/Supervisor") {
   /**
-   * Scoped layer building a supervisor over the platform child-process spawner
-   * and the crawler {@link DomainEvents} bus.
+   * Scoped layer building a supervisor over the worker platform and crawler
+   * {@link DomainEvents} bus.
    *
-   * @param options - Worker script, per-exchange shard capacity, and tick/log
-   * handlers.
+   * @param options - Worker entrypoint, per-exchange shard capacity, and tick
+   * handler.
    * @returns A scoped layer providing a live supervisor.
    */
   static readonly layer = <R = never>(
     options: SupervisorLayerOptions<R>
-  ): Layer.Layer<Supervisor, never, ChildProcessSpawner.ChildProcessSpawner | DomainEvents | R> =>
+  ): Layer.Layer<Supervisor, never, WorkerPlatform | DomainEvents | R> =>
     Layer.effect(
       Supervisor,
       Effect.gen(function*() {
-        const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
         const events = yield* DomainEvents
         const capacityFor = options.capacityFor ?? shardCapacityFor
         const scriptFor = options.workerScriptFor ?? (() => options.workerScript)
         const workers = yield* FiberMap.make<string>()
         const state = yield* Ref.make(new Map<number, ExchangeState>())
-        const log = options.onLog ?? (() => Effect.void)
+        const workerContext = yield* Effect.context<WorkerPlatform>()
         const context = yield* Effect.context<R>()
         const rawOnTick = options.onTick
 
@@ -323,132 +307,34 @@ export class Supervisor extends Context.Service<Supervisor, {
             : (tick: CanonicalTick, tickContext: TickContext): Effect.Effect<void> =>
               Effect.provideContext(rawOnTick(tick, tickContext), context)
 
-        const workerCommand = (
-          exchangeSlug: string,
-          shardId: string,
-          coins: ReadonlyArray<BootstrapCoin>
-        ): ChildProcess.Command =>
-          ChildProcess.make("bun", buildWorkerArgv(scriptFor(exchangeSlug), exchangeSlug, shardId, coins).slice(1), {
-            extendEnv: true
-          })
+        const makeProtocol = (exchange: ExchangeState, shard: ShardState) =>
+          RpcClient.makeProtocolWorker({ size: 1, concurrency: Infinity }).pipe(
+            Effect.provideService(Spawner, () => new globalThis.Worker(scriptFor(exchange.exchangeSlug))),
+            Effect.provideService(
+              RpcWorker.InitialMessage,
+              RpcWorker.makeInitialMessage(
+                BootstrapContext,
+                Effect.sync(() => ({
+                  exchangeSlug: exchange.exchangeSlug,
+                  shardId: shard.shardId,
+                  coins: [...shard.coins.values()]
+                }))
+              ).pipe(Effect.orDie)
+            )
+          )
 
-        const writeCommand = (shard: ShardState, command: WorkerCommand): Effect.Effect<void> =>
+        const makeClient = (protocol: RpcClient.Protocol["Service"]) =>
+          RpcClient.make(WorkerRpc).pipe(Effect.provideService(RpcClient.Protocol, protocol))
+
+        const recordRecovery = (exchange: ExchangeState, shard: ShardState) => (error: WorkerRecoveryError) =>
           Effect.gen(function*() {
-            const stdin = shard.stdin
-
-            if (stdin === null) return
-
-            yield* Queue.offer(stdin, textEncoder.encode(`${encodeCommandLine(command)}\n`))
-          }).pipe(
-            Effect.catchCause((cause) =>
-              Cause.hasInterrupts(cause)
-                ? Effect.interrupt
-                : Effect.logWarning(`supervisor: stdin write failed for ${shard.shardId}`, cause)
+            shard.restarts += 1
+            shard.phase = "starting"
+            shard.attempt = null
+            yield* Effect.logWarning(
+              `supervisor: re-acquiring streams for ${exchange.exchangeSlug}/${shard.shardId}`,
+              error
             )
-          )
-
-        const consumeTicks = (
-          handle: ChildProcessSpawner.ChildProcessHandle,
-          exchange: ExchangeState,
-          shardId: string
-        ) =>
-          handle.stdout.pipe(
-            Stream.decodeText(),
-            Stream.splitLines,
-            Stream.map((line) => decodeTickLine(line)),
-            Stream.filter((tick): tick is CanonicalTick => tick !== null),
-            Stream.mapEffect((tick) =>
-              onTick(tick, { exchangeId: exchange.exchangeId, exchangeSlug: exchange.exchangeSlug, shardId })
-            ),
-            Stream.runDrain,
-            Effect.annotateLogs({ exchangeSlug: exchange.exchangeSlug, shardId }),
-            Effect.catchCause((cause) => (Cause.hasInterrupts(cause) ? Effect.interrupt : Effect.void))
-          )
-
-        const consumeLogs = (
-          handle: ChildProcessSpawner.ChildProcessHandle,
-          exchangeSlug: string,
-          shardId: string
-        ) =>
-          handle.stderr.pipe(
-            Stream.decodeText(),
-            Stream.splitLines,
-            Stream.runForEach((line) => log(line)),
-            Effect.annotateLogs({ exchangeSlug, shardId }),
-            Effect.catchCause((cause) => (Cause.hasInterrupts(cause) ? Effect.interrupt : Effect.void))
-          )
-
-        const isRegistered = (exchangeId: number, shardId: string): Effect.Effect<boolean> =>
-          Effect.map(Ref.get(state), (exchanges) => {
-            const exchange = exchanges.get(exchangeId)
-
-            return exchange !== undefined && exchange.shards.has(shardId)
-          })
-
-        const runProcess = (
-          exchange: ExchangeState,
-          shard: ShardState
-        ) =>
-          Effect.gen(function*() {
-            const coins = [...shard.coins.values()]
-
-            const handle = yield* spawner
-              .spawn(workerCommand(exchange.exchangeSlug, shard.shardId, coins))
-              .pipe(
-                Effect.catchCause((cause) =>
-                  Cause.hasInterrupts(cause)
-                    ? Effect.interrupt
-                    : Effect.fail(
-                      new SupervisorSpawnError({
-                        exchangeId: exchange.exchangeId,
-                        shardId: shard.shardId,
-                        message: "failed to spawn worker shard",
-                        cause
-                      })
-                    )
-                )
-              )
-
-            shard.handle = handle
-            shard.phase = "running"
-
-            const stdin = yield* Queue.unbounded<Uint8Array>()
-
-            shard.stdin = stdin
-
-            yield* Effect.forkScoped(Stream.fromQueue(stdin).pipe(Stream.run(handle.stdin)))
-
-            if (coins.length > 0) {
-              const [first, ...rest] = coins
-
-              if (first !== undefined) {
-                yield* writeCommand(shard, { type: "subscribe", coins: [first, ...rest] })
-              }
-            }
-
-            yield* events.publish(
-              yield* workerEvent({
-                type: "shard-spawned",
-                exchangeId: exchange.exchangeId,
-                exchangeSlug: exchange.exchangeSlug,
-                shardId: shard.shardId,
-                message: `shard ${shard.shardId} spawned with ${coins.length} coin(s)`
-              })
-            )
-
-            yield* Effect.forkScoped(consumeTicks(handle, exchange, shard.shardId))
-            yield* Effect.forkScoped(consumeLogs(handle, exchange.exchangeSlug, shard.shardId))
-
-            const code = yield* handle.exitCode.pipe(
-              Effect.catchCause((cause) =>
-                Cause.hasInterrupts(cause) ? Effect.interrupt : Effect.succeed(ChildProcessSpawner.ExitCode(1))
-              )
-            )
-
-            shard.handle = null
-            shard.stdin = null
-
-            return exitCodeNumber(code)
           })
 
         const dropShard = (exchangeId: number, shardId: string): Effect.Effect<void> =>
@@ -473,53 +359,103 @@ export class Supervisor extends Context.Service<Supervisor, {
           })
 
         const shardFiber = (exchange: ExchangeState, shard: ShardState) =>
-          Effect.gen(function*() {
-            while (yield* isRegistered(exchange.exchangeId, shard.shardId)) {
-              const exit = yield* Effect.scoped(runProcess(exchange, shard)).pipe(
-                Effect.catchTag("SupervisorSpawnError", (error) =>
-                  Effect.gen(function*() {
-                    yield* Effect.logError(`supervisor: ${error.message}`, error.cause)
+          Effect.scoped(
+            Effect.gen(function*() {
+              const runWorker = Effect.scoped(
+                Effect.gen(function*() {
+                  const protocol = yield* makeProtocol(exchange, shard)
+                  const client = yield* makeClient(protocol)
 
-                    return 1
-                  })
-                )
-              )
+                  yield* events.publish(
+                    yield* workerEvent({
+                      type: "shard-spawned",
+                      exchangeId: exchange.exchangeId,
+                      exchangeSlug: exchange.exchangeSlug,
+                      shardId: shard.shardId,
+                      message: `shard ${shard.shardId} spawned with ${shard.coins.size} coin(s)`
+                    })
+                  )
 
-              if (!(yield* isRegistered(exchange.exchangeId, shard.shardId))) return
+                  yield* Effect.forkScoped(
+                    Stream.fromQueue(shard.commands).pipe(
+                      Stream.runForEach((command) =>
+                        (command.type === "subscribe"
+                          ? client.Subscribe({ coins: command.coins })
+                          : client.Unsubscribe({ coins: command.coins })
+                        ).pipe(
+                          Effect.catchCause((cause) =>
+                            Cause.hasInterrupts(cause)
+                              ? Effect.interrupt
+                              : Effect.logWarning(`supervisor: RPC command failed for ${shard.shardId}`, cause)
+                          )
+                        )
+                      )
+                    )
+                  )
 
-              if (exit === 0) {
-                yield* events.publish(
-                  yield* workerEvent({
-                    type: "shard-exited",
-                    exchangeId: exchange.exchangeId,
-                    exchangeSlug: exchange.exchangeSlug,
-                    shardId: shard.shardId,
-                    message: `shard ${shard.shardId} exited cleanly`
-                  })
-                )
+                  const streams = Effect.all(
+                    [
+                      client.Ticks(undefined).pipe(
+                        Stream.runForEach((tick) =>
+                          Effect.gen(function*() {
+                            shard.lastTickAt = yield* Clock.currentTimeMillis
+                            yield* onTick(tick, {
+                              exchangeId: exchange.exchangeId,
+                              exchangeSlug: exchange.exchangeSlug,
+                              shardId: shard.shardId
+                            })
+                          })
+                        )
+                      ),
+                      client.Status(undefined).pipe(
+                        Stream.runForEach((status: WorkerStatus) =>
+                          Effect.gen(function*() {
+                            shard.phase = status.phase
+                            shard.attempt = status.attempt ?? null
 
-                return
-              }
+                            if (status.phase !== "reconnecting") return
 
-              const attempt = shard.restarts
-              const delay = backoffFor(attempt)
+                            const event = {
+                              type: "reconnecting" as const,
+                              exchangeId: exchange.exchangeId,
+                              exchangeSlug: exchange.exchangeSlug,
+                              shardId: shard.shardId,
+                              message: `shard ${shard.shardId} reconnecting (attempt ${status.attempt ?? "unknown"})`
+                            }
 
-              shard.restarts = attempt + 1
-              shard.phase = "backoff"
+                            const published = status.attempt === undefined
+                              ? event
+                              : { ...event, attempt: status.attempt }
 
-              yield* events.publish(
-                yield* workerEvent({
-                  type: "respawn-scheduled",
-                  exchangeId: exchange.exchangeId,
-                  exchangeSlug: exchange.exchangeSlug,
-                  shardId: shard.shardId,
-                  message: `respawn ${attempt + 1} for shard ${shard.shardId} in ${delay}ms`
+                            yield* events.publish(yield* workerEvent(published))
+                          })
+                        )
+                      )
+                    ],
+                    { concurrency: "unbounded" }
+                  ).pipe(
+                    Effect.flatMap(() =>
+                      Effect.fail(new SupervisorSpawnError({
+                        exchangeId: exchange.exchangeId,
+                        shardId: shard.shardId,
+                        message: "worker RPC streams ended unexpectedly"
+                      }))
+                    )
+                  )
+
+                  return yield* streams
                 })
               )
 
-              yield* Effect.sleep(Duration.millis(delay))
-            }
-          }).pipe(Effect.ensuring(dropShard(exchange.exchangeId, shard.shardId)))
+              return yield* runWorker.pipe(
+                Effect.tapError(recordRecovery(exchange, shard)),
+                Effect.retry(recoverySchedule)
+              )
+            })
+          ).pipe(
+            Effect.ensuring(Queue.shutdown(shard.commands)),
+            Effect.ensuring(dropShard(exchange.exchangeId, shard.shardId))
+          )
 
         const spawnShard = (
           exchange: ExchangeState,
@@ -533,15 +469,20 @@ export class Supervisor extends Context.Service<Supervisor, {
             const shard: ShardState = {
               shardId,
               coins: new Map(coins.map((coin) => [coinKey(coin), coin])),
-              handle: null,
-              stdin: null,
+              commands: yield* Queue.unbounded<ShardCommand>(),
               restarts: 0,
-              phase: "starting"
+              attempt: null,
+              phase: "starting",
+              lastTickAt: null
             }
 
             exchange.shards.set(shardId, shard)
 
-            yield* FiberMap.run(workers, shardKey(exchange.exchangeId, shardId), shardFiber(exchange, shard))
+            yield* FiberMap.run(
+              workers,
+              shardKey(exchange.exchangeId, shardId),
+              Effect.provideContext(shardFiber(exchange, shard), workerContext)
+            )
           })
 
         const requireExchange = (exchangeId: number): Effect.Effect<ExchangeState | undefined> =>
@@ -588,9 +529,10 @@ export class Supervisor extends Context.Service<Supervisor, {
               shards: [...exchange.shards.values()].map((shard): ShardSnapshot => ({
                 shardId: shard.shardId,
                 coins: [...shard.coins.values()],
-                pid: shard.handle === null ? null : Number(shard.handle.pid),
+                attempt: shard.attempt,
                 restarts: shard.restarts,
-                phase: shard.phase
+                phase: shard.phase,
+                lastTickAt: shard.lastTickAt
               }))
             }))
           }),
@@ -646,7 +588,7 @@ export class Supervisor extends Context.Service<Supervisor, {
                   yield* spawnShard(exchange, [coin])
                 } else {
                   target.coins.set(key, coin)
-                  yield* writeCommand(target, { type: "subscribe", coins: [coin] })
+                  yield* Queue.offer(target.commands, { type: "subscribe", coins: [coin] })
                 }
               }
             }),
@@ -672,7 +614,7 @@ export class Supervisor extends Context.Service<Supervisor, {
                   const [firstRemoved, ...restRemoved] = removed
 
                   if (firstRemoved !== undefined) {
-                    yield* writeCommand(shard, { type: "unsubscribe", coins: [firstRemoved, ...restRemoved] })
+                    yield* Queue.offer(shard.commands, { type: "unsubscribe", coins: [firstRemoved, ...restRemoved] })
                   }
                 }
               }

@@ -1,3 +1,4 @@
+
 /**
  * Generated code (protobuf and other codegen output).
  *
@@ -6,3 +7,5 @@
  *
  * @module
  */
+export * as MexcWebSocketProto from './mexc-websocket-proto/PushDataV3ApiWrapper';
+

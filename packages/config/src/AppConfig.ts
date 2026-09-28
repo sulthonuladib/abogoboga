@@ -113,13 +113,10 @@ export const validateDatabaseUrl = Effect.fn("validateDatabaseUrl")(function*(
 ): Effect.fn.Return<void, InvalidDatabaseUrlError> {
   const raw = Redacted.value(databaseUrl)
 
-  let parsed: URL
-
-  try {
-    parsed = new URL(raw)
-  } catch {
-    return yield* new InvalidDatabaseUrlError({ reason: "DATABASE_URL must be a valid URL" })
-  }
+  const parsed = yield* Effect.try({
+    try: () => new URL(raw),
+    catch: () => new InvalidDatabaseUrlError({ reason: "DATABASE_URL must be a valid URL" })
+  })
 
   if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
     return yield* new InvalidDatabaseUrlError({

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { BunServices } from "@effect/platform-bun"
+import { BunWorker } from "@effect/platform-bun"
 import { type BootstrapCoin } from "@lister/worker-contract"
 import { Duration, Effect, Layer, Option, Ref } from "effect"
 import { join } from "node:path"
@@ -10,7 +10,7 @@ import { DomainEvents } from "./WorkerEvents.ts"
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url))
 
-const dummyWorker = join(repoRoot, "packages/worker-contract/src/testing/dummy-worker.ts")
+const dummyWorker = join(repoRoot, "packages/worker-contract/src/testing/dummy-rpc-worker.ts")
 
 const btc: BootstrapCoin = { symbol: "BTC", coingeckoId: "bitcoin" }
 
@@ -69,7 +69,7 @@ const runWithReconciler = <A, E>(
   registry: Ref.Ref<Registry>,
   program: Effect.Effect<A, E, Supervisor | DomainEvents>
 ): Promise<A> => {
-  const base = Layer.mergeAll(DomainEvents.layer, BunServices.layer)
+  const base = Layer.mergeAll(DomainEvents.layer, BunWorker.layerPlatform)
 
   const dependencies = Layer.mergeAll(
     Supervisor.layer({ workerScript: dummyWorker }).pipe(Layer.provide(base)),
@@ -129,6 +129,8 @@ describe("Reconciler convergence", () => {
           "removed coin convergence"
         )
 
+        // Live subscription RPCs are queued; let the final unsubscribe settle before shutdown.
+        yield* Effect.sleep(Duration.millis(100))
         yield* supervisor.stop(1)
       })
     )

@@ -3,7 +3,7 @@ import { Effect, Ref, Stream } from "effect"
 import { RpcTest } from "effect/unstable/rpc"
 import type { BootstrapCoin } from "./BootstrapCoin.ts"
 import type { CanonicalTick } from "./CanonicalTick.ts"
-import { WorkerRpc } from "./WorkerRpc.ts"
+import { WorkerRpc, type WorkerStatus } from "./WorkerRpc.ts"
 
 const tick: CanonicalTick = {
   exchangeSlug: "binance",
@@ -17,7 +17,7 @@ const tick: CanonicalTick = {
 const btc: BootstrapCoin = { symbol: "BTC", coingeckoId: "bitcoin" }
 
 describe("WorkerRpc", () => {
-  test("loopback covers Subscribe, Ticks, Health, and Unsubscribe", async () => {
+  test("loopback covers Subscribe, Ticks, Status, Health, and Unsubscribe", async () => {
     const program = Effect.gen(function*() {
       const subscribed = yield* Ref.make<ReadonlyArray<BootstrapCoin>>([])
 
@@ -30,6 +30,13 @@ describe("WorkerRpc", () => {
             current.filter((coin) => !removed.has(`${coin.symbol}:${coin.coingeckoId}`)))
         },
         Ticks: () => Stream.make(tick),
+        Status: (): Stream.Stream<WorkerStatus> =>
+          Stream.make(
+            { phase: "starting" },
+            { phase: "running" },
+            { phase: "reconnecting", attempt: 1 },
+            { phase: "running" }
+          ),
         Health: () => Effect.succeed({ running: true })
       })
 
@@ -46,6 +53,15 @@ describe("WorkerRpc", () => {
       const ticks = yield* Stream.runCollect(client.Ticks(undefined))
 
       expect([...ticks]).toEqual([tick])
+
+      const statuses = yield* Stream.runCollect(client.Status(undefined))
+
+      expect([...statuses]).toEqual([
+        { phase: "starting" },
+        { phase: "running" },
+        { phase: "reconnecting", attempt: 1 },
+        { phase: "running" }
+      ])
 
       yield* client.Unsubscribe({ coins: [btc] })
 

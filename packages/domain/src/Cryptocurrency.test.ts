@@ -15,24 +15,24 @@ const row = {
 
 describe("Cryptocurrency", () => {
   test("database roundtrip", () => {
-    const decoded = Schema.decodeUnknownSync(Cryptocurrency)(row)
+    const decoded = Schema.decodeSync(Cryptocurrency)(row)
 
     const encoded = Schema.encodeSync(Cryptocurrency)(decoded)
 
-    expect(Schema.decodeUnknownSync(Cryptocurrency)(encoded)).toEqual(decoded)
+    expect(Schema.decodeSync(Cryptocurrency)(encoded)).toEqual(decoded)
   })
 
   test("json roundtrip", () => {
-    const decoded = Schema.decodeUnknownSync(Cryptocurrency)(row)
+    const decoded = Schema.decodeSync(Cryptocurrency)(row)
 
     const json = Schema.encodeSync(Cryptocurrency.json)(decoded)
 
     expect(json.createdAt).toBe("2026-01-01T00:00:00.000Z")
-    expect(Schema.decodeUnknownSync(Cryptocurrency.json)(json)).toEqual(decoded)
+    expect(Schema.decodeSync(Cryptocurrency.json)(json)).toEqual(decoded)
   })
 
   test("empty logo decodes as a no-logo state", () => {
-    const decoded = Schema.decodeUnknownSync(Cryptocurrency)({ ...row, logo: "" })
+    const decoded = Schema.decodeSync(Cryptocurrency)({ ...row, logo: "" })
 
     expect(decoded.logo).toBe("")
   })

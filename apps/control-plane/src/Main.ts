@@ -9,7 +9,7 @@
  * @module
  */
 
-import { BunHttpServer, BunServices } from "@effect/platform-bun"
+import { BunHttpServer, BunServices, BunWorker } from "@effect/platform-bun"
 import { AppConfig } from "@lister/config"
 import {
   Api,
@@ -43,22 +43,23 @@ import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { WebRoutes } from "./web/Routes.ts"
 
-const workersRoot = fileURLToPath(new URL("../../workers/", import.meta.url))
+const workerEntrypointFor = (exchangeSlug: string): string =>
+  fileURLToPath(new URL(`../../workers/${exchangeSlug}/src/index.ts`, import.meta.url))
 
 /**
- * Resolve the worker entrypoint for one exchange.
+ * Resolve the Bun worker module for one exchange.
  *
  * Falls back to the synthetic dummy worker when an exchange has no app yet, so
  * a missing owner implementation surfaces as a normal worker failure instead of
  * a supervisor crash.
  *
  * @param exchangeSlug - Exchange slug from the database.
- * @returns Absolute path of the worker entrypoint.
+ * @returns Absolute path of the worker module, or the dummy fallback.
  */
 export const workerScriptFor = (exchangeSlug: string): string => {
-  const script = `${workersRoot}${exchangeSlug}/src/index.ts`
+  const entrypoint = workerEntrypointFor(exchangeSlug)
 
-  return existsSync(script) ? script : `${workersRoot}dummy/src/index.ts`
+  return existsSync(entrypoint) ? entrypoint : workerEntrypointFor("dummy")
 }
 
 const databaseLayer = Database.layer().pipe(Layer.provide(AppConfig.layer))
@@ -99,7 +100,7 @@ const coinDetailEventsLayer = Layer.effect(
 const storesProvided = storesLayer.pipe(Layer.provide(databaseLayer))
 
 const supervisorProvided = supervisorLayer.pipe(
-  Layer.provide(Layer.mergeAll(DomainEvents.layer, BunServices.layer))
+  Layer.provide(Layer.mergeAll(DomainEvents.layer, BunWorker.layerPlatform))
 )
 
 const appServicesProvided = Layer.mergeAll(

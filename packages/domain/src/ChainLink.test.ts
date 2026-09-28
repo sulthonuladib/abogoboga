@@ -16,25 +16,25 @@ const row = {
 
 describe("ChainLink", () => {
   test("database roundtrip", () => {
-    const decoded = Schema.decodeUnknownSync(ChainLink)(row)
+    const decoded = Schema.decodeSync(ChainLink)(row)
 
     const encoded = Schema.encodeSync(ChainLink)(decoded)
 
-    expect(Schema.decodeUnknownSync(ChainLink)(encoded)).toEqual(decoded)
+    expect(Schema.decodeSync(ChainLink)(encoded)).toEqual(decoded)
   })
 
   test("json roundtrip", () => {
-    const decoded = Schema.decodeUnknownSync(ChainLink)(row)
+    const decoded = Schema.decodeSync(ChainLink)(row)
 
     const json = Schema.encodeSync(ChainLink.json)(decoded)
 
     expect(json.createdAt).toBe("2026-01-01T00:00:00.000Z")
-    expect(Schema.decodeUnknownSync(ChainLink.json)(json)).toEqual(decoded)
+    expect(Schema.decodeSync(ChainLink.json)(json)).toEqual(decoded)
   })
 
   test("insert fills generated fields", async () => {
     const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...insertInput } =
-      Schema.decodeUnknownSync(ChainLink)(row)
+      Schema.decodeSync(ChainLink)(row)
 
     const inserted = await Effect.runPromise(ChainLink.insert.makeEffect(insertInput))
 

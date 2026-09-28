@@ -13,9 +13,9 @@ const databaseLayer = Database.layer().pipe(Layer.provide(AppConfig.layer))
 const baseServices = Layer.merge(BunServices.layer, CoinGecko.layer)
 
 // Only the `seed`, `migrate`, and `scan import` commands touch Postgres.
-// Selecting the layer by subcommand keeps `sweep`, `scan fetch`, and `--help`
-// from opening a connection or applying migrations. Help/version flags skip the
-// database even under the commands above so `lister seed --help` works offline.
+// Selecting the layer by subcommand keeps `scan fetch` and `--help` from opening
+// a connection or applying migrations. Help/version flags skip the database
+// even under the commands above so `lister seed --help` works offline.
 // Commands stay layer-agnostic so tests can provide `Database.layerMemory()`.
 const helpFlags = new Set(["--help", "-h", "--version", "-v", "--wizard", "--completions"])
 

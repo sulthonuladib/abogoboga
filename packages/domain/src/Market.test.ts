@@ -15,25 +15,25 @@ const row = {
 
 describe("Market", () => {
   test("database roundtrip", () => {
-    const decoded = Schema.decodeUnknownSync(Market)(row)
+    const decoded = Schema.decodeSync(Market)(row)
 
     const encoded = Schema.encodeSync(Market)(decoded)
 
-    expect(Schema.decodeUnknownSync(Market)(encoded)).toEqual(decoded)
+    expect(Schema.decodeSync(Market)(encoded)).toEqual(decoded)
   })
 
   test("json roundtrip", () => {
-    const decoded = Schema.decodeUnknownSync(Market)(row)
+    const decoded = Schema.decodeSync(Market)(row)
 
     const json = Schema.encodeSync(Market.json)(decoded)
 
     expect(json.createdAt).toBe("2026-01-01T00:00:00.000Z")
-    expect(Schema.decodeUnknownSync(Market.json)(json)).toEqual(decoded)
+    expect(Schema.decodeSync(Market.json)(json)).toEqual(decoded)
   })
 
   test("insert fills generated fields", async () => {
     const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...insertInput } =
-      Schema.decodeUnknownSync(Market)(row)
+      Schema.decodeSync(Market)(row)
 
     const inserted = await Effect.runPromise(Market.insert.makeEffect(insertInput))
 

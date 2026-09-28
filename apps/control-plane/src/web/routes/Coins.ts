@@ -58,8 +58,8 @@ const defaultLogo = "https://example.com/logo.png"
 
 const defaultCoinFilter: CoinFilterState = {
   q: "",
-  sortBy: "symbol",
-  order: "asc",
+  sortBy: "markets",
+  order: "desc",
   flag: "all",
   exchangeId: "",
   chainId: ""

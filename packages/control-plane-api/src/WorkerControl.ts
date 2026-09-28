@@ -7,7 +7,9 @@ export const WorkerShardStatus = Schema.Struct({
   shardId: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(64))),
   size: Schema.Int,
   restarts: Schema.Int,
-  pid: Schema.NullOr(Schema.Int)
+  phase: Schema.Literals(["starting", "running", "reconnecting"]),
+  attempt: Schema.NullOr(Schema.Int),
+  lastTickAt: Schema.NullOr(Schema.Int)
 })
 
 /**
@@ -41,7 +43,7 @@ export const WorkerEventType = Schema.Literals([
   "stopped",
   "shard-spawned",
   "shard-exited",
-  "respawn-scheduled",
+  "reconnecting",
   "reconciled"
 ])
 
@@ -54,6 +56,7 @@ export const WorkerEvent = Schema.Struct({
   exchangeSlug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   shardId: Schema.NullOr(Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(64)))),
   message: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(1024))),
+  attempt: Schema.optional(Schema.Int),
   at: Schema.Int
 })
 
@@ -106,7 +109,7 @@ export class WorkerControlFailure extends Schema.TaggedError<WorkerControlFailur
  *
  * Implemented at the composition root over the crawler `Supervisor`; the JSON
  * API and the SSR monitoring page consume this port so tests can substitute an
- * in-memory implementation without spawning subprocesses.
+   * in-memory implementation without spawning Bun workers.
  */
 export type WorkerControlService = {
   /** Start the worker for an exchange, or fail with a conflict when already started. */
@@ -125,7 +128,7 @@ export type WorkerControlService = {
 export interface ExchangeDirectoryEntry {
   /** Database exchange id. */
   readonly exchangeId: number
-  /** Exchange slug used in worker argv and monitoring rows. */
+  /** Exchange slug used in worker bootstrap messages and monitoring rows. */
   readonly exchangeSlug: string
 }
 
@@ -134,7 +137,7 @@ export interface ExchangeDirectoryEntry {
  */
 export type ExchangeDirectoryService = {
   /** Every known exchange, in stable order. */
-  readonly list: () => Effect.Effect<ReadonlyArray<ExchangeDirectoryEntry>>
+  readonly list: Effect.Effect<ReadonlyArray<ExchangeDirectoryEntry>>
   /** Look up one exchange, or `None` when the id does not exist. */
   readonly find: (exchangeId: number) => Effect.Effect<Option.Option<ExchangeDirectoryEntry>>
 }
@@ -198,7 +201,14 @@ export class WorkerControl extends Context.Service<WorkerControl, WorkerControlS
             desired: entry.running ? ("started" as const) : ("stopped" as const),
             running: entry.running,
             shards: entry.running
-              ? [{ shardId: `${entry.slug}-shard-1`, size: 1, restarts: entry.restarts, pid: 4242 }]
+              ? [{
+                shardId: `${entry.slug}-shard-1`,
+                size: 1,
+                restarts: entry.restarts,
+                phase: "running" as const,
+                attempt: null,
+                lastTickAt: null
+              }]
               : [],
             restarts: entry.restarts,
             eligibleCoins: entry.running ? 2 : 0

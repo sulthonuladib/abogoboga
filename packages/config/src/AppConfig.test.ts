@@ -36,8 +36,7 @@ function runWithEnv<A, E>(env: Record<string, string | undefined>, effect: Effec
 }
 
 const readConfig = Effect.provide(
-  Effect.flatMap(AppConfig, (c) =>
-    Effect.succeed({
+  Effect.map(AppConfig, (c) => ({
       databaseUrl: Redacted.value(c.databaseUrl),
       port: c.port,
       serviceName: c.serviceName,

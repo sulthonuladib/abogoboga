@@ -12,20 +12,20 @@ const row = {
 
 describe("Chain", () => {
   test("database roundtrip", () => {
-    const decoded = Schema.decodeUnknownSync(Chain)(row)
+    const decoded = Schema.decodeSync(Chain)(row)
 
     const encoded = Schema.encodeSync(Chain)(decoded)
 
-    expect(Schema.decodeUnknownSync(Chain)(encoded)).toEqual(decoded)
+    expect(Schema.decodeSync(Chain)(encoded)).toEqual(decoded)
   })
 
   test("json roundtrip", () => {
-    const decoded = Schema.decodeUnknownSync(Chain)(row)
+    const decoded = Schema.decodeSync(Chain)(row)
 
     const json = Schema.encodeSync(Chain.json)(decoded)
 
     expect(json.createdAt).toBe("2026-01-01T00:00:00.000Z")
-    expect(Schema.decodeUnknownSync(Chain.json)(json)).toEqual(decoded)
+    expect(Schema.decodeSync(Chain.json)(json)).toEqual(decoded)
   })
 
   test("insert fills generated fields", async () => {

@@ -10,7 +10,6 @@ import {
   readSnapshot,
   writeSnapshot
 } from "./Scanner.ts"
-import { runSweep } from "./Sweep.ts"
 import { seedTesterExchanges } from "./TesterExchanges.ts"
 
 /**
@@ -129,14 +128,10 @@ const migrate = Command.make(
   })
 ).pipe(Command.withDescription("Apply pending database migrations"))
 
-const sweep = Command.make("sweep", {}, runSweep).pipe(
-  Command.withDescription("Terminate orphaned crawler worker processes")
-)
-
 /**
- * Complete `lister` command tree: `scan`, `seed`, `migrate`, and `sweep`.
+ * Complete `lister` command tree: `scan`, `seed`, and `migrate`.
  */
 export const cli = Command.make("lister").pipe(
   Command.withDescription("Lister database and crawler operations"),
-  Command.withSubcommands([scan, seed, migrate, sweep])
+  Command.withSubcommands([scan, seed, migrate])
 )

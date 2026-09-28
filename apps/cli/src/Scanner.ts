@@ -376,7 +376,7 @@ export const readSnapshot = Effect.fn("Scanner.readSnapshot")(function*(path: st
     )
   )
 
-  return yield* Schema.decodeUnknownEffect(SnapshotJson)(raw).pipe(
+  return yield* Schema.decodeEffect(SnapshotJson)(raw).pipe(
     Effect.mapError(
       (cause) =>
         new SnapshotDecodeError({

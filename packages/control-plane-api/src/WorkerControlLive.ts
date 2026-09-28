@@ -23,7 +23,7 @@ const lifecycleTypes: ReadonlySet<string> = new Set([
   "stopped",
   "shard-spawned",
   "shard-exited",
-  "respawn-scheduled",
+  "reconnecting",
   "reconciled"
 ])
 
@@ -35,7 +35,7 @@ export const exchangeDirectoryLayer: Layer.Layer<ExchangeDirectory, never, Datab
   Effect.gen(function*() {
     const { db } = yield* Database
 
-    const list = Effect.fn("ExchangeDirectory.list")(function*() {
+    const list = Effect.gen(function*() {
       const rows = yield* db
         .select({ exchangeId: exchangeTable.id, exchangeSlug: exchangeTable.slug })
         .from(exchangeTable)
@@ -46,7 +46,7 @@ export const exchangeDirectoryLayer: Layer.Layer<ExchangeDirectory, never, Datab
         exchangeId: row.exchangeId,
         exchangeSlug: row.exchangeSlug
       }))
-    })
+    }).pipe(Effect.withSpan("ExchangeDirectory.list"))
 
     const find = Effect.fn("ExchangeDirectory.find")(function*(exchangeId: number) {
       const rows = yield* db
@@ -103,7 +103,9 @@ export const layerLive: Layer.Layer<
             shardId: shard.shardId,
             size: shard.coins.length,
             restarts: shard.restarts,
-            pid: shard.pid
+            phase: shard.phase,
+            attempt: shard.attempt,
+            lastTickAt: shard.lastTickAt
           })),
           restarts: shards.reduce((total, shard) => total + shard.restarts, 0),
           eligibleCoins: coins.length
@@ -160,23 +162,25 @@ export const layerLive: Layer.Layer<
     })
 
     const statuses = Effect.gen(function*() {
-      const entries = yield* directory.list()
+      const entries = yield* directory.list
 
       return yield* Effect.forEach(entries, statusOf)
     })
 
-    const events = domainEvents.subscribe().pipe(
+    const events = domainEvents.subscribe.pipe(
       Stream.filter((event): event is CrawlerWorkerEvent => lifecycleTypes.has(event.type)),
-      Stream.map(
-        (event): WorkerEvent => ({
+      Stream.map((event): WorkerEvent => {
+        const output: WorkerEvent = {
           type: event.type,
           exchangeId: event.exchangeId,
           exchangeSlug: event.exchangeSlug,
           shardId: event.shardId,
           message: event.message,
           at: event.at
-        })
-      )
+        }
+
+        return event.attempt === undefined ? output : { ...output, attempt: event.attempt }
+      })
     )
 
     return WorkerControl.of({
