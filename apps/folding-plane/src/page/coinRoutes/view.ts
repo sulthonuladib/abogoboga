@@ -1,7 +1,6 @@
 import { AsyncData, Submodel } from 'foldkit'
 import { Array, Option } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
-import { Input } from '@foldkit/ui'
 
 import type { CoinMetadata } from '../../api'
 import { coinsUrl, defaultCoinsQuery, exchangeDetailUrl } from '../../route'
@@ -11,6 +10,7 @@ import { textField, toggleField } from '../../ui/field'
 import { formatCount } from '../../ui/format'
 import { icon } from '../../ui/icon'
 import { action, iconAction, pageHeader } from '../../ui/pageHeader'
+import { pickerSearch } from '../../ui/picker'
 import { emptyState, errorPanel, sectionHeading } from '../../ui/states'
 import {
   body,
@@ -24,45 +24,6 @@ import {
 import { Message } from './message'
 import { Model, isAssignValid, isEditValid, isLinkValid } from './model'
 import { statusLabel, statusOf, viableFor } from './update'
-
-// PICKER SEARCH
-
-const pickerControlClass =
-  'h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
-
-/**
- * A search box inside a picker dialog. Unlike the listing search, it carries
- * an accessible name so the exchange picker and the chain picker can be told
- * apart when both dialogs are open.
- */
-const pickerSearch = <M>(
-  input: Readonly<{
-    id: string
-    label: string
-    value: string
-    placeholder: string
-    onInput: (value: string) => M
-    h: HtmlBuilder<M>
-  }>,
-): Html =>
-  Input.view(
-    {
-      id: input.id,
-      value: input.value,
-      onInput: input.onInput,
-      type: 'search',
-      placeholder: input.placeholder,
-      toView: (attributes) =>
-        input.h.div([input.h.Class('w-full')], [
-          input.h.input([
-            ...attributes.input,
-            input.h.AriaLabel(input.label),
-            input.h.Class(pickerControlClass),
-          ]),
-        ]),
-    },
-    input.h,
-  )
 
 // VIEW
 

@@ -209,12 +209,17 @@ const foldExchangesRouteChanged = Update.foldChild({
   toParentMessage: (message) => Message.GotExchangesMessage({ message }),
 })
 
+const foldExchangeDetailOutMessage = ExchangeDetail.OutMessage.match<Update.Step<Model, Message>>({
+  ChangedCatalogue: () => refreshCoverage,
+})
+
 const foldExchangeDetail = Update.foldChild({
   update: ExchangeDetail.update,
   read: (model: Model) => Option.some(model.exchangeDetail),
   write: (model, nextExchangeDetail) =>
     modifyFields(model, { exchangeDetail: () => nextExchangeDetail }),
   toParentMessage: (message) => Message.GotExchangeDetailMessage({ message }),
+  foldOutMessage: foldExchangeDetailOutMessage,
 })
 
 const foldExchangeDetailRouteChanged = Update.foldChild({
