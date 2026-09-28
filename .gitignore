@@ -33,9 +33,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Finder (MacOS) folder config
 .DS_Store
 
-# openspec working results (local only)
-# openspec/changes/
-# openspec/specs/
+# openspec working results (local only, per-branch/worktree)
+openspec/changes/
+openspec/specs/
 
 # vendored upstream reference checkouts live in repos/ and are committed as
 # git subtrees (read-only, pinned per release). See repos/README.md.
