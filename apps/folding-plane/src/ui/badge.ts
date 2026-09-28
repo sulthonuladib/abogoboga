@@ -8,18 +8,18 @@ import { classNames } from './classNames'
 /**
  * A short label carrying one fact about a row: a listing state, a coverage
  * count, a chain code. The variant is the meaning, so a screen reader gets the
- * same reading a colour gives.
+ * same reading a colour gives. Present states fill green, capable states fill
+ * blue, partial states fill amber, blocked states fill red, and off states
+ * and plain labels stay outlines.
  */
-export type Variant = 'neutral' | 'positive' | 'critical' | 'warning'
+export type Variant = 'neutral' | 'positive' | 'info' | 'warning' | 'critical'
 
 const variantClass = Match.type<Variant>().pipe(
-  Match.when('neutral', () => 'border-border bg-muted text-muted-foreground'),
-  Match.when('positive', () => 'border-transparent bg-accent text-accent-foreground'),
-  Match.when('warning', () => 'border-border bg-popover text-foreground'),
-  Match.when(
-    'critical',
-    () => 'border-transparent bg-destructive/10 text-destructive',
-  ),
+  Match.when('neutral', () => 'badge-neutral'),
+  Match.when('positive', () => 'badge-positive'),
+  Match.when('info', () => 'badge-info'),
+  Match.when('warning', () => 'badge-warning'),
+  Match.when('critical', () => 'badge-critical'),
   Match.exhaustive,
 )
 

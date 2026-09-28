@@ -381,9 +381,9 @@ describe('exchange detail', () => {
       expect(text('Ethereum (exchange code ERC20)')).toExist(),
       expect(role('button', { name: 'Link another chain' })).toExist(),
       expect(role('searchbox', { name: 'Search chains' })).toBeAbsent(),
-      expect(role('button', { name: 'Withdraw' })).toHaveAttr('aria-pressed', 'true'),
-      click(role('button', { name: 'Withdraw' })),
-      expect(role('button', { name: 'Withdraw' })).toHaveAttr('aria-pressed', 'false'),
+      expect(role('checkbox', { name: 'Withdraw' })).toHaveAttr('aria-checked', 'true'),
+      click(role('checkbox', { name: 'Withdraw' })),
+      expect(role('checkbox', { name: 'Withdraw' })).toHaveAttr('aria-checked', 'false'),
       Command.resolve(
         ToggleChainLink({
           marketId: 100,
@@ -418,7 +418,7 @@ describe('exchange detail', () => {
         Message.SettledFetchLinkChains({ result: Result.succeed(fixtureChains) }),
       ),
       ...resolveDialogOpen,
-      click(role('button', { name: 'Withdraw' })),
+      click(role('checkbox', { name: 'Withdraw' })),
       Command.resolve(
         ToggleChainLink({
           marketId: 100,
@@ -431,7 +431,7 @@ describe('exchange detail', () => {
         }),
         Message.FailedToggleLink({ linkId: 50, detail: 'that chain link no longer exists' }),
       ),
-      expect(role('button', { name: 'Withdraw' })).toHaveAttr('aria-pressed', 'true'),
+      expect(role('checkbox', { name: 'Withdraw' })).toHaveAttr('aria-checked', 'true'),
       expect(text('that chain link no longer exists')).toExist(),
     )
   })

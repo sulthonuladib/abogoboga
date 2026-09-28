@@ -249,8 +249,8 @@ const linkRows = (
       h.keyed('tr')(String(link.id), [], [
         td(h, marketCell(market, coinsById, isCoinsLoaded, h)),
         td(h, link.exchangeChainCode),
-        td(h, badge(link.withdrawEnabled ? 'enabled' : 'disabled', h, link.withdrawEnabled ? 'positive' : 'neutral')),
-        td(h, badge(link.depositEnabled ? 'enabled' : 'disabled', h, link.depositEnabled ? 'positive' : 'neutral')),
+        td(h, badge(link.withdrawEnabled ? 'enabled' : 'disabled', h, link.withdrawEnabled ? 'info' : 'neutral')),
+        td(h, badge(link.depositEnabled ? 'enabled' : 'disabled', h, link.depositEnabled ? 'info' : 'neutral')),
       ]),
     )
   }
