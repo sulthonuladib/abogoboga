@@ -1,4 +1,4 @@
-import { Dialog } from '@foldkit/ui'
+import { Button, Dialog } from '@foldkit/ui'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
 
 import { classNames } from './classNames'
@@ -57,15 +57,22 @@ const confirmButton = <Message>(
   const { h } = input
   const tone = input.isDestructive ? destructiveClass : primaryClass
 
-  return h.button(
-    [
-      h.Type('button'),
-      input.isDisabled ? h.Disabled(true) : h.OnClick(input.onConfirm),
-      h.Class(
-        classNames(tone, input.isDisabled && 'cursor-not-allowed opacity-50'),
-      ),
-    ],
-    [input.label],
+  return Button.view(
+    {
+      onClick: input.onConfirm,
+      isDisabled: input.isDisabled,
+      toView: (attributes) =>
+        h.button(
+          [
+            ...attributes.button,
+            h.Class(
+              classNames(tone, input.isDisabled && 'cursor-not-allowed opacity-50'),
+            ),
+          ],
+          [input.label],
+        ),
+    },
+    h,
   )
 }
 

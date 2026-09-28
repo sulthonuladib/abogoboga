@@ -110,13 +110,19 @@ export const staleNotice = <Message>(
       h.span([h.Class('text-foreground')], [
         `Showing the last loaded rows. ${input.detail}`,
       ]),
-      h.button(
-        [
-          h.Type('button'),
-          h.OnClick(input.onRetry),
-          h.Class('underline underline-offset-4'),
-        ],
-        ['Retry'],
+      Button.view(
+        {
+          onClick: input.onRetry,
+          toView: (attributes) =>
+            h.button(
+              [
+                ...attributes.button,
+                h.Class('underline underline-offset-4'),
+              ],
+              ['Retry'],
+            ),
+        },
+        h,
       ),
     ],
   )

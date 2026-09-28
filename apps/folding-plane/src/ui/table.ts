@@ -1,4 +1,5 @@
 import { Array } from 'effect'
+import { Button } from '@foldkit/ui'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
 
 import { classNames } from './classNames'
@@ -92,19 +93,25 @@ export const sortableTh = <Message, Sort extends string>(
       h.Class(classNames(headCellClass, input.isNumeric === true && 'text-right')),
     ],
     [
-      h.button(
-        [
-          h.Type('button'),
-          h.OnClick(input.onSort(input.column)),
-          h.AriaLabel(`Sort by ${input.label}, currently ${state}`),
-          h.Class(
-            classNames(
-              'inline-flex items-center gap-1 rounded-sm underline-offset-4 hover:text-foreground hover:underline',
-              isActive && 'text-foreground',
+      Button.view(
+        {
+          onClick: input.onSort(input.column),
+          toView: (attributes) =>
+            h.button(
+              [
+                ...attributes.button,
+                h.AriaLabel(`Sort by ${input.label}, currently ${state}`),
+                h.Class(
+                  classNames(
+                    'inline-flex items-center gap-1 rounded-sm underline-offset-4 hover:text-foreground hover:underline',
+                    isActive && 'text-foreground',
+                  ),
+                ),
+              ],
+              [input.label, isActive ? sortGlyph(input.order, h) : h.empty],
             ),
-          ),
-        ],
-        [input.label, isActive ? sortGlyph(input.order, h) : h.empty],
+        },
+        h,
       ),
     ],
   )
