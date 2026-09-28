@@ -33,7 +33,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Finder (MacOS) folder config
 .DS_Store
 
-# openspec working results 
+# openspec working results (local only, per-branch/worktree)
 openspec/changes/
 openspec/specs/
 
