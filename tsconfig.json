@@ -41,5 +41,9 @@
     "apps/*/src/**/*.ts",
     "apps/workers/*/src/**/*.ts",
     "drizzle.config.ts"
+  ],
+  "exclude": [
+    "packages/ui",
+    "apps/control-plane"
   ]
 }

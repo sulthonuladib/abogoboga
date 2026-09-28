@@ -1,7 +1,7 @@
 # AGENTS.md
 
 # Agent workflow
-- Never spawn subagents or i will kill you!
+- Subagents are allowed when they help. Keep them scoped to independent work and avoid concurrent writes to shared files (root `package.json`, `bun.lock`, `tsconfig.json`).
 
 # Learning more about Effect
 This repository uses Effect. Before writing any Effect code, fully read

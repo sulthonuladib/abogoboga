@@ -1,0 +1,19 @@
+{
+  "name": "@lister/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts"
+  },
+  "dependencies": {
+    "@lister/crawler": "workspace:*",
+    "@lister/db": "workspace:*",
+    "@lister/domain": "workspace:*",
+    "@lister/worker-contract": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.4",
+    "effect": "^4.0.0-rc.115"
+  }
+}
