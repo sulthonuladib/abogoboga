@@ -69,6 +69,13 @@ const PendingToggle = Schema.Struct({
   depositEnabled: Schema.Boolean,
 })
 
+/**
+ * The chain-links dialog has two halves that share one open lifecycle: the
+ * manage list of current links, and the add form for a new one.
+ */
+export const LinkMode = Schema.Literals(['manage', 'add'])
+export type LinkMode = typeof LinkMode.Type
+
 // MODEL
 
 export const Model = Schema.Struct({
@@ -93,6 +100,7 @@ export const Model = Schema.Struct({
   unassigning: Schema.Option(SelectedMarket),
   // Chain-links dialog
   linksDialog: Dialog.Model,
+  linkMode: LinkMode,
   managing: Schema.Option(SelectedMarket),
   linkSearch: Schema.String,
   linkChains: LinkChains.schema,
@@ -144,6 +152,7 @@ export const initFor = (coinId: number): Model => ({
   unassignDialog: Dialog.init({ id: 'coin-routes-unassign' }),
   unassigning: Option.none(),
   linksDialog: Dialog.init({ id: 'coin-routes-links' }),
+  linkMode: 'manage',
   managing: Option.none(),
   linkSearch: '',
   linkChains: AsyncData.Idle(),

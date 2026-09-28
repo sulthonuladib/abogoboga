@@ -42,6 +42,8 @@ export const Message = defineMessageUnion({
   FailedUnassign: { detail: Schema.String },
   // Chain links
   ClickedManageLinks: { marketId: Schema.Int, cryptocurrencyId: Schema.Int, label: Schema.String, symbol: Schema.String },
+  ClickedAddAnotherLink: {},
+  ClickedBackToLinkList: {},
   SettledFetchMetadata: { result: Schema.Result(CryptocurrencyMetadataResponse, Schema.String) },
   UpdatedLinkSearch: { value: Schema.String },
   SettledFetchLinkChains: { result: Schema.Result(ChainPageResponse, Schema.String) },

@@ -509,51 +509,83 @@ const linksView = (model: Model, h: HtmlBuilder<Message>): Html =>
     description: 'A route exists between two markets only when one side can withdraw and the other can deposit on the same chain.',
     confirmLabel: 'Add chain link',
     isConfirmDisabled: !isLinkValid(model) || model.isSaving,
-    onConfirm: Message.ClickedAddLink(),
+    onConfirm: model.linkMode === 'add' ? Message.ClickedAddLink() : undefined,
     toParentMessage: (message) => Message.GotLinksDialogMessage({ message }),
-    content: h.div([h.Class('flex flex-col gap-4')], [
-      ...noticeView(model.linksNotice, h),
-      currentLinks(model, h),
-      h.div([h.Class('flex flex-col gap-4 rounded-2xl border border-dashed p-3')], [
-        h.p([h.Class('text-sm font-medium')], ['Link another chain']),
-        pickerSearch({
-          id: 'link-chain-search',
-          label: 'Search chains',
-          value: model.linkSearch,
-          placeholder: 'Search chains',
-          onInput: (value) => Message.UpdatedLinkSearch({ value }),
-          h,
-        }),
-        chainPicker(model, h),
-        textField({
-          id: 'link-code',
-          label: 'Exchange chain code',
-          field: model.linkCode,
-          hint: 'The code this exchange uses, for example ERC20.',
-          placeholder: 'ERC20',
-          onInput: (value) => Message.UpdatedLinkCode({ value }),
-          h,
-        }),
-        h.div([h.Class('flex items-center gap-4')], [
-          toggleField({
-            id: 'link-withdraw',
-            label: 'Withdraw',
-            isChecked: model.linkWithdraw,
-            onToggle: (isChecked) => Message.ToggledLinkWithdraw({ isChecked }),
-            h,
-          }),
-          toggleField({
-            id: 'link-deposit',
-            label: 'Deposit',
-            isChecked: model.linkDeposit,
-            onToggle: (isChecked) => Message.ToggledLinkDeposit({ isChecked }),
-            h,
-          }),
-        ]),
-      ]),
-    ]),
+    content: renderLinkHalf(model, h),
     h,
   })
+
+const renderLinkHalf = (model: Model, h: HtmlBuilder<Message>): Html => {
+  if (model.linkMode === 'add') {
+    return addLinkForm(model, h)
+  }
+
+  return manageLinks(model, h)
+}
+
+const manageLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
+  h.div([h.Class('flex flex-col gap-4')], [
+    ...noticeView(model.linksNotice, h),
+    currentLinks(model, h),
+    h.button(
+      [
+        h.Type('button'),
+        h.OnClick(Message.ClickedAddAnotherLink()),
+        h.Class('self-start rounded-lg border border-dashed px-3 py-1.5 text-sm hover:bg-muted/60'),
+      ],
+      ['Link another chain'],
+    ),
+  ])
+
+const addLinkForm = (model: Model, h: HtmlBuilder<Message>): Html =>
+  h.div([h.Class('flex flex-col gap-4')], [
+    ...noticeView(model.linksNotice, h),
+    h.button(
+      [
+        h.Type('button'),
+        h.OnClick(Message.ClickedBackToLinkList()),
+        h.Class('self-start text-xs text-muted-foreground hover:text-foreground'),
+      ],
+      ['← Back to links'],
+    ),
+    h.div([h.Class('flex flex-col gap-4 rounded-2xl border border-dashed p-3')], [
+      h.p([h.Class('text-sm font-medium')], ['Link another chain']),
+      pickerSearch({
+        id: 'link-chain-search',
+        label: 'Search chains',
+        value: model.linkSearch,
+        placeholder: 'Search chains',
+        onInput: (value) => Message.UpdatedLinkSearch({ value }),
+        h,
+      }),
+      chainPicker(model, h),
+      textField({
+        id: 'link-code',
+        label: 'Exchange chain code',
+        field: model.linkCode,
+        hint: 'The code this exchange uses, for example ERC20.',
+        placeholder: 'ERC20',
+        onInput: (value) => Message.UpdatedLinkCode({ value }),
+        h,
+      }),
+      h.div([h.Class('flex items-center gap-4')], [
+        toggleField({
+          id: 'link-withdraw',
+          label: 'Withdraw',
+          isChecked: model.linkWithdraw,
+          onToggle: (isChecked) => Message.ToggledLinkWithdraw({ isChecked }),
+          h,
+        }),
+        toggleField({
+          id: 'link-deposit',
+          label: 'Deposit',
+          isChecked: model.linkDeposit,
+          onToggle: (isChecked) => Message.ToggledLinkDeposit({ isChecked }),
+          h,
+        }),
+      ]),
+    ]),
+  ])
 
 const currentLinks = (model: Model, h: HtmlBuilder<Message>): Html =>
   Option.match(AsyncData.getData(model.metadata), {

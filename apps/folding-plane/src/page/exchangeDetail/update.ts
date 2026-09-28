@@ -737,6 +737,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       Update.combine(model, [
         () => ({
           model: modifyFields(model, {
+            linkMode: () => 'manage',
             managing: () => Option.some({ marketId, cryptocurrencyId, label, symbol }),
             metadata: () => AsyncData.Loading(),
             linkSearch: () => '',
@@ -756,6 +757,20 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         }),
         openLinksDialog,
       ]),
+
+    ClickedAddAnotherLink: () => ({
+      model: modifyFields(model, {
+        linkMode: () => 'add',
+        linksNotice: () => Option.none(),
+      }),
+    }),
+
+    ClickedBackToLinkList: () => ({
+      model: modifyFields(model, {
+        linkMode: () => 'manage',
+        linksNotice: () => Option.none(),
+      }),
+    }),
 
     UpdatedLinkSearch: ({ value }) => ({
       model: modifyFields(model, {
@@ -857,6 +872,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         Update.combine(model, [
           () => ({
             model: modifyFields(model, {
+              linkMode: () => 'manage',
               linkChain: () => Option.none(),
               linkCode: () => FieldValidation.NotValidated({ value: '' }),
               linkWithdraw: () => true,

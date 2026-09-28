@@ -40,6 +40,8 @@ export const Message = defineMessageUnion({
   FailedUnassign: { detail: Schema.String },
   // Chain links
   ClickedManageLinks: { marketId: Schema.Int, exchangeId: Schema.Int, name: Schema.String, symbol: Schema.String },
+  ClickedAddAnotherLink: {},
+  ClickedBackToLinkList: {},
   UpdatedLinkSearch: { value: Schema.String },
   SettledFetchLinkChains: { result: Schema.Result(ChainPageResponse, Schema.String) },
   PickedLinkChain: { id: Schema.Int, code: Schema.String, name: Schema.String },

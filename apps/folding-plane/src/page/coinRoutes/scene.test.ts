@@ -323,6 +323,8 @@ describe('coin routes', () => {
       expect(text('Chains for Binance')).toExist(),
       expect(role('dialog', { name: 'Chains for Binance' })).toHaveAttr('data-size', 'lg'),
       expect(text('Ethereum (exchange code ERC20)')).toExist(),
+      expect(role('button', { name: 'Link another chain' })).toExist(),
+      expect(role('searchbox', { name: 'Search chains' })).toBeAbsent(),
       expect(role('button', { name: 'Withdraw' })).toHaveAttr('aria-pressed', 'true'),
       click(role('button', { name: 'Withdraw' })),
       expect(role('button', { name: 'Withdraw' })).toHaveAttr('aria-pressed', 'false'),
@@ -374,6 +376,9 @@ describe('coin routes', () => {
         Message.SettledFetchLinkChains({ result: Result.succeed(fixtureChains) }),
       ),
       ...resolveDialogOpen,
+      expect(role('searchbox', { name: 'Search chains' })).toBeAbsent(),
+      click(role('button', { name: 'Link another chain' })),
+      expect(role('searchbox', { name: 'Search chains' })).toExist(),
       type(role('searchbox', { name: 'Search chains' }), 'SOL'),
       Command.resolve(
         FetchLinkChains({ search: 'SOL' }),
