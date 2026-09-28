@@ -341,6 +341,7 @@ const removeView = (model: Model, h: HtmlBuilder<Message>): Html =>
       'Market assignments on this exchange are removed too, and the assigned coins lose the listing.',
     confirmLabel: 'Remove exchange',
     isDestructive: true,
+    size: 'sm',
     onConfirm: Message.ClickedConfirmRemoveExchange(),
     toParentMessage: (message) => Message.GotRemoveDialogMessage({ message }),
     content: h.div([h.Class('flex flex-col gap-3')], [

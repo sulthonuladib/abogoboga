@@ -5,8 +5,20 @@ import { classNames } from './classNames'
 
 // STYLE
 
-const dialogClass =
-  'fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto'
+/**
+ * The three sizes a dialog panel takes. A destructive confirmation is compact,
+ * an editor fits its form, and a picker fits the list it searches without
+ * crowding the viewport.
+ */
+export type Size = 'sm' | 'md' | 'lg'
+
+const baseDialogClass = 'fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] overflow-y-auto'
+
+const sizeClass: Record<Size, string> = {
+  sm: 'w-[min(24rem,calc(100vw-2rem))]',
+  md: 'w-[min(32rem,calc(100vw-2rem))]',
+  lg: 'w-[min(40rem,calc(100vw-2rem))]',
+}
 
 const backdropClass = 'fixed inset-0 bg-foreground/40'
 
@@ -72,6 +84,7 @@ export const dialog = <Message>(
     title: string
     description?: string | undefined
     isDestructive?: boolean | undefined
+    size?: Size | undefined
     confirmLabel?: string | undefined
     isConfirmDisabled?: boolean | undefined
     onConfirm?: Message | undefined
@@ -79,15 +92,17 @@ export const dialog = <Message>(
     content: Html
     h: HtmlBuilder<Message>
   }>,
-): Html =>
-  input.h.submodel({
+): Html => {
+  const size = input.size ?? 'md'
+
+  return input.h.submodel({
     slotId: input.model.id,
     model: input.model,
     view: Dialog.view,
     viewInputs: {
       hasDescription: input.description !== undefined,
       toView: (render) =>
-        input.h.dialog([...render.dialog, input.h.Class(dialogClass)], [
+        input.h.dialog([...render.dialog, input.h.Class(classNames(baseDialogClass, sizeClass[size])), input.h.DataAttribute('size', size)], [
           input.h.div([...render.backdrop, input.h.Class(backdropClass)]),
           input.h.div([...render.panel, input.h.Class(panelClass)], [
             input.h.button(
@@ -138,3 +153,4 @@ export const dialog = <Message>(
     },
     toParentMessage: input.toParentMessage,
   })
+}

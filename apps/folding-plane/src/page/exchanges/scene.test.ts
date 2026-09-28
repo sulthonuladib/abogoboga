@@ -234,6 +234,7 @@ describe('exchanges listing', () => {
       click(role('button', { name: 'Remove Binance' })),
       ...resolveDialogOpen,
       expect(text('Remove Binance?')).toExist(),
+      expect(role('dialog', { name: 'Remove Binance?' })).toHaveAttr('data-size', 'sm'),
       expect(text('Binance is removed with every market assigned to it. Re-adding the exchange does not restore those assignments.')).toExist(),
       expect(role('button', { name: 'Remove exchange' })).toBeEnabled(),
     )

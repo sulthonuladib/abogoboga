@@ -295,6 +295,7 @@ describe('exchange detail', () => {
       click(role('button', { name: 'Unassign BTC' })),
       ...resolveDialogOpen,
       expect(text('Unassign BTC?')).toExist(),
+      expect(role('dialog', { name: 'Unassign BTC?' })).toHaveAttr('data-size', 'sm'),
       expect(text('This exchange no longer lists BTC under BTC/USDT. Re-assigning restores the market without its chain links.')).toExist(),
       click(role('button', { name: 'Unassign market' })),
       Command.resolve(
@@ -329,6 +330,7 @@ describe('exchange detail', () => {
       ),
       ...resolveDialogOpen,
       expect(text('Chains for BTC')).toExist(),
+      expect(role('dialog', { name: 'Chains for BTC' })).toHaveAttr('data-size', 'lg'),
       expect(text('Ethereum (exchange code ERC20)')).toExist(),
       expect(role('button', { name: 'Withdraw' })).toHaveAttr('aria-pressed', 'true'),
       click(role('button', { name: 'Withdraw' })),
@@ -470,6 +472,7 @@ describe('exchange detail', () => {
       Command.resolve(Dialog.ShowDialog, Dialog.Message.SucceededShowDialog()),
       Mount.resolve(Dialog.AcquireResources, Dialog.Message.SucceededAcquireResources()),
       expect(text('Unlink ETH?')).toExist(),
+      expect(role('dialog', { name: 'Unlink ETH?' })).toHaveAttr('data-size', 'sm'),
       click(role('button', { name: 'Unlink chain' })),
       Command.resolve(
         RemoveChainLink({ linkId: 50 }),

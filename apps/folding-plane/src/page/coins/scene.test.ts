@@ -358,6 +358,7 @@ describe('coins listing', () => {
       click(role('button', { name: 'Remove BTC' })),
       ...resolveDialogOpen,
       expect(text('Remove BTC?')).toExist(),
+      expect(role('dialog', { name: 'Remove BTC?' })).toHaveAttr('data-size', 'sm'),
       expect(text('BTC is removed with every market and chain link that names it. Re-adding the coin does not restore those routes.')).toExist(),
       expect(role('button', { name: 'Remove coin' })).toBeEnabled(),
     )

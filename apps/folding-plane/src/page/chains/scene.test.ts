@@ -215,6 +215,7 @@ describe('chains listing', () => {
       click(role('button', { name: 'Remove ETH' })),
       ...resolveDialogOpen,
       expect(text('Remove ETH?')).toExist(),
+      expect(role('dialog', { name: 'Remove ETH?' })).toHaveAttr('data-size', 'sm'),
       expect(text('ETH is unlinked from every market that routes through it. Re-adding the chain does not restore those links.')).toExist(),
       expect(role('button', { name: 'Remove chain' })).toBeEnabled(),
     )

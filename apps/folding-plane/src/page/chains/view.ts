@@ -278,6 +278,7 @@ const removeView = (model: Model, h: HtmlBuilder<Message>): Html =>
       'Markets linked to this chain lose the link, and the routes through it disappear.',
     confirmLabel: 'Remove chain',
     isDestructive: true,
+    size: 'sm',
     onConfirm: Message.ClickedConfirmRemoveChain(),
     toParentMessage: (message) => Message.GotRemoveDialogMessage({ message }),
     content: h.div([h.Class('flex flex-col gap-3')], [

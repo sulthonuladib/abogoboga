@@ -310,6 +310,7 @@ const assignView = (model: Model, h: HtmlBuilder<Message>): Html =>
     model: model.assignDialog,
     title: 'Assign market',
     description: 'Pick the coin this exchange lists and the symbol it trades under there.',
+    size: 'lg',
     confirmLabel: 'Confirm assign',
     isConfirmDisabled: !isAssignValid(model) || model.isSaving,
     onConfirm: Message.ClickedConfirmAssign(),
@@ -470,6 +471,7 @@ const unassignView = (model: Model, h: HtmlBuilder<Message>): Html =>
     description: 'The market and all of its chain links are deleted; worker coverage for this coin shrinks.',
     confirmLabel: 'Unassign market',
     isDestructive: true,
+    size: 'sm',
     onConfirm: Message.ClickedConfirmUnassign(),
     toParentMessage: (message) => Message.GotUnassignDialogMessage({ message }),
     content: h.div([h.Class('flex flex-col gap-3')], [
@@ -499,6 +501,7 @@ const linksOf = (
 const linksView = (model: Model, h: HtmlBuilder<Message>): Html =>
   dialog({
     model: model.linksDialog,
+    size: 'lg',
     title: Option.match(model.managing, {
       onNone: () => 'Chain links',
       onSome: ({ label }) => `Chains for ${label}`,
@@ -714,6 +717,7 @@ const unlinkView = (model: Model, h: HtmlBuilder<Message>): Html =>
     description: 'Routes through this chain disappear immediately; re-linking restores them.',
     confirmLabel: 'Unlink chain',
     isDestructive: true,
+    size: 'sm',
     onConfirm: Message.ClickedConfirmUnlink(),
     toParentMessage: (message) => Message.GotUnlinkDialogMessage({ message }),
     content: h.div([h.Class('flex flex-col gap-3')], [
