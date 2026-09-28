@@ -3,10 +3,14 @@ import { AsyncData } from 'foldkit'
 import { Menu, Tooltip } from '@foldkit/ui'
 
 import { CoverageData } from './coverage'
+import * as ChainDetail from './page/chainDetail'
 import * as Chains from './page/chains'
+import * as CoinRoutes from './page/coinRoutes'
+import * as Coins from './page/coins'
 import * as Dashboard from './page/dashboard'
 import * as ExchangeDetail from './page/exchangeDetail'
 import * as Exchanges from './page/exchanges'
+import * as Workers from './page/workers'
 import { AppRoute } from './route'
 
 // THEME
@@ -23,9 +27,13 @@ export const Model = Schema.Struct({
   coverage: CoverageData.schema,
   coverageTooltip: Tooltip.Model,
   chains: Chains.Model,
+  chainDetail: ChainDetail.Model,
+  coins: Coins.Model,
+  coinRoutes: CoinRoutes.Model,
   dashboard: Dashboard.Model,
   exchanges: Exchanges.Model,
   exchangeDetail: ExchangeDetail.Model,
+  workers: Workers.Model,
   hasNavigated: Schema.Boolean,
 })
 
@@ -40,9 +48,13 @@ export const init = (theme: Theme): Model => ({
   coverage: AsyncData.Idle(),
   coverageTooltip: Tooltip.init({ id: 'coverage-tooltip' }),
   chains: Chains.initialModel,
+  chainDetail: ChainDetail.initFor(0),
+  coins: Coins.initialModel,
+  coinRoutes: CoinRoutes.initFor(0),
   dashboard: Dashboard.initialModel,
   exchanges: Exchanges.initialModel,
   exchangeDetail: ExchangeDetail.initFor(0),
+  workers: Workers.initialModel,
   hasNavigated: false,
 })
 

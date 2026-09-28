@@ -10,11 +10,15 @@ import { readCoverage } from './coverage'
 import type { Flags } from './flags'
 import { Message } from './message'
 import type { Model, Theme } from './model'
+import * as ChainDetail from './page/chainDetail'
 import * as Chains from './page/chains'
+import * as CoinRoutes from './page/coinRoutes'
+import * as Coins from './page/coins'
 import * as Dashboard from './page/dashboard'
 import * as ExchangeDetail from './page/exchangeDetail'
 import * as Exchanges from './page/exchanges'
-import { AppRoute, chainsQueryFromRoute, exchangesQueryFromRoute, urlToAppRoute } from './route'
+import * as Workers from './page/workers'
+import { AppRoute, chainsQueryFromRoute, coinsQueryFromRoute, exchangesQueryFromRoute, urlToAppRoute } from './route'
 import { THEME_COOKIE } from './theme'
 import { ThemeMenu } from './themeMenu'
 
@@ -42,7 +46,7 @@ const LoadExternal = Command.define('LoadExternal', {
   execute: ({ href }) => load(href).pipe(Effect.as(Message.CompletedLoadExternal())),
 })
 
-const PersistTheme = Command.define('PersistTheme', {
+export const PersistTheme = Command.define('PersistTheme', {
   args: { theme: Schema.Literals(['Light', 'Dark']) },
   messages: [Message.CompletedPersistTheme],
   execute: ({ theme }) =>
@@ -151,6 +155,41 @@ const foldChainsRouteChanged = Update.foldChild({
   toParentMessage: (message) => Message.GotChainsMessage({ message }),
 })
 
+const foldChainDetail = Update.foldChild({
+  update: ChainDetail.update,
+  read: (model: Model) => Option.some(model.chainDetail),
+  write: (model, nextChainDetail) =>
+    modifyFields(model, { chainDetail: () => nextChainDetail }),
+  toParentMessage: (message) => Message.GotChainDetailMessage({ message }),
+})
+
+const foldChainDetailRouteChanged = Update.foldChild({
+  update: ChainDetail.showChain,
+  read: (model: Model) => Option.some(model.chainDetail),
+  write: (model, nextChainDetail) =>
+    modifyFields(model, { chainDetail: () => nextChainDetail }),
+  toParentMessage: (message) => Message.GotChainDetailMessage({ message }),
+})
+
+const foldCoinsOutMessage = Coins.OutMessage.match<Update.Step<Model, Message>>({
+  ChangedCatalogue: () => refreshCoverage,
+})
+
+const foldCoins = Update.foldChild({
+  update: Coins.update,
+  read: (model: Model) => Option.some(model.coins),
+  write: (model, nextCoins) => modifyFields(model, { coins: () => nextCoins }),
+  toParentMessage: (message) => Message.GotCoinsMessage({ message }),
+  foldOutMessage: foldCoinsOutMessage,
+})
+
+const foldCoinsRouteChanged = Update.foldChild({
+  update: Coins.informRouteChanged,
+  read: (model: Model) => Option.some(model.coins),
+  write: (model, nextCoins) => modifyFields(model, { coins: () => nextCoins }),
+  toParentMessage: (message) => Message.GotCoinsMessage({ message }),
+})
+
 const foldExchangesOutMessage = Exchanges.OutMessage.match<Update.Step<Model, Message>>({
   ChangedCatalogue: () => refreshCoverage,
 })
@@ -186,6 +225,46 @@ const foldExchangeDetailRouteChanged = Update.foldChild({
   toParentMessage: (message) => Message.GotExchangeDetailMessage({ message }),
 })
 
+const foldCoinRoutesOutMessage = CoinRoutes.OutMessage.match<Update.Step<Model, Message>>({
+  ChangedCatalogue: () => refreshCoverage,
+})
+
+const foldCoinRoutes = Update.foldChild({
+  update: CoinRoutes.update,
+  read: (model: Model) => Option.some(model.coinRoutes),
+  write: (model, nextCoinRoutes) =>
+    modifyFields(model, { coinRoutes: () => nextCoinRoutes }),
+  toParentMessage: (message) => Message.GotCoinRoutesMessage({ message }),
+  foldOutMessage: foldCoinRoutesOutMessage,
+})
+
+const foldCoinRoutesChanged = Update.foldChild({
+  update: CoinRoutes.showCoin,
+  read: (model: Model) => Option.some(model.coinRoutes),
+  write: (model, nextCoinRoutes) =>
+    modifyFields(model, { coinRoutes: () => nextCoinRoutes }),
+  toParentMessage: (message) => Message.GotCoinRoutesMessage({ message }),
+})
+
+const foldWorkersOutMessage = Workers.OutMessage.match<Update.Step<Model, Message>>({
+  ChangedWorkers: () => refreshCoverage,
+})
+
+const foldWorkers = Update.foldChild({
+  update: Workers.update,
+  read: (model: Model) => Option.some(model.workers),
+  write: (model, nextWorkers) => modifyFields(model, { workers: () => nextWorkers }),
+  toParentMessage: (message) => Message.GotWorkersMessage({ message }),
+  foldOutMessage: foldWorkersOutMessage,
+})
+
+const enteredWorkers = Update.foldChildStep({
+  update: Workers.entered,
+  read: (model: Model) => Option.some(model.workers),
+  write: (model, nextWorkers) => modifyFields(model, { workers: () => nextWorkers }),
+  toParentMessage: (message) => Message.GotWorkersMessage({ message }),
+})
+
 const foldDashboard = Update.foldChild({
   update: Dashboard.update,
   read: (model: Model) => Option.some(model.dashboard),
@@ -214,8 +293,17 @@ const setRoute =
 const pageSteps = (route: AppRoute): ReadonlyArray<Update.Step<Model, Message>> =>
   Match.value(route).pipe(
     Match.tag('Dashboard', () => [enteredDashboard]),
+    Match.tag('Coins', (coinsRoute) => [
+      foldCoinsRouteChanged(coinsQueryFromRoute(coinsRoute)),
+    ]),
+    Match.tag('CoinRoutes', ({ coinId }) => [
+      foldCoinRoutesChanged(coinId),
+    ]),
     Match.tag('Chains', (chainsRoute) => [
       foldChainsRouteChanged(chainsQueryFromRoute(chainsRoute)),
+    ]),
+    Match.tag('ChainDetail', ({ chainId }) => [
+      foldChainDetailRouteChanged(chainId),
     ]),
     Match.tag('Exchanges', (exchangesRoute) => [
       foldExchangesRouteChanged(exchangesQueryFromRoute(exchangesRoute)),
@@ -223,6 +311,7 @@ const pageSteps = (route: AppRoute): ReadonlyArray<Update.Step<Model, Message>> 
     Match.tag('ExchangeDetail', ({ exchangeId }) => [
       foldExchangeDetailRouteChanged(exchangeId),
     ]),
+    Match.tag('Workers', () => [enteredWorkers]),
     Match.orElse(() => []),
   )
 
@@ -244,9 +333,13 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, Flags> = (
     coverage: flags.coverage,
     coverageTooltip: Tooltip.init({ id: 'coverage-tooltip' }),
     chains: Chains.initialModel,
+    chainDetail: ChainDetail.initFor(0),
+    coins: Coins.initialModel,
+    coinRoutes: CoinRoutes.initFor(0),
     dashboard: Dashboard.initialModel,
     exchanges: Exchanges.initialModel,
     exchangeDetail: ExchangeDetail.initFor(0),
+    workers: Workers.initialModel,
     hasNavigated: false,
   }
 
@@ -272,6 +365,27 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, Flags> = (
           Message.GotChainsMessage({ message })),
       }
     }),
+    Match.tag('Coins', (coinsRoute) => {
+      const coinsInit = Coins.init(
+        coinsQueryFromRoute(coinsRoute),
+        flags.coins,
+      )
+
+      return {
+        model: { ...base, coins: coinsInit.model },
+        commands: Command.mapMessages(coinsInit.commands, (message) =>
+          Message.GotCoinsMessage({ message })),
+      }
+    }),
+    Match.tag('ChainDetail', ({ chainId }) => {
+      const chainDetailInit = ChainDetail.init(chainId, flags.chainDetail)
+
+      return {
+        model: { ...base, chainDetail: chainDetailInit.model },
+        commands: Command.mapMessages(chainDetailInit.commands, (message) =>
+          Message.GotChainDetailMessage({ message })),
+      }
+    }),
     Match.tag('Exchanges', (exchangesRoute) => {
       const exchangesInit = Exchanges.init(
         exchangesQueryFromRoute(exchangesRoute),
@@ -291,6 +405,24 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, Flags> = (
         model: { ...base, exchangeDetail: exchangeDetailInit.model },
         commands: Command.mapMessages(exchangeDetailInit.commands, (message) =>
           Message.GotExchangeDetailMessage({ message })),
+      }
+    }),
+    Match.tag('CoinRoutes', ({ coinId }) => {
+      const coinRoutesInit = CoinRoutes.init(coinId, flags.coinRoutes)
+
+      return {
+        model: { ...base, coinRoutes: coinRoutesInit.model },
+        commands: Command.mapMessages(coinRoutesInit.commands, (message) =>
+          Message.GotCoinRoutesMessage({ message })),
+      }
+    }),
+    Match.tag('Workers', () => {
+      const workersInit = Workers.init(flags.workers)
+
+      return {
+        model: { ...base, workers: workersInit.model },
+        commands: Command.mapMessages(workersInit.commands, (message) =>
+          Message.GotWorkersMessage({ message })),
       }
     }),
     Match.orElse(() => ({ model: base })),
@@ -332,9 +464,17 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 
     GotChainsMessage: ({ message }) => foldChains(model, message),
 
+    GotChainDetailMessage: ({ message }) => foldChainDetail(model, message),
+
+    GotCoinsMessage: ({ message }) => foldCoins(model, message),
+
+    GotCoinRoutesMessage: ({ message }) => foldCoinRoutes(model, message),
+
     GotDashboardMessage: ({ message }) => foldDashboard(model, message),
 
     GotExchangesMessage: ({ message }) => foldExchanges(model, message),
 
     GotExchangeDetailMessage: ({ message }) => foldExchangeDetail(model, message),
+
+    GotWorkersMessage: ({ message }) => foldWorkers(model, message),
   })

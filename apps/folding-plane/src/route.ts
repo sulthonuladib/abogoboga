@@ -1,9 +1,4 @@
-import {
-  ChainOrderField,
-  type ChainOrderField as ChainOrderFieldType,
-  ExchangeOrderField,
-  type ExchangeOrderField as ExchangeOrderFieldType,
-} from '@lister/api/client'
+import { ChainOrderField, ExchangeOrderField } from '@lister/api/client'
 import { Option, Schema, pipe } from 'effect'
 import { Route } from 'foldkit'
 import { defineRouteUnion, int, literal, slash } from 'foldkit/route'

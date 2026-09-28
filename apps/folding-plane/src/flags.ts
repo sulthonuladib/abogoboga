@@ -6,11 +6,15 @@ import type { Url } from 'foldkit/url'
 import { type ApiOrigin, isApiFailure } from './api'
 import { readCoverage } from './coverage'
 import { CoverageData } from './coverage'
+import * as ChainDetail from './page/chainDetail'
 import * as Chains from './page/chains'
+import * as CoinRoutes from './page/coinRoutes'
+import * as Coins from './page/coins'
 import * as Dashboard from './page/dashboard'
 import * as ExchangeDetail from './page/exchangeDetail'
 import * as Exchanges from './page/exchanges'
-import { chainsQueryFromRoute, exchangesQueryFromRoute, urlToAppRoute } from './route'
+import * as Workers from './page/workers'
+import { chainsQueryFromRoute, coinsQueryFromRoute, exchangesQueryFromRoute, urlToAppRoute } from './route'
 import { themeFromCookieHeader } from './theme'
 
 // FAILURE
@@ -51,9 +55,13 @@ export const Flags = Schema.Struct({
   theme: Schema.Literals(['Light', 'Dark']),
   coverage: CoverageData.schema,
   chains: Schema.Option(Chains.Chains.schema),
+  chainDetail: Schema.Option(ChainDetail.Seed),
+  coins: Schema.Option(Coins.Coins.schema),
+  coinRoutes: Schema.Option(CoinRoutes.Seed),
   dashboard: Schema.Option(Dashboard.Seed),
   exchanges: Schema.Option(Exchanges.Exchanges.schema),
   exchangeDetail: Schema.Option(ExchangeDetail.Seed),
+  workers: Schema.Option(Workers.Workers.schema),
 })
 
 export type Flags = typeof Flags.Type
@@ -76,6 +84,29 @@ export const flagsFor = (
           ),
       ),
       Match.orElse(() => Effect.succeed(Option.none<Chains.Chains>())),
+    )
+    const chainDetail = yield* Match.value(route).pipe(
+      Match.tag('ChainDetail', ({ chainId }) =>
+        Effect.gen(function* () {
+          const chain = yield* settled(ChainDetail.readChain(chainId))
+          const links = yield* settled(ChainDetail.readLinks(chainId))
+          const markets = yield* settled(ChainDetail.readMarkets())
+          const coins = yield* settled(ChainDetail.readCoins())
+
+          return Option.some(ChainDetail.Seed.make({ chain, links, markets, coins }))
+        })),
+      Match.orElse(() => Effect.succeed(Option.none<ChainDetail.Seed>())),
+    )
+    const coins = yield* Match.value(route).pipe(
+      Match.tag(
+        'Coins',
+        (coinsRoute) =>
+          Effect.map(
+            settled(Coins.readCoins(coinsQueryFromRoute(coinsRoute))),
+            Option.some,
+          ),
+      ),
+      Match.orElse(() => Effect.succeed(Option.none<Coins.Coins>())),
     )
     const dashboard = yield* Match.value(route).pipe(
       Match.tag('Dashboard', () =>
@@ -109,13 +140,33 @@ export const flagsFor = (
         })),
       Match.orElse(() => Effect.succeed(Option.none<ExchangeDetail.Seed>())),
     )
+    const coinRoutes = yield* Match.value(route).pipe(
+      Match.tag('CoinRoutes', ({ coinId }) =>
+        Effect.map(
+          settled(CoinRoutes.readMetadata(coinId)),
+          (metadata) => Option.some(CoinRoutes.Seed.make({ metadata })),
+        )),
+      Match.orElse(() => Effect.succeed(Option.none<CoinRoutes.Seed>())),
+    )
+    const workers = yield* Match.value(route).pipe(
+      Match.tag('Workers', () =>
+        Effect.map(
+          settled(Workers.readWorkers()),
+          Option.some,
+        )),
+      Match.orElse(() => Effect.succeed(Option.none<Workers.Workers>())),
+    )
 
     return Flags.make({
       theme: themeFromCookieHeader(cookieHeader),
       coverage: yield* settled(readCoverage),
       chains,
+      chainDetail,
+      coins,
+      coinRoutes,
       dashboard,
       exchanges,
       exchangeDetail,
+      workers,
     })
   })

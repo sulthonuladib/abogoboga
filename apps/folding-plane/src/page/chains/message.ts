@@ -1,6 +1,6 @@
 import { ChainOrderField } from '@lister/api/client'
 import { Dialog } from '@foldkit/ui'
-import { Result, Schema } from 'effect'
+import { Schema } from 'effect'
 import { defineMessageUnion } from 'foldkit/message'
 import { Command } from 'foldkit'
 

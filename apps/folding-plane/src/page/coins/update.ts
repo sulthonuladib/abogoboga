@@ -5,13 +5,13 @@ import { AsyncData, Command, FieldValidation, Update } from 'foldkit'
 import { pushUrl, replaceUrl } from 'foldkit/navigation'
 import { modifyFields } from 'foldkit/struct'
 
-import { type ApiFailure, type ApiOrigin, type ExchangePage, Query, call } from '../../api'
-import { ExchangesQuery, type Order, defaultExchangesQuery, exchangesUrl } from '../../route'
+import { type ApiFailure, type ApiOrigin, type CoinStatPage, Query, call } from '../../api'
+import { CoinsQuery, type Order, coinsUrl, defaultCoinsQuery } from '../../route'
 import { trimmedOrEmpty } from '../../ui/format'
 import { searchDelay } from '../../ui/search'
 import { Message, OutMessage } from './message'
 import {
-  type Exchanges,
+  type Coins,
   Model,
   coingeckoIdRules,
   initialModel,
@@ -20,10 +20,12 @@ import {
   nameRules,
   pageSize,
   slugRules,
+  symbolRules,
 } from './model'
 
 type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage>
 
+const validateSymbol = FieldValidation.validate(symbolRules)
 const validateName = FieldValidation.validate(nameRules)
 const validateSlug = FieldValidation.validate(slugRules)
 const validateCoingeckoId = FieldValidation.validate(coingeckoIdRules)
@@ -38,30 +40,30 @@ const flipped = (order: Order): Order => (order === 'asc' ? 'desc' : 'asc')
  * interruptible by name, so the next keystroke stops the pending wait instead
  * of racing it, and only the last one reaches the URL.
  */
-export const SearchExchanges = Command.define('SearchExchanges', {
+export const SearchCoins = Command.define('SearchCoins', {
   args: { search: Schema.String },
-  messages: [Message.CompletedSearchExchanges, Message.CompletedInterruptSearchExchanges],
+  messages: [Message.CompletedSearchCoins, Message.CompletedInterruptSearchCoins],
   interrupt: true,
   execute: ({ search }) =>
     Effect.sleep(searchDelay).pipe(
-      Effect.andThen(replaceUrl(exchangesUrl({ ...defaultExchangesQuery, search }))),
-      Effect.as(Message.CompletedSearchExchanges()),
-      Effect.catch(() => Effect.succeed(Message.CompletedSearchExchanges())),
+      Effect.andThen(replaceUrl(coinsUrl({ ...defaultCoinsQuery, search }))),
+      Effect.as(Message.CompletedSearchCoins()),
+      Effect.catch(() => Effect.succeed(Message.CompletedSearchCoins())),
     ),
 })
 
 const interruptSearch = () =>
-  SearchExchanges.Interrupt((outcome) =>
-    Message.CompletedInterruptSearchExchanges({ outcome }))
+  SearchCoins.Interrupt((outcome) =>
+    Message.CompletedInterruptSearchCoins({ outcome }))
 
 /**
- * A change of sort or page. It is a navigation rather than a local
+ * A change of sort, page, or filter. It is a navigation rather than a local
  * transition, so the URL always describes the table on screen.
  */
-export const NavigateExchanges = Command.define('NavigateExchanges', {
+export const NavigateCoins = Command.define('NavigateCoins', {
   args: { url: Schema.String },
-  messages: [Message.CompletedNavigateExchanges],
-  execute: ({ url }) => pushUrl(url).pipe(Effect.as(Message.CompletedNavigateExchanges())),
+  messages: [Message.CompletedNavigateCoins],
+  execute: ({ url }) => pushUrl(url).pipe(Effect.as(Message.CompletedNavigateCoins())),
 })
 
 /**
@@ -69,69 +71,73 @@ export const NavigateExchanges = Command.define('NavigateExchanges', {
  * providing them, so the browser runs it in a Command against its own origin
  * and the server runs it before it renders.
  */
-export const readExchanges = (
-  query: ExchangesQuery,
-): Effect.Effect<ExchangePage, ApiFailure, ApiOrigin | HttpClient.HttpClient> =>
-  Query.listExchanges({ ...query, limit: pageSize })
+export const readCoins = (
+  query: CoinsQuery,
+): Effect.Effect<CoinStatPage, ApiFailure, ApiOrigin | HttpClient.HttpClient> =>
+  Query.fetchCoinStats({
+    limit: pageSize,
+    page: query.page,
+    search: query.search,
+    flag: query.flag,
+    sortBy: query.sort,
+    order: query.order,
+  })
 
-export const FetchExchanges = Command.define('FetchExchanges', {
-  args: { query: ExchangesQuery },
-  messages: [Message.SettledFetchExchanges],
+export const FetchCoins = Command.define('FetchCoins', {
+  args: { query: CoinsQuery },
+  messages: [Message.SettledFetchCoins],
   execute: ({ query }) =>
-    call(readExchanges(query)).pipe(
+    call(readCoins(query)).pipe(
       Effect.mapError((error) => error.detail),
       Effect.result,
-      Effect.map((result) => Message.SettledFetchExchanges({ result })),
+      Effect.map((result) => Message.SettledFetchCoins({ result })),
     ),
 })
 
-export const AddExchange = Command.define('AddExchange', {
+export const AddCoin = Command.define('AddCoin', {
   args: {
     name: Schema.String,
+    symbol: Schema.String,
     slug: Schema.String,
     coingeckoId: Schema.String,
     logo: Schema.String,
-    baseCurrency: Schema.Literals(['usdt', 'idr']),
-    registeredOnCmc: Schema.Boolean,
   },
-  messages: [Message.SucceededSaveExchange, Message.FailedSaveExchange],
+  messages: [Message.SucceededSaveCoin, Message.FailedSaveCoin],
   execute: (input) =>
-    call(Query.addExchange(input)).pipe(
-      Effect.map((exchange) => Message.SucceededSaveExchange({ name: exchange.name })),
+    call(Query.addCoin(input)).pipe(
+      Effect.map((coin) => Message.SucceededSaveCoin({ symbol: coin.symbol })),
       Effect.catch((error) =>
-        Effect.succeed(Message.FailedSaveExchange({ detail: error.detail })),
+        Effect.succeed(Message.FailedSaveCoin({ detail: error.detail })),
       ),
     ),
 })
 
-export const SaveExchange = Command.define('SaveExchange', {
+export const SaveCoin = Command.define('SaveCoin', {
   args: {
     id: Schema.Int,
     name: Schema.String,
+    symbol: Schema.String,
     slug: Schema.String,
     coingeckoId: Schema.String,
-    logo: Schema.String,
-    baseCurrency: Schema.Literals(['usdt', 'idr']),
-    registeredOnCmc: Schema.Boolean,
   },
-  messages: [Message.SucceededSaveExchange, Message.FailedSaveExchange],
+  messages: [Message.SucceededSaveCoin, Message.FailedSaveCoin],
   execute: ({ id, ...input }) =>
-    call(Query.updateExchange(id, input)).pipe(
-      Effect.map((exchange) => Message.SucceededSaveExchange({ name: exchange.name })),
+    call(Query.updateCoin(id, input)).pipe(
+      Effect.map((coin) => Message.SucceededSaveCoin({ symbol: coin.symbol })),
       Effect.catch((error) =>
-        Effect.succeed(Message.FailedSaveExchange({ detail: error.detail })),
+        Effect.succeed(Message.FailedSaveCoin({ detail: error.detail })),
       ),
     ),
 })
 
-export const DeleteExchange = Command.define('DeleteExchange', {
+export const DeleteCoin = Command.define('DeleteCoin', {
   args: { id: Schema.Int },
-  messages: [Message.SucceededRemoveExchange, Message.FailedRemoveExchange],
+  messages: [Message.SucceededRemoveCoin, Message.FailedRemoveCoin],
   execute: ({ id }) =>
-    call(Query.removeExchange(id)).pipe(
-      Effect.map((exchange) => Message.SucceededRemoveExchange({ name: exchange.name })),
+    call(Query.removeCoin(id)).pipe(
+      Effect.map((coin) => Message.SucceededRemoveCoin({ symbol: coin.symbol })),
       Effect.catch((error) =>
-        Effect.succeed(Message.FailedRemoveExchange({ detail: error.detail })),
+        Effect.succeed(Message.FailedRemoveCoin({ detail: error.detail })),
       ),
     ),
 })
@@ -203,25 +209,26 @@ const openRemoveDialog = Update.foldChildStep({
 
 // LOAD
 
-const loadQuery = (model: Model, query: ExchangesQuery): Update.Return<Model, Message> => ({
+const loadQuery = (model: Model, query: CoinsQuery): Update.Return<Model, Message> => ({
   model: modifyFields(model, {
     query: () => query,
-    exchanges: () => AsyncData.Loading(),
+    coins: () => AsyncData.Loading(),
   }),
-  commands: [FetchExchanges({ query })],
+  commands: [FetchCoins({ query })],
 })
 
 const refresh: Update.Step<Model, Message> = (model) =>
-  Option.match(AsyncData.revalidateOrLoad(model.exchanges), {
+  Option.match(AsyncData.revalidateOrLoad(model.coins), {
     onNone: () => ({ model }),
-    onSome: (exchanges) => ({
-      model: modifyFields(model, { exchanges: () => exchanges }),
-      commands: [FetchExchanges({ query: model.query })],
+    onSome: (coins) => ({
+      model: modifyFields(model, { coins: () => coins }),
+      commands: [FetchCoins({ query: model.query })],
     }),
   })
 
-const sameQuery = (current: ExchangesQuery, next: ExchangesQuery): boolean =>
+const sameQuery = (current: CoinsQuery, next: CoinsQuery): boolean =>
   current.search === next.search &&
+  current.flag === next.flag &&
   current.sort === next.sort &&
   current.order === next.order &&
   current.page === next.page
@@ -230,18 +237,18 @@ const sameQuery = (current: ExchangesQuery, next: ExchangesQuery): boolean =>
 
 /**
  * The page as it opens. The server hands over the rows it already rendered;
- * without them the first page of exchanges is on its way.
+ * without them the first page of coins is on its way.
  */
 export const init = (
-  query: ExchangesQuery,
-  maybeExchanges: Option.Option<Exchanges>,
+  query: CoinsQuery,
+  maybeCoins: Option.Option<Coins>,
 ): UpdateReturn =>
-  Option.match(maybeExchanges, {
+  Option.match(maybeCoins, {
     onNone: () => loadQuery(initialModel, query),
-    onSome: (exchanges) => ({
+    onSome: (coins) => ({
       model: modifyFields(initialModel, {
         query: () => query,
-        exchanges: () => exchanges,
+        coins: () => coins,
       }),
     }),
   })
@@ -255,9 +262,9 @@ export const init = (
  */
 export const informRouteChanged = (
   model: Model,
-  query: ExchangesQuery,
+  query: CoinsQuery,
 ): Update.Return<Model, Message> =>
-  sameQuery(model.query, query) && !AsyncData.isIdle(model.exchanges)
+  sameQuery(model.query, query) && !AsyncData.isIdle(model.coins)
     ? { model }
     : loadQuery(model, query)
 
@@ -269,12 +276,12 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       model: modifyFields(model, {
         query: (query) => modifyFields(query, { search: () => value }),
       }),
-      commands: [interruptSearch(), SearchExchanges({ search: value })],
+      commands: [interruptSearch(), SearchCoins({ search: value })],
     }),
 
-    CompletedSearchExchanges: () => ({ model }),
-    CompletedInterruptSearchExchanges: () => ({ model }),
-    CompletedNavigateExchanges: () => ({ model }),
+    CompletedSearchCoins: () => ({ model }),
+    CompletedInterruptSearchCoins: () => ({ model }),
+    CompletedNavigateCoins: () => ({ model }),
 
     ClickedSort: ({ column }) => {
       const order = model.query.sort === column ? flipped(model.query.order) : 'asc'
@@ -282,26 +289,34 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       return {
         model,
         commands: [
-          NavigateExchanges({
-            url: exchangesUrl({ ...model.query, sort: column, order, page: 1 }),
+          NavigateCoins({
+            url: coinsUrl({ ...model.query, sort: column, order, page: 1 }),
           }),
         ],
       }
     },
 
+    ChangedFlag: ({ flag }) => ({
+      model,
+      commands: [
+        NavigateCoins({
+          url: coinsUrl({ ...model.query, flag, page: 1 }),
+        }),
+      ],
+    }),
+
     ClickedRetry: () => refresh(model),
 
-    ClickedNewExchange: () =>
+    ClickedNewCoin: () =>
       Update.combine(model, [
         () => ({
           model: modifyFields(model, {
             editing: () => Option.none(),
+            symbol: () => FieldValidation.NotValidated({ value: '' }),
             name: () => FieldValidation.NotValidated({ value: '' }),
             slug: () => FieldValidation.NotValidated({ value: '' }),
             coingeckoId: () => FieldValidation.NotValidated({ value: '' }),
             logo: () => FieldValidation.NotValidated({ value: '' }),
-            baseCurrency: () => 'usdt' as const,
-            registeredOnCmc: () => true,
             notice: () => Option.none(),
             isSaving: () => false,
           }),
@@ -309,17 +324,16 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         openEditor,
       ]),
 
-    ClickedEditExchange: ({ id, name, slug, coingeckoId, logo, baseCurrency, registeredOnCmc }) =>
+    ClickedEditCoin: ({ id, name, symbol, slug, coingeckoId, logo }) =>
       Update.combine(model, [
         () => ({
           model: modifyFields(model, {
             editing: () => Option.some({ id }),
+            symbol: () => FieldValidation.Valid({ value: symbol }),
             name: () => FieldValidation.Valid({ value: name }),
             slug: () => FieldValidation.Valid({ value: slug }),
             coingeckoId: () => FieldValidation.Valid({ value: coingeckoId }),
             logo: () => validateLogo(logo),
-            baseCurrency: () => baseCurrency,
-            registeredOnCmc: () => registeredOnCmc,
             notice: () => Option.none(),
             isSaving: () => false,
           }),
@@ -327,36 +341,34 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         openEditor,
       ]),
 
-    UpdatedExchangeName: ({ value }) => ({
+    UpdatedCoinSymbol: ({ value }) => ({
+      model: modifyFields(model, { symbol: () => validateSymbol(value) }),
+    }),
+
+    UpdatedCoinName: ({ value }) => ({
       model: modifyFields(model, { name: () => validateName(value) }),
     }),
 
-    UpdatedExchangeSlug: ({ value }) => ({
+    UpdatedCoinSlug: ({ value }) => ({
       model: modifyFields(model, { slug: () => validateSlug(value) }),
     }),
 
-    UpdatedExchangeCoingeckoId: ({ value }) => ({
+    UpdatedCoinCoingeckoId: ({ value }) => ({
       model: modifyFields(model, { coingeckoId: () => validateCoingeckoId(value) }),
     }),
 
-    UpdatedExchangeLogo: ({ value }) => ({
+    UpdatedCoinLogo: ({ value }) => ({
       model: modifyFields(model, { logo: () => validateLogo(value) }),
     }),
 
-    ChangedBaseCurrency: ({ value }) => ({
-      model: modifyFields(model, { baseCurrency: () => value }),
-    }),
-
-    ToggledRegisteredOnCmc: ({ isChecked }) => ({
-      model: modifyFields(model, { registeredOnCmc: () => isChecked }),
-    }),
-
-    ClickedSaveExchange: () => {
+    ClickedSaveCoin: () => {
+      const symbol = trimmedOrEmpty(model.symbol.value)
       const name = trimmedOrEmpty(model.name.value)
       const slug = trimmedOrEmpty(model.slug.value)
       const coingeckoId = trimmedOrEmpty(model.coingeckoId.value)
       const logo = trimmedOrEmpty(model.logo.value)
       const validated = modifyFields(model, {
+        symbol: () => validateSymbol(symbol),
         name: () => validateName(name),
         slug: () => validateSlug(slug),
         coingeckoId: () => validateCoingeckoId(coingeckoId),
@@ -367,28 +379,19 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         return { model: modifyFields(validated, { isSaving: () => false }) }
       }
 
-      const payload = {
-        name,
-        slug,
-        coingeckoId,
-        logo,
-        baseCurrency: model.baseCurrency,
-        registeredOnCmc: model.registeredOnCmc,
-      }
-
       return Option.match(model.editing, {
         onNone: () => ({
           model: modifyFields(validated, { isSaving: () => true }),
-          commands: [AddExchange(payload)],
+          commands: [AddCoin({ name, symbol, slug, coingeckoId, logo })],
         }),
         onSome: ({ id }) => ({
           model: modifyFields(validated, { isSaving: () => true }),
-          commands: [SaveExchange({ id, ...payload })],
+          commands: [SaveCoin({ id, name, symbol, slug, coingeckoId })],
         }),
       })
     },
 
-    SucceededSaveExchange: () =>
+    SucceededSaveCoin: () =>
       Update.withOutMessage(
         Update.combine(model, [
           () => ({ model: modifyFields(model, { isSaving: () => false }) }),
@@ -398,33 +401,33 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         OutMessage.ChangedCatalogue(),
       ),
 
-    FailedSaveExchange: ({ detail }) => ({
+    FailedSaveCoin: ({ detail }) => ({
       model: modifyFields(model, {
         isSaving: () => false,
         notice: () => Option.some(detail),
       }),
     }),
 
-    ClickedRemoveExchange: ({ id, name }) =>
+    ClickedRemoveCoin: ({ id, symbol }) =>
       Update.combine(model, [
         () => ({
           model: modifyFields(model, {
-            maybeRemoving: () => Option.some({ id, name }),
+            maybeRemoving: () => Option.some({ id, symbol }),
           }),
         }),
         openRemoveDialog,
       ]),
 
-    ClickedConfirmRemoveExchange: () =>
+    ClickedConfirmRemoveCoin: () =>
       Option.match(model.maybeRemoving, {
         onNone: () => ({ model }),
         onSome: ({ id }) => ({
           model: modifyFields(model, { isSaving: () => true }),
-          commands: [DeleteExchange({ id })],
+          commands: [DeleteCoin({ id })],
         }),
       }),
 
-    SucceededRemoveExchange: () =>
+    SucceededRemoveCoin: () =>
       Update.withOutMessage(
         Update.combine(model, [
           () => ({
@@ -439,15 +442,15 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         OutMessage.ChangedCatalogue(),
       ),
 
-    FailedRemoveExchange: ({ detail }) => ({
+    FailedRemoveCoin: ({ detail }) => ({
       model: modifyFields(model, {
         isSaving: () => false,
         notice: () => Option.some(detail),
       }),
     }),
 
-    SettledFetchExchanges: ({ result }) => ({
-      model: modifyFields(model, { exchanges: AsyncData.settle(result) }),
+    SettledFetchCoins: ({ result }) => ({
+      model: modifyFields(model, { coins: AsyncData.settle(result) }),
     }),
 
     GotEditorMessage: ({ message }) => foldEditor(model, message),

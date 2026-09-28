@@ -1,8 +1,6 @@
 import { Button } from '@foldkit/ui'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
 
-import { classNames } from './classNames'
-
 // SECTION
 
 /**

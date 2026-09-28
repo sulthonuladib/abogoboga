@@ -150,84 +150,84 @@ built after it resolve against finished values rather than placeholders.
 
 ## 9. Coins listing
 
-- [ ] 9.1 Build the coin listing: symbol, name, markets, chains, and blocked
+- [x] 9.1 Build the coin listing: symbol, name, markets, chains, and blocked
   pairs, with the coverage filter, sorting on the counts, and paging. Verify
   with a story test per transition and a scene test for the table, the filtered
   and unfiltered empty states, and the editor
-- [ ] 9.2 Build the coin form's validation and its refusal path: a duplicate
+- [x] 9.2 Build the coin form's validation and its refusal path: a duplicate
   slug or CoinMarketCap id keeps the form open with the reason. Verify with a
   story test driving the refusal and a scene test showing the reason
-- [ ] 9.3 Verify the listing against a running control plane, including the
+- [x] 9.3 Verify the listing against a running control plane, including the
   blocked-routes and single-market filters
 
 ## 10. Chain detail
 
-- [ ] 10.1 Build the chain page: its own header, the counts of distinct
+- [x] 10.1 Build the chain page: its own header, the counts of distinct
   exchanges and coins, and the table of market links with the exchange chain code
   and the deposit and withdraw flags. Verify with a story test per read and a
   scene test for the loaded, empty, and no-such-chain states
-- [ ] 10.2 Verify the page resolves each link's market and coin through the
+- [x] 10.2 Verify the page resolves each link's market and coin through the
   shared indexes, and that a link with an unresolvable market is skipped rather
   than shown blank
 
 ## 11. Workers
 
-- [ ] 11.1 Build the worker monitor: one row per exchange with desired and
+- [x] 11.1 Build the worker monitor: one row per exchange with desired and
   actual state, shards with phase and restarts, and the eligible coin count.
   Verify with a scene test for the running, stopped, and reconnecting rows
-- [ ] 11.2 Build start and stop, and the refusal path when the request is
+- [x] 11.2 Build start and stop, and the refusal path when the request is
   redundant. Verify with a story test for the success, the refusal, and the
   rail re-read, and a scene test for the refusal's message
 
 ## 12. A coin's routes
 
-- [ ] 12.1 Build the market list with its exchange link, symbol, listed and
+- [x] 12.1 Build the market list with its exchange link, symbol, listed and
   trade-enabled flags, and chain badges. Verify with a scene test for the loaded
   and empty states
-- [ ] 12.2 Derive the transfer matrix and build it, with the detail dialog
+- [x] 12.2 Derive the transfer matrix and build it, with the detail dialog
   naming the shared chains for a pair. Verify with a story test per pair status
   and a scene test for the matrix and the dialog
-- [ ] 12.3 Build the assign, edit, and unassign dialogs and the exchange
+- [x] 12.3 Build the assign, edit, and unassign dialogs and the exchange
   picker. Verify with a story test for each mutation settling and a scene test
   for the picker and the three dialogs
-- [ ] 12.4 Build the chain-links dialog: the current links with their flags, the
+- [x] 12.4 Build the chain-links dialog: the current links with their flags, the
   toggles, the unlink confirmation, and the chain picker that can create the
   chain that was typed. Verify with a story test for the toggle, the unlink, and
   the create, and a scene test for the dialog in each state
-- [ ] 12.5 Verify the whole page against a running control plane, including that
+- [x] 12.5 Verify the whole page against a running control plane, including that
   a flag toggle changes what the matrix reports and that a new link appears
   without a reload
 
 ## 13. Routes and states that span pages
 
-- [ ] 13.1 Verify every route in the spec resolves: request each one on a cold
+- [x] 13.1 Verify every route in the spec resolves: request each one on a cold
   load and confirm the matching page, then confirm an unknown path renders the
   not-found page. Verify with a scene test per route and a request per route
-- [ ] 13.2 Verify the not-found page offers a way back and carries the path that
+- [x] 13.2 Verify the not-found page offers a way back and carries the path that
   was requested. Verify with a scene test
-- [ ] 13.3 Verify the theme: switching it survives a reload with no flash of the
+- [x] 13.3 Verify the theme: switching it survives a reload with no flash of the
   other theme, and a browser with no recorded theme gets the light one. Verify
   with a story test for the toggle and a request carrying the cookie
 
 ## 14. Serving the built application
 
-- [ ] 14.1 Verify the production build emits a client bundle and a server bundle
+- [x] 14.1 Verify the production build emits a client bundle and a server bundle
   from one build id. Verify `bun run --cwd apps/folding-plane build` succeeds
   and both files carry the same id
-- [ ] 14.2 Verify the production host serves assets, forwards `/api` to the
+- [x] 14.2 Verify the production host serves assets, forwards `/api` to the
   control plane, and renders pages for everything else, including a deep link
   and an off-origin request. Verify each with a request against the running host
-- [ ] 14.3 Verify hydration refuses when a page and a client come from different
+- [x] 14.3 Verify hydration refuses when a page and a client come from different
   builds rather than adopting mismatched markup. Verify by serving a page from
   one build and a client from another and confirming the refusal
 
 ## 15. Integration
 
-- [ ] 15.1 Verify the whole workspace: `bun test ./packages ./apps` passes and
+- [x] 15.1 Verify the whole workspace: `bun test ./packages ./apps` passes and
   `bun run --cwd apps/folding-plane typecheck` and its lint are clean
-- [ ] 15.2 Review the new application against the app's own conventions and the
+- [x] 15.2 Review the new application against the app's own conventions and the
   framework's, and record every deviation with its reason. Verify the review
   covers every page module, the shared view helpers, and both entries
-- [ ] 15.3 Verify the capability spec still describes what the application does,
+- [x] 15.3 Verify the capability spec still describes what the application does,
   and record any requirement the port could not meet rather than leaving it
   silently unmet

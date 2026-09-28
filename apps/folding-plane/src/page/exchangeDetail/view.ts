@@ -3,7 +3,7 @@ import { Array, Option } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
 
 import type { CoinPage, MarketAssignment } from '../../api'
-import { coinRoutesUrl } from '../../route'
+import { coinRoutesUrl, coinsUrl, defaultCoinsQuery, defaultExchangesQuery, exchangesUrl } from '../../route'
 import { badge } from '../../ui/badge'
 import { formatCount, pendingCount } from '../../ui/format'
 import { pageHeader, statStrip } from '../../ui/pageHeader'
@@ -12,13 +12,12 @@ import {
   body,
   head,
   loadingRows,
-  row,
   table,
   td,
   th,
 } from '../../ui/table'
 import { Message } from './message'
-import { identityDescription, isMissing, Model } from './model'
+import { Model, identityDescription, isMissing } from './model'
 
 // VIEW
 
@@ -38,14 +37,14 @@ const headerView = (model: Model, h: HtmlBuilder<Message>): Html =>
         description: AsyncData.isFailure(model.exchange)
           ? 'This exchange could not be loaded.'
           : 'Loading exchange.',
-        back: { href: '/exchanges', label: 'Exchanges' },
+        back: { href: exchangesUrl(defaultExchangesQuery), label: 'Exchanges' },
         h,
       }),
     onSome: (exchange) =>
       pageHeader({
         title: exchange.name,
         description: identityDescription(exchange),
-        back: { href: '/exchanges', label: 'Exchanges' },
+        back: { href: exchangesUrl(defaultExchangesQuery), label: 'Exchanges' },
         h,
       }),
   })
@@ -62,7 +61,7 @@ const bodyView = (model: Model, h: HtmlBuilder<Message>): Html => {
         'This exchange no longer exists. It may have been removed from the exchanges page.',
       action: h.a(
         [
-          h.Href('/exchanges'),
+          h.Href(exchangesUrl(defaultExchangesQuery)),
           h.Class('rounded-lg bg-card px-3 py-1.5 text-sm shadow-[var(--shadow-border)] transition-[scale,box-shadow,background-color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:shadow-[var(--shadow-border-hover)]'),
         ],
         ['Back to exchanges'],
@@ -150,7 +149,7 @@ const marketsView = (model: Model, h: HtmlBuilder<Message>): Html =>
               'Assign a coin to this exchange from the coin routes page, then its markets appear here.',
             action: h.a(
               [
-                h.Href('/coins'),
+                h.Href(coinsUrl(defaultCoinsQuery)),
                 h.Class('rounded-lg bg-card px-3 py-1.5 text-sm shadow-[var(--shadow-border)] transition-[scale,box-shadow,background-color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:shadow-[var(--shadow-border-hover)]'),
               ],
               ['Browse coins'],

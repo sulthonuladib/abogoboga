@@ -26,10 +26,10 @@ import {
 } from '../../ui/table'
 import { Message } from './message'
 import {
+  Model,
   confirmLabel,
   editorTitle,
   isFormValid,
-  Model,
   removeTitle,
 } from './model'
 

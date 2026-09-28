@@ -20,10 +20,12 @@ export const themeCookie = (theme: Theme): string =>
 const isTheme = (value: string): value is Theme =>
   Theme.literals.some((literal) => literal === value)
 
+const fallbackTheme: Theme = 'Light'
+
 export const themeFromCookieHeader = (cookieHeader: string): Theme =>
   pipe(
     Cookies.parseHeader(cookieHeader),
     Record.get(THEME_COOKIE),
     Option.filter(isTheme),
-    Option.getOrElse(() => 'Dark' as Theme),
+    Option.getOrElse(() => fallbackTheme),
   )

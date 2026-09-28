@@ -156,8 +156,25 @@ const closeEditor = Update.foldChildStep({
   foldOutMessage: foldEditorOutMessage,
 })
 
+const openEditor = Update.foldChildStep({
+  update: Dialog.open,
+  read: (model: Model) => Option.some(model.editor),
+  write: (model, nextEditor) => modifyFields(model, { editor: () => nextEditor }),
+  toParentMessage: (message) => Message.GotEditorMessage({ message }),
+  foldOutMessage: foldEditorOutMessage,
+})
+
 const closeRemoveDialog = Update.foldChildStep({
   update: Dialog.close,
+  read: (model: Model) => Option.some(model.removeDialog),
+  write: (model, nextRemoveDialog) =>
+    modifyFields(model, { removeDialog: () => nextRemoveDialog }),
+  toParentMessage: (message) => Message.GotRemoveDialogMessage({ message }),
+  foldOutMessage: foldRemoveDialogOutMessage,
+})
+
+const openRemoveDialog = Update.foldChildStep({
+  update: Dialog.open,
   read: (model: Model) => Option.some(model.removeDialog),
   write: (model, nextRemoveDialog) =>
     modifyFields(model, { removeDialog: () => nextRemoveDialog }),
@@ -231,7 +248,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
     UpdatedSearch: ({ value }) => ({
       model: modifyFields(model, {
-        query: (query) => ({ ...query, search: value }),
+        query: (query) => modifyFields(query, { search: () => value }),
       }),
       commands: [interruptSearch(), SearchChains({ search: value })],
     }),
@@ -266,7 +283,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
             isSaving: () => false,
           }),
         }),
-        foldEditor(Dialog.Message.RequestedOpen()),
+        openEditor,
       ]),
 
     ClickedEditChain: ({ id, name, code }) =>
@@ -280,7 +297,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
             isSaving: () => false,
           }),
         }),
-        foldEditor(Dialog.Message.RequestedOpen()),
+        openEditor,
       ]),
 
     UpdatedChainName: ({ value }) => ({
@@ -339,7 +356,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
             maybeRemoving: () => Option.some({ id, code }),
           }),
         }),
-        foldRemoveDialog(Dialog.Message.RequestedOpen()),
+        openRemoveDialog,
       ]),
 
     ClickedConfirmRemoveChain: () =>

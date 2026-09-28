@@ -11,7 +11,7 @@ import { icon } from '../../ui/icon'
 import { action, iconAction, pageHeader } from '../../ui/pageHeader'
 import { pagination } from '../../ui/pagination'
 import { searchField } from '../../ui/search'
-import { emptyState, errorPanel, staleNotice } from '../../ui/states'
+import { errorPanel, staleNotice } from '../../ui/states'
 import {
   body,
   emptyRow,
@@ -25,10 +25,10 @@ import {
 } from '../../ui/table'
 import { Message } from './message'
 import {
+  Model,
   confirmLabel,
   editorTitle,
   isFormValid,
-  Model,
   removeTitle,
 } from './model'
 

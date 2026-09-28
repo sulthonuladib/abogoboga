@@ -1,14 +1,18 @@
-import { Array, Match, Option } from 'effect'
+import { Array, Option } from 'effect'
 import { AsyncData } from 'foldkit'
 import { type Document, type Html, type HtmlBuilder } from 'foldkit/html'
 import { Nav, Tooltip } from '@foldkit/ui'
 
 import { Message } from './message'
 import { type Model } from './model'
+import * as ChainDetail from './page/chainDetail'
 import * as Chains from './page/chains'
+import * as CoinRoutes from './page/coinRoutes'
+import * as Coins from './page/coins'
 import * as Dashboard from './page/dashboard'
 import * as ExchangeDetail from './page/exchangeDetail'
 import * as Exchanges from './page/exchanges'
+import * as Workers from './page/workers'
 import {
   AppRoute,
   chainsUrl,
@@ -343,8 +347,20 @@ const routeView = (model: Model, h: HtmlBuilder<Message>): Html =>
         viewInputs: { coverage: model.coverage },
         toParentMessage: (message) => Message.GotDashboardMessage({ message }),
       }),
-    Coins: () => placeholderView('Coins', h),
-    CoinRoutes: () => placeholderView('Coin routes', h),
+    Coins: () =>
+      h.submodel({
+        slotId: 'coins',
+        model: model.coins,
+        view: Coins.view,
+        toParentMessage: (message) => Message.GotCoinsMessage({ message }),
+      }),
+    CoinRoutes: () =>
+      h.submodel({
+        slotId: 'coin-routes',
+        model: model.coinRoutes,
+        view: CoinRoutes.view,
+        toParentMessage: (message) => Message.GotCoinRoutesMessage({ message }),
+      }),
     Exchanges: () =>
       h.submodel({
         slotId: 'exchanges',
@@ -366,19 +382,22 @@ const routeView = (model: Model, h: HtmlBuilder<Message>): Html =>
         view: Chains.view,
         toParentMessage: (message) => Message.GotChainsMessage({ message }),
       }),
-    ChainDetail: () => placeholderView('Chain', h),
-    Workers: () => placeholderView('Workers', h),
+    ChainDetail: () =>
+      h.submodel({
+        slotId: 'chain-detail',
+        model: model.chainDetail,
+        view: ChainDetail.view,
+        toParentMessage: (message) => Message.GotChainDetailMessage({ message }),
+      }),
+    Workers: () =>
+      h.submodel({
+        slotId: 'workers',
+        model: model.workers,
+        view: Workers.view,
+        toParentMessage: (message) => Message.GotWorkersMessage({ message }),
+      }),
     NotFound: ({ path }) => notFoundView(path, h),
   })
-
-const placeholderView = (title: string, h: HtmlBuilder<Message>): Html =>
-  h.section(
-    [h.Class('flex flex-col gap-2')],
-    [
-      h.h1([h.Class('text-xl font-semibold tracking-tight')], [title]),
-      h.p([h.Class('text-sm text-muted-foreground')], ['Coming next.']),
-    ],
-  )
 
 const notFoundView = (path: string, h: HtmlBuilder<Message>): Html =>
   h.div(

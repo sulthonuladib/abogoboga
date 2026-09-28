@@ -1,4 +1,4 @@
-import { Dialog } from '@foldkit/ui'
+import { Dialog, Menu } from '@foldkit/ui'
 import { Option, Result } from 'effect'
 import { AsyncData, FieldValidation } from 'foldkit'
 import { Command, given, message, model, story } from 'foldkit/story'
@@ -13,7 +13,8 @@ import * as Chains from './page/chains'
 import * as Dashboard from './page/dashboard'
 import * as Exchanges from './page/exchanges'
 import { AppRoute } from './route'
-import { FetchCoverage, update } from './update'
+import { themeFromCookieHeader } from './theme'
+import { FetchCoverage, PersistTheme, update } from './update'
 
 const urlOrThrow = (raw: string) =>
   Option.getOrThrowWith(
@@ -183,5 +184,34 @@ describe('catalogue write', () => {
         expect(AsyncData.isSuccess(next.coverage)).toBe(true)
       }),
     )
+  })
+})
+
+describe('theme', () => {
+  test('selecting Dark switches the theme and persists it', () => {
+    story(
+      update,
+      given(initialModel),
+      message(
+        Message.GotThemeMenuMessage({
+          message: Menu.Message.SelectedItem({ index: 1, item: 'Dark' }),
+        }),
+      ),
+      model((next) => {
+        expect(next.theme).toBe('Dark')
+      }),
+      Command.resolve(
+        PersistTheme({ theme: 'Dark' }),
+        Message.CompletedPersistTheme(),
+      ),
+      Command.expectNone(),
+    )
+  })
+
+  test('the server renders the theme from the cookie, defaulting to Light', () => {
+    expect(themeFromCookieHeader('')).toBe('Light')
+    expect(themeFromCookieHeader('lister-theme=Dark')).toBe('Dark')
+    expect(themeFromCookieHeader('lister-theme=Light')).toBe('Light')
+    expect(themeFromCookieHeader('lister-theme=Sepia')).toBe('Light')
   })
 })
