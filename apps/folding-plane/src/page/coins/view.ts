@@ -46,8 +46,6 @@ export const view = Submodel.defineView<Model, Message>((model, h) =>
   h.div([h.Class('flex flex-col gap-6')], [
     pageHeader({
       title: 'Coins',
-      description:
-        'Coverage per coin: how many exchanges list it, on how many chains, and how many market pairs have no transfer route.',
       actions: [
         action({
           label: 'New coin',

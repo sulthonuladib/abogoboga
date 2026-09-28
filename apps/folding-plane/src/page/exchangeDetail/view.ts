@@ -27,7 +27,7 @@ import {
 } from '../../ui/table'
 import { searchField } from '../../ui/search'
 import { Message } from './message'
-import { type MarketSort, Model, identityDescription, isAssignValid, isEditValid, isLinkValid, isMissing } from './model'
+import { type MarketSort, Model, isAssignValid, isEditValid, isLinkValid, isMissing } from './model'
 
 // VIEW
 
@@ -58,9 +58,6 @@ const headerView = (model: Model, h: HtmlBuilder<Message>): Html => {
     onNone: () =>
       pageHeader({
         title: 'Exchange',
-        description: AsyncData.isFailure(model.exchange)
-          ? 'This exchange could not be loaded.'
-          : 'Loading exchange.',
         back: { href: exchangesUrl(defaultExchangesQuery), label: 'Exchanges' },
         actions,
         h,
@@ -68,7 +65,6 @@ const headerView = (model: Model, h: HtmlBuilder<Message>): Html => {
     onSome: (exchange) =>
       pageHeader({
         title: exchange.name,
-        description: identityDescription(exchange),
         back: { href: exchangesUrl(defaultExchangesQuery), label: 'Exchanges' },
         actions,
         h,

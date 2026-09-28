@@ -32,7 +32,6 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>(
     h.div([h.Class('flex flex-col gap-6')], [
       pageHeader({
         title: 'Dashboard',
-        description: 'Coverage counts, worker health, and the routes that need attention.',
         h,
       }),
       coverageStrips(viewInputs.coverage, h),

@@ -41,8 +41,6 @@ export const view = Submodel.defineView<Model, Message>((model, h) =>
   h.div([h.Class('flex flex-col gap-6')], [
     pageHeader({
       title: 'Chains',
-      description:
-        'Networks a market can move value on. Chains are shared across exchanges, and codes are unique.',
       actions: [
         action({
           label: 'New chain',

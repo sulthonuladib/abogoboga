@@ -49,8 +49,6 @@ export const view = Submodel.defineView<Model, Message>((model, h) =>
   h.div([h.Class('flex flex-col gap-6')], [
     pageHeader({
       title: 'Exchanges',
-      description:
-        'Venues a coin can be listed on. Search matches the name or slug; rows link to their market assignments.',
       actions: [
         action({
           label: 'New exchange',

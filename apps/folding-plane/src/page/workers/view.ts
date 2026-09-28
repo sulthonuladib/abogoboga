@@ -24,7 +24,6 @@ export const view = Submodel.defineView<Model, Message>((model, h) =>
   h.div([h.Class('flex flex-col gap-6')], [
     pageHeader({
       title: 'Workers',
-      description: 'Crawler shards per exchange, with the desired state and what is actually running.',
       h,
     }),
     ...noticeView(model, h),

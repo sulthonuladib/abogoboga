@@ -46,7 +46,6 @@ const headerView = (model: Model, h: HtmlBuilder<Message>): Html =>
     onNone: () =>
       pageHeader({
         title: 'Coin routes',
-        description: 'Market assignments, chain links, and the transfer matrix.',
         back: { href: coinsUrl(defaultCoinsQuery), label: 'Coins' },
         actions: [
           action({
@@ -61,7 +60,6 @@ const headerView = (model: Model, h: HtmlBuilder<Message>): Html =>
     onSome: (metadata) =>
       pageHeader({
         title: `${metadata.symbol} routes`,
-        description: `${metadata.name} across ${formatCount(metadata.exchanges.length)} markets. A route exists when one market can withdraw on a chain the other can deposit on.`,
         back: { href: coinsUrl(defaultCoinsQuery), label: 'Coins' },
         actions: [
           action({
