@@ -13,6 +13,7 @@ import {
   text,
   type,
 } from 'foldkit/scene'
+import { modifyFields } from 'foldkit/struct'
 import { describe, test } from 'vitest'
 
 import {
@@ -212,6 +213,52 @@ describe('exchange detail', () => {
       expect(role('button', { name: 'Manage chains for BTC' })).toExist(),
       expect(role('button', { name: 'Edit BTC market' })).toExist(),
       expect(role('button', { name: 'Unassign BTC' })).toExist(),
+    )
+  })
+
+  test('searching the markets narrows the rows to the match', () => {
+    scene(
+      { update, view },
+      given(loadedModel),
+      expect(text('2 markets')).toExist(),
+      type(role('searchbox', { name: 'Search markets' }), 'eth'),
+      expect(text('BTC/USDT')).toBeAbsent(),
+      expect(text('ETH/USDT')).toExist(),
+      expect(text('1 of 2 · Matching “eth”')).toExist(),
+    )
+  })
+
+  test('sorting the markets flips the column order', () => {
+    scene(
+      { update, view },
+      given(loadedModel),
+      expect(role('button', { name: 'Sort by Coin, currently ascending' })).toExist(),
+      click(role('button', { name: 'Sort by Coin, currently ascending' })),
+      expect(role('button', { name: 'Sort by Coin, currently descending' })).toExist(),
+      click(role('button', { name: 'Sort by Exchange symbol, currently not sorted' })),
+      expect(role('button', { name: 'Sort by Exchange symbol, currently ascending' })).toExist(),
+    )
+  })
+
+  test('the markets pager slices the rows and clamps a page past the end', () => {
+    scene(
+      { update, view },
+      given(modifyFields(loadedModel, {
+        marketLimit: () => 1,
+        marketPage: () => 2,
+      })),
+      expect(text('BTC/USDT')).toBeAbsent(),
+      expect(text('ETH/USDT')).toExist(),
+      expect(text('2-2 of 2')).toExist(),
+    )
+    scene(
+      { update, view },
+      given(modifyFields(loadedModel, {
+        marketLimit: () => 1,
+        marketPage: () => 9,
+      })),
+      expect(text('ETH/USDT')).toExist(),
+      expect(text('2-2 of 2')).toExist(),
     )
   })
 

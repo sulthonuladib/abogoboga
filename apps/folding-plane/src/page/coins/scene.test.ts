@@ -1,4 +1,4 @@
-import { Dialog } from '@foldkit/ui'
+import { Dialog, RadioGroup } from '@foldkit/ui'
 import { Option, Result, Schema } from 'effect'
 import { AsyncData, FieldValidation } from 'foldkit'
 import {
@@ -207,14 +207,16 @@ describe('coins listing', () => {
     )
   })
 
-  test('the coverage filter holds the query value and navigates on change', () => {
+  test('the coverage radios hold the query value and navigate on change', () => {
     scene(
       { update, view },
       given(loadedModel),
-      expect(role('combobox', { name: 'Coverage' })).toExist(),
-      expect(role('combobox', { name: 'Coverage' })).toHaveValue('all'),
-      expect(text('Blocked routes')).toExist(),
-      change(role('combobox', { name: 'Coverage' }), 'blocked'),
+      expect(role('radio', { name: 'All coins' })).toHaveAttr('aria-checked', 'true'),
+      click(role('radio', { name: 'Blocked routes' })),
+      Command.resolve(
+        RadioGroup.FocusOption({ id: 'coin-coverage', index: 1 }),
+        RadioGroup.Message.CompletedFocusOption(),
+      ),
       Command.resolve(
         NavigateCoins({
           url: coinsUrl({ ...defaultCoinsQuery, flag: 'blocked', page: 1 }),
@@ -238,6 +240,48 @@ describe('coins listing', () => {
     )
   })
 
+  test('the sort controls navigate without resetting each other', () => {
+    scene(
+      { update, view },
+      given(loadedModel),
+      change(role('combobox', { name: 'Sort by' }), 'markets'),
+      Command.resolve(
+        NavigateCoins({
+          url: coinsUrl({ ...defaultCoinsQuery, sort: 'markets', page: 1 }),
+        }),
+        Message.CompletedNavigateCoins(),
+      ),
+      click(role('radio', { name: 'Descending' })),
+      Command.resolve(
+        RadioGroup.FocusOption({ id: 'coin-order', index: 1 }),
+        RadioGroup.Message.CompletedFocusOption(),
+      ),
+      Command.resolve(
+        NavigateCoins({
+          url: coinsUrl({ ...defaultCoinsQuery, order: 'desc', page: 1 }),
+        }),
+        Message.CompletedNavigateCoins(),
+      ),
+    )
+  })
+
+  test('clearing resets the facets but keeps the search and page size', () => {
+    scene(
+      { update, view },
+      given(modifyFields(initialModel, {
+        query: () => ({ ...defaultCoinsQuery, search: 'bit', flag: 'blocked', sort: 'markets', order: 'desc' }),
+        coins: () => AsyncData.succeed(fixturePage),
+      })),
+      click(role('button', { name: 'Clear 2 filters' })),
+      Command.resolve(
+        NavigateCoins({
+          url: coinsUrl({ ...defaultCoinsQuery, search: 'bit' }),
+        }),
+        Message.CompletedNavigateCoins(),
+      ),
+    )
+  })
+
   test('the page size is a navigation that resets to the first page', () => {
     scene(
       { update, view },
@@ -253,16 +297,16 @@ describe('coins listing', () => {
     )
   })
 
-  test('scoping to an exchange is a navigation and closes the picker', () => {
+  test('scoping to an exchange is a navigation from the inline section', () => {
     scene(
       { update, view },
       given(loadedModel),
       click(role('button', { name: 'Scope' })),
+      expect(role('button', { name: 'Scope' })).toHaveAttr('aria-expanded', 'true'),
       Command.resolve(
         FetchScopeExchanges({ search: '' }),
         Message.SettledFetchScopeExchanges({ result: Result.succeed(fixtureExchanges) }),
       ),
-      ...resolveDialogOpen,
       click(role('option', { name: 'Binance binance' })),
       Command.resolve(
         NavigateCoins({
@@ -270,11 +314,6 @@ describe('coins listing', () => {
         }),
         Message.CompletedNavigateCoins(),
       ),
-      Command.resolve(
-        Dialog.CloseDialog({ id: 'coin-scope' }),
-        Dialog.Message.CompletedCloseDialog(),
-      ),
-      Mount.expectEnded(Dialog.AcquireResources),
     )
   })
 

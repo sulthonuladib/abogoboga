@@ -9,6 +9,7 @@ import {
   CryptocurrencyPageResponse,
   MarketListResponse,
 } from '../../api'
+import { defaultPageSize } from '../../route'
 
 // DATA
 
@@ -77,6 +78,15 @@ const PendingToggle = Schema.Struct({
 export const LinkMode = Schema.Literals(['manage', 'add'])
 export type LinkMode = typeof LinkMode.Type
 
+/**
+ * The column the markets table sorts by: the resolved coin or the symbol the
+ * exchange trades it under.
+ */
+export const MarketSort = Schema.Literals(['coin', 'symbol'])
+export type MarketSort = typeof MarketSort.Type
+
+export type MarketOrder = 'asc' | 'desc'
+
 // MODEL
 
 export const Model = Schema.Struct({
@@ -84,6 +94,16 @@ export const Model = Schema.Struct({
   exchange: ExchangeData.schema,
   markets: MarketsData.schema,
   coins: CoinsData.schema,
+  // Markets table. Search, sort, and page live in the Model rather than the
+  // URL: `market.list` answers the whole array with no server paging, and the
+  // server seed renders that same array, so route parameters would be
+  // ceremony over an identical read. The state resets whenever the page shows
+  // another exchange.
+  marketSearch: Schema.String,
+  marketPage: Schema.Int,
+  marketLimit: Schema.Int,
+  marketSort: MarketSort,
+  marketOrder: Schema.Literals(['asc', 'desc']),
   // Assign dialog
   assignDialog: Dialog.Model,
   assignSearch: Schema.String,
@@ -150,6 +170,11 @@ export const initFor = (exchangeId: number): Model => ({
   exchange: AsyncData.Idle(),
   markets: AsyncData.Idle(),
   coins: AsyncData.Idle(),
+  marketSearch: '',
+  marketPage: 1,
+  marketLimit: defaultPageSize,
+  marketSort: 'coin',
+  marketOrder: 'asc',
   assignDialog: Dialog.init({ id: 'exchange-detail-assign' }),
   assignSearch: '',
   assignCoin: Option.none(),

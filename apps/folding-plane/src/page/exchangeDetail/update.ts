@@ -23,6 +23,9 @@ type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage>
 const validateSymbol = FieldValidation.validate(symbolRules)
 const validateChainCode = FieldValidation.validate(chainCodeRules)
 
+const flipped = (order: Model['marketOrder']): Model['marketOrder'] =>
+  order === 'asc' ? 'desc' : 'asc'
+
 // NORMALIZE
 
 const normalizeChainName = (value: string): string => {
@@ -515,6 +518,30 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 
     SettledFetchCoins: ({ result }) => ({
       model: modifyFields(model, { coins: AsyncData.settle(result) }),
+    }),
+
+    // Markets table. Everything here is a Model change over rows already in
+    // memory; the view clamps the page against the filtered count, so a
+    // removal that shrinks the table cannot strand the pager.
+
+    UpdatedMarketSearch: ({ value }) => ({
+      model: modifyFields(model, { marketSearch: () => value, marketPage: () => 1 }),
+    }),
+
+    ClickedMarketSort: ({ column }) => ({
+      model: modifyFields(model, {
+        marketSort: () => column,
+        marketOrder: () => model.marketSort === column ? flipped(model.marketOrder) : 'asc',
+        marketPage: () => 1,
+      }),
+    }),
+
+    ChangedMarketPage: ({ page }) => ({
+      model: modifyFields(model, { marketPage: () => Math.max(1, page) }),
+    }),
+
+    ChangedMarketPageSize: ({ value }) => ({
+      model: modifyFields(model, { marketLimit: () => value, marketPage: () => 1 }),
     }),
 
     SettledFetchMetadata: ({ result }) => ({

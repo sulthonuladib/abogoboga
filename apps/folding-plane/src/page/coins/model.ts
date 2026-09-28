@@ -1,4 +1,4 @@
-import { Dialog } from '@foldkit/ui'
+import { Dialog, RadioGroup } from '@foldkit/ui'
 import { Option, Schema } from 'effect'
 import { AsyncData, FieldValidation } from 'foldkit'
 
@@ -7,7 +7,7 @@ import {
   CryptocurrencyStatsPageResponse,
   ExchangePageResponse,
 } from '../../api'
-import { CoinsQuery, defaultCoinsQuery } from '../../route'
+import { CoinsQuery, type CoverageFlag, type Order, defaultCoinsQuery } from '../../route'
 
 // FORM
 
@@ -55,6 +55,18 @@ const Removing = Schema.Struct({ id: Schema.Int, symbol: Schema.String })
 export const ScopeKind = Schema.Literals(['exchange', 'chain'])
 export type ScopeKind = typeof ScopeKind.Type
 
+// RADIO
+
+/**
+ * The single-choice groups in the filter panel, bound to their query unions
+ * so a selection carries its type into the update fold with no cast. The
+ * groups hold no selection themselves — the URL query owns it — only the
+ * roving-tabindex cursor while keyboard focus moves through the options.
+ */
+export const CoverageRadio = RadioGroup.create<CoverageFlag>()
+export const ScopeKindRadio = RadioGroup.create<ScopeKind>()
+export const OrderRadio = RadioGroup.create<Order>()
+
 export const ScopeExchanges = AsyncData.Schema(ExchangePageResponse, Schema.String)
 export const ScopeChains = AsyncData.Schema(ChainPageResponse, Schema.String)
 
@@ -66,11 +78,14 @@ export const Model = Schema.Struct({
   query: CoinsQuery,
   loadedQuery: Schema.Option(CoinsQuery),
   coins: Coins.schema,
-  scopeDialog: Dialog.Model,
   scopeKind: ScopeKind,
   scopeSearch: Schema.String,
   scopeExchanges: ScopeExchanges.schema,
   scopeChains: ScopeChains.schema,
+  isScopeOpen: Schema.Boolean,
+  coverageRadio: RadioGroup.Model,
+  scopeKindRadio: RadioGroup.Model,
+  orderRadio: RadioGroup.Model,
   editor: Dialog.Model,
   editing: Schema.Option(Editing),
   symbol: FieldValidation.Field(Schema.String),
@@ -94,11 +109,14 @@ export const init = (query: CoinsQuery): Model => ({
   query,
   loadedQuery: Option.none(),
   coins: AsyncData.Idle(),
-  scopeDialog: Dialog.init({ id: 'coin-scope' }),
   scopeKind: 'exchange',
   scopeSearch: '',
   scopeExchanges: AsyncData.Idle(),
   scopeChains: AsyncData.Idle(),
+  isScopeOpen: false,
+  coverageRadio: RadioGroup.init({ id: 'coin-coverage' }),
+  scopeKindRadio: RadioGroup.init({ id: 'coin-scope-kind' }),
+  orderRadio: RadioGroup.init({ id: 'coin-order' }),
   editor: Dialog.init({ id: 'coin-editor' }),
   editing: Option.none(),
   symbol: FieldValidation.NotValidated({ value: '' }),

@@ -1,4 +1,4 @@
-import { Dialog } from '@foldkit/ui'
+import { Dialog, RadioGroup } from '@foldkit/ui'
 import { Option, Result, Schema } from 'effect'
 import { Interruptible } from 'foldkit/command'
 import { AsyncData } from 'foldkit'
@@ -217,11 +217,17 @@ describe('update', () => {
     )
   })
 
-  test('changing the coverage filter navigates from the first page', () => {
+  test('picking a coverage radio navigates from the first page', () => {
     story(
       update,
       given(loadedModel),
-      message(Message.ChangedFlag({ flag: 'blocked' })),
+      message(Message.GotCoverageMessage({
+        message: RadioGroup.Message.SelectedOption({ index: 1, value: 'blocked' }),
+      })),
+      Command.resolve(
+        RadioGroup.FocusOption({ id: 'coin-coverage', index: 1 }),
+        RadioGroup.Message.CompletedFocusOption(),
+      ),
       Command.resolve(
         NavigateCoins({
           url: coinsUrl({ ...defaultCoinsQuery, flag: 'blocked', page: 1 }),

@@ -143,12 +143,23 @@
   from {
     opacity: 0;
     translate: 0 12px;
-    filter: blur(4px);
   }
   to {
     opacity: 1;
     translate: 0 0;
-    filter: blur(0);
+  }
+}
+
+@keyframes dialog-enter {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+    scale: 0.98;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
   }
 }
 
@@ -156,7 +167,9 @@
   /* A page arrives in semantic chunks rather than one block. The page root's
      direct children are the header and its sections, so the hierarchy reads
      in sequence. The class is only added after a client-side navigation, so a
-     server-rendered cold load stays still. */
+     server-rendered cold load stays still. Opacity and translate only: a blur
+     over table-sized chunks forces a full repaint per frame and janks on
+     long listings. */
   .page-enter > * > * {
     animation: chunk-enter var(--duration-calm) var(--ease-app) both;
   }
@@ -176,6 +189,14 @@
   .page-enter > * > *:nth-child(4) {
     animation-delay: 300ms;
   }
+
+  /* A dialog panel arrives once per open with a softer rise than a page
+     chunk. The panel is small so the scale costs nothing, and the exit stays
+     instant: the user's focus is already moving to the next thing. */
+  .dialog-panel {
+    animation: dialog-enter var(--duration-quick) var(--ease-app) both;
+    transform-origin: center top;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -188,6 +209,10 @@
   }
 
   .page-enter > * > * {
+    animation: none !important;
+  }
+
+  .dialog-panel {
     animation: none !important;
   }
 }

@@ -107,7 +107,7 @@ const shellView = (model: Model, h: HtmlBuilder<Message>): Html =>
       sectionsNav(
         model.route,
         h,
-        'flex gap-1 overflow-x-auto border-b border-sidebar-border px-2 py-1.5 md:hidden',
+        'sticky top-0 z-10 flex gap-1 overflow-x-auto border-b border-sidebar-border bg-background/95 px-2 py-1.5 backdrop-blur md:hidden',
         mobileLinkClass,
       ),
       h.main([h.Class('min-w-0 flex-1')], [
@@ -128,10 +128,10 @@ const shellView = (model: Model, h: HtmlBuilder<Message>): Html =>
 
 const railView = (model: Model, h: HtmlBuilder<Message>): Html =>
   h.aside(
-    [h.Class('hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex')],
+    [h.Class('hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:sticky md:top-0 md:flex md:h-dvh md:overflow-hidden')],
     [
       h.div(
-        [h.Class('flex h-14 items-center gap-2 border-b border-sidebar-border px-4')],
+        [h.Class('flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border px-4')],
         [
           h.span([h.Class('text-primary')], [icon('chart', h, 'size-5')]),
           h.span([h.Class('text-base font-semibold tracking-tight')], ['Lister']),
@@ -141,7 +141,7 @@ const railView = (model: Model, h: HtmlBuilder<Message>): Html =>
       sectionsNav(
         model.route,
         h,
-        'flex flex-1 flex-col gap-0.5 p-2',
+        'flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2',
         railLinkClass,
       ),
       coverageView(model, h),
@@ -299,7 +299,7 @@ const coverageControls = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<
 
 const coverageView = (model: Model, h: HtmlBuilder<Message>): Html =>
   h.div(
-    [h.Class('border-t border-sidebar-border px-4 py-3')],
+    [h.Class('shrink-0 border-t border-sidebar-border px-4 py-3')],
     [
       h.div(
         [h.Class('flex items-center justify-between')],

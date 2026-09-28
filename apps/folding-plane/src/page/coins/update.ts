@@ -1,18 +1,22 @@
 import { Effect, Option, Schema } from 'effect'
 import { HttpClient } from 'effect/unstable/http'
-import { Dialog } from '@foldkit/ui'
+import { Dialog, RadioGroup } from '@foldkit/ui'
 import { AsyncData, Command, FieldValidation, Update } from 'foldkit'
 import { pushUrl, replaceUrl } from 'foldkit/navigation'
 import { modifyFields } from 'foldkit/struct'
 
 import { type ApiFailure, type ApiOrigin, type CoinStatPage, Query, call } from '../../api'
-import { CoinsQuery, type Order, coinsUrl } from '../../route'
+import { CoinsQuery, type CoverageFlag, type Order, coinsUrl, defaultCoinsQuery } from '../../route'
 import { trimmedOrEmpty } from '../../ui/format'
 import { searchDelay } from '../../ui/search'
 import { Message, OutMessage } from './message'
 import {
   type Coins,
+  CoverageRadio,
   Model,
+  OrderRadio,
+  type ScopeKind,
+  ScopeKindRadio,
   coingeckoIdRules,
   initialModel,
   isFormValid,
@@ -235,36 +239,105 @@ const openRemoveDialog = Update.foldChildStep({
   foldOutMessage: foldRemoveDialogOutMessage,
 })
 
-const foldScopeDialogOutMessage = Dialog.OutMessage.match<Update.Step<Model, Message>>({
-  Opened: () => keepModel,
-  Closed: () => keepModel,
+/**
+ * The scope picker's options load when its section first opens, and never
+ * again from opening alone: reopening shows what is already on screen while
+ * typing searches fresh.
+ */
+const loadScopeOptions: Update.Step<Model, Message> = (model) => {
+  if (model.scopeKind === 'exchange') {
+    return Option.match(AsyncData.revalidateOrLoad(model.scopeExchanges), {
+      onNone: () => ({ model }),
+      onSome: (scopeExchanges) => ({
+        model: modifyFields(model, { scopeExchanges: () => scopeExchanges }),
+        commands: [FetchScopeExchanges({ search: model.scopeSearch })],
+      }),
+    })
+  } else {
+    return Option.match(AsyncData.revalidateOrLoad(model.scopeChains), {
+      onNone: () => ({ model }),
+      onSome: (scopeChains) => ({
+        model: modifyFields(model, { scopeChains: () => scopeChains }),
+        commands: [FetchScopeChains({ search: model.scopeSearch })],
+      }),
+    })
+  }
+}
+
+const openScopeSection: Update.Step<Model, Message> = (stepModel) => ({
+  model: modifyFields(stepModel, { isScopeOpen: () => true }),
 })
 
-const foldScopeDialog = Update.foldChild({
-  update: Dialog.update,
-  read: (model: Model) => Option.some(model.scopeDialog),
-  write: (model, nextScopeDialog) =>
-    modifyFields(model, { scopeDialog: () => nextScopeDialog }),
-  toParentMessage: (message) => Message.GotScopeDialogMessage({ message }),
-  foldOutMessage: foldScopeDialogOutMessage,
+const foldCoverageOutMessage = RadioGroup.OutMessage.match<
+  Update.Step<Model, Message>,
+  RadioGroup.OutMessage<CoverageFlag>
+>({
+  Selected: ({ value }) => (model) => ({
+    model,
+    commands: [
+      NavigateCoins({
+        url: coinsUrl({ ...model.query, flag: value, page: 1 }),
+      }),
+    ],
+  }),
 })
 
-const openScopeDialog = Update.foldChildStep({
-  update: Dialog.open,
-  read: (model: Model) => Option.some(model.scopeDialog),
-  write: (model, nextScopeDialog) =>
-    modifyFields(model, { scopeDialog: () => nextScopeDialog }),
-  toParentMessage: (message) => Message.GotScopeDialogMessage({ message }),
-  foldOutMessage: foldScopeDialogOutMessage,
+const foldCoverage = Update.foldChild({
+  update: CoverageRadio.update,
+  read: (model: Model) => Option.some(model.coverageRadio),
+  write: (model, nextCoverageRadio) =>
+    modifyFields(model, { coverageRadio: () => nextCoverageRadio }),
+  toParentMessage: (message) => Message.GotCoverageMessage({ message }),
+  foldOutMessage: foldCoverageOutMessage,
 })
 
-const closeScopeDialog = Update.foldChildStep({
-  update: Dialog.close,
-  read: (model: Model) => Option.some(model.scopeDialog),
-  write: (model, nextScopeDialog) =>
-    modifyFields(model, { scopeDialog: () => nextScopeDialog }),
-  toParentMessage: (message) => Message.GotScopeDialogMessage({ message }),
-  foldOutMessage: foldScopeDialogOutMessage,
+const foldScopeKindOutMessage = RadioGroup.OutMessage.match<
+  Update.Step<Model, Message>,
+  RadioGroup.OutMessage<ScopeKind>
+>({
+  Selected: ({ value: kind }) => (model) => ({
+    model: modifyFields(model, {
+      scopeKind: () => kind,
+      scopeSearch: () => '',
+      scopeExchanges: () => (kind === 'exchange' ? AsyncData.Loading() : model.scopeExchanges),
+      scopeChains: () => (kind === 'chain' ? AsyncData.Loading() : model.scopeChains),
+    }),
+    commands: kind === 'exchange'
+      ? [FetchScopeExchanges({ search: '' })]
+      : [FetchScopeChains({ search: '' })],
+  }),
+})
+
+const foldScopeKind = Update.foldChild({
+  update: ScopeKindRadio.update,
+  read: (model: Model) => Option.some(model.scopeKindRadio),
+  write: (model, nextScopeKindRadio) =>
+    modifyFields(model, { scopeKindRadio: () => nextScopeKindRadio }),
+  toParentMessage: (message) => Message.GotScopeKindMessage({ message }),
+  foldOutMessage: foldScopeKindOutMessage,
+})
+
+const foldOrderOutMessage = RadioGroup.OutMessage.match<
+  Update.Step<Model, Message>,
+  RadioGroup.OutMessage<Order>
+>({
+  Selected: ({ value }) => (model) => ({
+    model,
+    commands: [
+      NavigateCoins({
+        url: coinsUrl({ ...model.query, order: value, page: 1 }),
+      }),
+    ],
+  }),
+})
+
+const foldOrder = Update.foldChild({
+  update: OrderRadio.update,
+  read: (model: Model) => Option.some(model.orderRadio),
+  write: (model, nextOrderRadio) =>
+    modifyFields(model, { orderRadio: () => nextOrderRadio }),
+  toParentMessage: (message) => Message.GotOrderMessage({ message }),
+  foldOutMessage: foldOrderOutMessage,
 })
 
 // LOAD
@@ -368,11 +441,24 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       }
     },
 
-    ChangedFlag: ({ flag }) => ({
+    ChangedSort: ({ column }) => ({
       model,
       commands: [
         NavigateCoins({
-          url: coinsUrl({ ...model.query, flag, page: 1 }),
+          url: coinsUrl({ ...model.query, sort: column, page: 1 }),
+        }),
+      ],
+    }),
+
+    ClickedClearFilters: () => ({
+      model,
+      commands: [
+        NavigateCoins({
+          url: coinsUrl({
+            ...defaultCoinsQuery,
+            search: model.query.search,
+            limit: model.query.limit,
+          }),
         }),
       ],
     }),
@@ -405,29 +491,32 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         }
     },
 
-    ClickedScope: () =>
-      Update.combine(model, [
-        () => ({
-          model: modifyFields(model, {
-            scopeKind: () => 'exchange' as const,
-            scopeSearch: () => '',
-            scopeExchanges: () => AsyncData.Loading(),
+    PickedScopeExchange: ({ id }) => ({
+      model,
+      commands: [
+        NavigateCoins({
+          url: coinsUrl({
+            ...model.query,
+            exchangeId: Option.some(id),
+            chainId: Option.none(),
+            page: 1,
           }),
-          commands: [FetchScopeExchanges({ search: '' })],
         }),
-        openScopeDialog,
-      ]),
+      ],
+    }),
 
-    ChangedScopeKind: ({ kind }) => ({
-      model: modifyFields(model, {
-        scopeKind: () => kind,
-        scopeSearch: () => '',
-        scopeExchanges: () => (kind === 'exchange' ? AsyncData.Loading() : model.scopeExchanges),
-        scopeChains: () => (kind === 'chain' ? AsyncData.Loading() : model.scopeChains),
-      }),
-      commands: kind === 'exchange'
-        ? [FetchScopeExchanges({ search: '' })]
-        : [FetchScopeChains({ search: '' })],
+    PickedScopeChain: ({ id }) => ({
+      model,
+      commands: [
+        NavigateCoins({
+          url: coinsUrl({
+            ...model.query,
+            exchangeId: Option.none(),
+            chainId: Option.some(id),
+            page: 1,
+          }),
+        }),
+      ],
     }),
 
     UpdatedScopeSearch: ({ value }) => ({
@@ -439,6 +528,14 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       ],
     }),
 
+    ToggledScopeSection: ({ isOpen }) => {
+      if (!isOpen) {
+        return { model: modifyFields(model, { isScopeOpen: () => false }) }
+      }
+
+      return Update.combine(model, [openScopeSection, loadScopeOptions])
+    },
+
     SettledFetchScopeExchanges: ({ result }) => ({
       model: modifyFields(model, { scopeExchanges: AsyncData.settle(result) }),
     }),
@@ -446,42 +543,6 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     SettledFetchScopeChains: ({ result }) => ({
       model: modifyFields(model, { scopeChains: AsyncData.settle(result) }),
     }),
-
-    PickedScopeExchange: ({ id }) =>
-      Update.combine(model, [
-        () => ({
-          model,
-          commands: [
-            NavigateCoins({
-              url: coinsUrl({
-                ...model.query,
-                exchangeId: Option.some(id),
-                chainId: Option.none(),
-                page: 1,
-              }),
-            }),
-          ],
-        }),
-        closeScopeDialog,
-      ]),
-
-    PickedScopeChain: ({ id }) =>
-      Update.combine(model, [
-        () => ({
-          model,
-          commands: [
-            NavigateCoins({
-              url: coinsUrl({
-                ...model.query,
-                exchangeId: Option.none(),
-                chainId: Option.some(id),
-                page: 1,
-              }),
-            }),
-          ],
-        }),
-        closeScopeDialog,
-      ]),
 
     ClickedClearScope: () => ({
       model,
@@ -646,6 +707,11 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     }),
 
     GotEditorMessage: ({ message }) => foldEditor(model, message),
-    GotScopeDialogMessage: ({ message }) => foldScopeDialog(model, message),
+
+    GotCoverageMessage: ({ message }) => foldCoverage(model, message),
+
+    GotScopeKindMessage: ({ message }) => foldScopeKind(model, message),
+
+    GotOrderMessage: ({ message }) => foldOrder(model, message),
     GotRemoveDialogMessage: ({ message }) => foldRemoveDialog(model, message),
   })

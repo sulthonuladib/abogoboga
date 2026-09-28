@@ -12,25 +12,29 @@ import { classNames } from './classNames'
  */
 export type Size = 'sm' | 'md' | 'lg'
 
-const baseDialogClass = 'fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] overflow-y-auto'
+// The native <dialog> ships with inline `width: 100%` from the framework, so
+// sizing classes on it lose to that style and the dialog reads fullscreen.
+// The dialog stays a transparent centering frame with a viewport gutter; the
+// size lives on the panel instead.
+const dialogClass = 'bg-transparent p-4 open:flex items-center justify-center'
 
 const sizeClass: Record<Size, string> = {
-  sm: 'w-[min(24rem,calc(100vw-2rem))]',
-  md: 'w-[min(32rem,calc(100vw-2rem))]',
-  lg: 'w-[min(40rem,calc(100vw-2rem))]',
+  sm: 'w-[min(24rem,100%)]',
+  md: 'w-[min(32rem,100%)]',
+  lg: 'w-[min(40rem,100%)]',
 }
 
 const backdropClass = 'fixed inset-0 bg-foreground/40'
 
 const panelClass =
-  'relative rounded-3xl bg-card p-5 text-card-foreground shadow-[var(--shadow-border)]'
+  'dialog-panel relative my-auto max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-card p-5 text-card-foreground shadow-[var(--shadow-border-hover)] outline-none'
 
 const titleClass = 'text-base font-semibold'
 
 const descriptionClass = 'mt-1 text-sm text-muted-foreground'
 
 const closeClass =
-  'absolute right-3 top-3 inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:text-foreground'
+  'absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-[scale,background-color,color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted hover:text-foreground'
 
 const contentClass = 'mt-4 flex flex-col gap-4'
 
@@ -109,9 +113,11 @@ export const dialog = <Message>(
     viewInputs: {
       hasDescription: input.description !== undefined,
       toView: (render) =>
-        input.h.dialog([...render.dialog, input.h.Class(classNames(baseDialogClass, sizeClass[size])), input.h.DataAttribute('size', size)], [
-          input.h.div([...render.backdrop, input.h.Class(backdropClass)]),
-          input.h.div([...render.panel, input.h.Class(panelClass)], [
+        input.h.dialog([...render.dialog, input.h.Class(dialogClass), input.h.DataAttribute('size', size)], [
+          ...(render.isVisible
+            ? [
+              input.h.div([...render.backdrop, input.h.Class(backdropClass)]),
+              input.h.div([...render.panel, input.h.Class(classNames(panelClass, sizeClass[size]))], [
             input.h.button(
               [
                 ...render.closeButton,
@@ -155,7 +161,9 @@ export const dialog = <Message>(
                   isDisabled: input.isConfirmDisabled === true,
                 }),
             ]),
-          ]),
+              ]),
+            ]
+            : []),
         ]),
     },
     toParentMessage: input.toParentMessage,

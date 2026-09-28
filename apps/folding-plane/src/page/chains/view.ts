@@ -2,11 +2,12 @@ import { AsyncData, Submodel } from 'foldkit'
 import { Array, Option } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
 
+import type { ChainOrderField } from '@lister/api/client'
 import type { ChainPage } from '../../api'
-import { type ChainsQuery, chainDetailUrl, chainsUrl, pageSizeChoices } from '../../route'
+import { type ChainsQuery, chainDetailUrl, chainsUrl, defaultChainsQuery, defaultChainsSearchBy, pageSizeChoices } from '../../route'
 import { dialog } from '../../ui/dialog'
 import { textField } from '../../ui/field'
-import { pageSizeSelect, searchFieldsField } from '../../ui/filters'
+import { clearFilters, filterBar, filterRadio, filterRow, filterSelect, filterStatus, pageSizeSelect, searchFieldChecks } from '../../ui/filters'
 import { formatDate } from '../../ui/format'
 import { icon } from '../../ui/icon'
 import { action, iconAction, pageHeader } from '../../ui/pageHeader'
@@ -27,6 +28,7 @@ import {
 import { Message } from './message'
 import {
   Model,
+  OrderRadio,
   confirmLabel,
   editorTitle,
   isFormValid,
@@ -65,24 +67,71 @@ const searchFieldChoices = [
   { field: 'code', label: 'Code' },
 ] as const
 
+const sortOptions = [
+  { value: 'code', label: 'Code' },
+  { value: 'name', label: 'Name' },
+  { value: 'createdAt', label: 'Created' },
+] as const
+
+const orderOptions = [
+  { value: 'asc', label: 'Ascending' },
+  { value: 'desc', label: 'Descending' },
+] as const
+
+const sortColumn = (value: string): ChainOrderField =>
+  value === 'code' || value === 'name' || value === 'createdAt' ? value : 'name'
+
+const isDefaultSearchBy = (searchBy: ChainsQuery['searchBy']): boolean =>
+  searchBy.length === defaultChainsSearchBy.length &&
+  defaultChainsSearchBy.every((field) => searchBy.includes(field))
+
+const activeFilterCount = (query: ChainsQuery): number =>
+  (isDefaultSearchBy(query.searchBy) ? 0 : 1) +
+  (query.sort === defaultChainsQuery.sort && query.order === defaultChainsQuery.order ? 0 : 1)
+
 const controlsView = (model: Model, h: HtmlBuilder<Message>): Html =>
-  h.div([h.Class('flex flex-col gap-3')], [
-    h.div([h.Class('flex flex-wrap items-center gap-3')], [
+  filterBar(h, [
+    filterRow(h, [
       searchField({
         id: 'chain-search',
         value: model.query.search,
         placeholder: 'Search chains',
+        label: 'Search chains',
         onInput: (value) => Message.UpdatedSearch({ value }),
+        wrapperClass: 'w-full sm:w-56',
         h,
       }),
-      h.p([h.Class('text-sm text-muted-foreground')], [
+      filterSelect({
+        id: 'chain-sort',
+        label: 'Sort by',
+        value: model.query.sort,
+        choices: [...sortOptions],
+        onChange: (value) => Message.ChangedSort({ column: sortColumn(value) }),
+        h,
+      }),
+      filterRadio({
+        bundle: OrderRadio,
+        model: model.orderRadio,
+        options: [...orderOptions],
+        selected: model.query.order,
+        label: 'Sort direction',
+        toParentMessage: (message) => Message.GotOrderMessage({ message }),
+        h,
+      }),
+      filterStatus(
+        h,
         model.query.search === ''
           ? 'All chains'
           : `Matching “${model.query.search}”`,
-      ]),
+      ),
+      clearFilters({
+        activeCount: activeFilterCount(model.query),
+        onClear: Message.ClickedClearFilters(),
+        h,
+      }),
     ]),
-    searchFieldsField({
-      legend: 'Search fields',
+    searchFieldChecks({
+      label: 'Search in',
       choices: searchFieldChoices,
       selected: model.query.searchBy,
       onToggle: (field, isChecked) => Message.ToggledSearchField({ field, isChecked }),

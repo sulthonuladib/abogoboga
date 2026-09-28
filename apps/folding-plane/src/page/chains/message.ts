@@ -1,5 +1,5 @@
 import { ChainOrderField, ChainSearchField } from '@lister/api/client'
-import { Dialog } from '@foldkit/ui'
+import { Dialog, RadioGroup } from '@foldkit/ui'
 import { Schema } from 'effect'
 import { defineMessageUnion } from 'foldkit/message'
 import { Command } from 'foldkit'
@@ -14,6 +14,8 @@ export const Message = defineMessageUnion({
   CompletedInterruptSearchChains: { outcome: Command.Interruptible.Outcome },
   CompletedNavigateChains: {},
   ClickedSort: { column: ChainOrderField },
+  ChangedSort: { column: ChainOrderField },
+  ClickedClearFilters: {},
   ChangedPageSize: { value: Schema.Int },
   ToggledSearchField: { field: ChainSearchField, isChecked: Schema.Boolean },
   ClickedRetry: {},
@@ -29,6 +31,7 @@ export const Message = defineMessageUnion({
   SucceededRemoveChain: { code: Schema.String },
   FailedRemoveChain: { detail: Schema.String },
   SettledFetchChains: { result: Schema.Result(ChainPageResponse, Schema.String) },
+  GotOrderMessage: { message: RadioGroup.Message },
   GotEditorMessage: { message: Dialog.Message },
   GotRemoveDialogMessage: { message: Dialog.Message },
 })

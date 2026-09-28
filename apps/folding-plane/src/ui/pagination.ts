@@ -1,7 +1,7 @@
 import type { PaginationMeta } from '@lister/api/client'
 import { Array, Match, Option, Order, Record, Result } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
-import { Nav } from '@foldkit/ui'
+import { Button, Nav } from '@foldkit/ui'
 
 import { classNames } from './classNames'
 import { formatCount } from './format'
@@ -138,3 +138,106 @@ const pageLink = <Message>(link: Nav.ItemInfo<string>, h: HtmlBuilder<Message>):
     h.AriaLabel(`Page ${link.value}`),
     h.Class(classNames(itemClass, link.isCurrent && currentItemClass)),
   ], [formatCount(Number(link.value))])
+
+// CLIENT PAGER
+
+/**
+ * The pager for a table over rows already in memory, such as an exchange's
+ * markets. It reads like the link pager beside it — same window, same
+ * summary — but every destination is a button dispatching `onPage`, because
+ * there is no URL to link to: `market.list` answers the whole array and the
+ * slicing happens here.
+ */
+export const clientPager = <Message>(
+  input: Readonly<{
+    page: number
+    pages: number
+    from: number
+    to: number
+    total: number
+    onPage: (page: number) => Message
+    h: HtmlBuilder<Message>
+  }>,
+): Html => {
+  const { h } = input
+  const pages = Math.max(input.pages, 1)
+  const page = Math.min(Math.max(input.page, 1), pages)
+  const entries = pageWindow(page, pages)
+
+  return h.div(
+    [h.Class('flex flex-wrap items-center justify-between gap-3')],
+    [
+      h.p([h.Class('text-sm text-muted-foreground')], [rangeText(input)]),
+      h.nav(
+        [h.AriaLabel('Pagination'), h.Class('flex items-center gap-1')],
+        [
+          clientStep('Previous', page - 1, page > 1, input),
+          ...entries.map((entry) =>
+            Match.value(entry).pipe(
+              Match.when('gap', () =>
+                h.span([h.Class('px-1 text-sm text-muted-foreground')], ['…'])),
+              Match.orElse((candidate) => clientPage(candidate, page, input)),
+            )
+          ),
+          clientStep('Next', page + 1, page < pages, input),
+        ],
+      ),
+    ],
+  )
+}
+
+const rangeText = (
+  input: Readonly<{ from: number, to: number, total: number }>,
+): string =>
+  input.total === 0
+    ? 'No rows'
+    : `${formatCount(input.from)}-${formatCount(input.to)} of ${formatCount(input.total)}`
+
+const clientStep = <Message>(
+  label: string,
+  page: number,
+  isEnabled: boolean,
+  input: Readonly<{ onPage: (page: number) => Message, h: HtmlBuilder<Message> }>,
+): Html =>
+  Button.view(
+    {
+      onClick: input.onPage(page),
+      isDisabled: !isEnabled,
+      toView: (attributes) =>
+        input.h.button(
+          [
+            ...attributes.button,
+            input.h.AriaLabel(label),
+            input.h.Class(classNames(itemClass, !isEnabled && disabledItemClass)),
+          ],
+          [label],
+        ),
+    },
+    input.h,
+  )
+
+const clientPage = <Message>(
+  candidate: number,
+  current: number,
+  input: Readonly<{ onPage: (page: number) => Message, h: HtmlBuilder<Message> }>,
+): Html => {
+  const isCurrent = candidate === current
+
+  return Button.view(
+    {
+      onClick: input.onPage(candidate),
+      isDisabled: isCurrent,
+      toView: (attributes) =>
+        input.h.button(
+          [
+            ...attributes.button,
+            input.h.AriaLabel(`Page ${formatCount(candidate)}`),
+            ...(isCurrent ? [input.h.AriaCurrent('page')] : []),
+            input.h.Class(classNames(itemClass, isCurrent && currentItemClass)),
+          ],
+          [formatCount(candidate)],
+        ),
+    },
+    input.h,
+  )
+}

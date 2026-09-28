@@ -28,7 +28,7 @@ export type CoverageSort = typeof CoverageSort.Type
  */
 export const pageSizeChoices = [10, 20, 50] as const
 
-export const defaultPageSize = 20
+export const defaultPageSize = 10
 
 export const defaultCoinsSearchBy: ReadonlyArray<CryptocurrencySearchField> = ['symbol', 'name']
 export const defaultExchangesSearchBy: ReadonlyArray<ExchangeSearchField> = ['name', 'slug']
@@ -81,8 +81,8 @@ export const defaultCoinsQuery: CoinsQuery = {
   search: '',
   searchBy: defaultCoinsSearchBy,
   flag: 'all',
-  sort: 'symbol',
-  order: 'asc',
+  sort: 'markets',
+  order: 'desc',
   limit: defaultPageSize,
   exchangeId: Option.none(),
   chainId: Option.none(),

@@ -2,9 +2,12 @@ import { AsyncData, Submodel } from 'foldkit'
 import { Array, Option } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
 
+import type { ExchangeOrderField } from '@lister/api/client'
 import type { ExchangePage } from '../../api'
 import {
   type ExchangesQuery,
+  defaultExchangesQuery,
+  defaultExchangesSearchBy,
   exchangeDetailUrl,
   exchangesUrl,
   pageSizeChoices,
@@ -12,7 +15,7 @@ import {
 import { badge } from '../../ui/badge'
 import { dialog } from '../../ui/dialog'
 import { selectField, textField, toggleField } from '../../ui/field'
-import { pageSizeSelect, searchFieldsField } from '../../ui/filters'
+import { clearFilters, filterBar, filterRadio, filterRow, filterSelect, filterStatus, pageSizeSelect, searchFieldChecks } from '../../ui/filters'
 import { formatDate } from '../../ui/format'
 import { icon } from '../../ui/icon'
 import { action, iconAction, pageHeader } from '../../ui/pageHeader'
@@ -33,6 +36,7 @@ import {
 import { Message } from './message'
 import {
   Model,
+  OrderRadio,
   confirmLabel,
   editorTitle,
   isFormValid,
@@ -73,24 +77,71 @@ const searchFieldChoices = [
   { field: 'coingeckoId', label: 'CoinGecko id' },
 ] as const
 
+const sortOptions = [
+  { value: 'name', label: 'Name' },
+  { value: 'slug', label: 'Slug' },
+  { value: 'createdAt', label: 'Created' },
+] as const
+
+const orderOptions = [
+  { value: 'asc', label: 'Ascending' },
+  { value: 'desc', label: 'Descending' },
+] as const
+
+const sortColumn = (value: string): ExchangeOrderField =>
+  value === 'name' || value === 'slug' || value === 'createdAt' ? value : 'name'
+
+const isDefaultSearchBy = (searchBy: ExchangesQuery['searchBy']): boolean =>
+  searchBy.length === defaultExchangesSearchBy.length &&
+  defaultExchangesSearchBy.every((field) => searchBy.includes(field))
+
+const activeFilterCount = (query: ExchangesQuery): number =>
+  (isDefaultSearchBy(query.searchBy) ? 0 : 1) +
+  (query.sort === defaultExchangesQuery.sort && query.order === defaultExchangesQuery.order ? 0 : 1)
+
 const controlsView = (model: Model, h: HtmlBuilder<Message>): Html =>
-  h.div([h.Class('flex flex-col gap-3')], [
-    h.div([h.Class('flex flex-wrap items-center gap-3')], [
+  filterBar(h, [
+    filterRow(h, [
       searchField({
         id: 'exchange-search',
         value: model.query.search,
         placeholder: 'Search exchanges',
+        label: 'Search exchanges',
         onInput: (value) => Message.UpdatedSearch({ value }),
+        wrapperClass: 'w-full sm:w-56',
         h,
       }),
-      h.p([h.Class('text-sm text-muted-foreground')], [
+      filterSelect({
+        id: 'exchange-sort',
+        label: 'Sort by',
+        value: model.query.sort,
+        choices: [...sortOptions],
+        onChange: (value) => Message.ChangedSort({ column: sortColumn(value) }),
+        h,
+      }),
+      filterRadio({
+        bundle: OrderRadio,
+        model: model.orderRadio,
+        options: [...orderOptions],
+        selected: model.query.order,
+        label: 'Sort direction',
+        toParentMessage: (message) => Message.GotOrderMessage({ message }),
+        h,
+      }),
+      filterStatus(
+        h,
         model.query.search === ''
           ? 'All exchanges'
           : `Matching “${model.query.search}”`,
-      ]),
+      ),
+      clearFilters({
+        activeCount: activeFilterCount(model.query),
+        onClear: Message.ClickedClearFilters(),
+        h,
+      }),
     ]),
-    searchFieldsField({
-      legend: 'Search fields',
+    searchFieldChecks({
+      label: 'Search in',
       choices: searchFieldChoices,
       selected: model.query.searchBy,
       onToggle: (field, isChecked) => Message.ToggledSearchField({ field, isChecked }),

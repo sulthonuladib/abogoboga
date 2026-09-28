@@ -1,5 +1,5 @@
 import { ExchangeOrderField, ExchangeSearchField } from '@lister/api/client'
-import { Dialog } from '@foldkit/ui'
+import { Dialog, RadioGroup } from '@foldkit/ui'
 import { Schema } from 'effect'
 import { Command } from 'foldkit'
 import { defineMessageUnion } from 'foldkit/message'
@@ -15,6 +15,8 @@ export const Message = defineMessageUnion({
   CompletedInterruptSearchExchanges: { outcome: Command.Interruptible.Outcome },
   CompletedNavigateExchanges: {},
   ClickedSort: { column: ExchangeOrderField },
+  ChangedSort: { column: ExchangeOrderField },
+  ClickedClearFilters: {},
   ChangedPageSize: { value: Schema.Int },
   ToggledSearchField: { field: ExchangeSearchField, isChecked: Schema.Boolean },
   ClickedRetry: {},
@@ -42,6 +44,7 @@ export const Message = defineMessageUnion({
   SucceededRemoveExchange: { name: Schema.String },
   FailedRemoveExchange: { detail: Schema.String },
   SettledFetchExchanges: { result: Schema.Result(ExchangePageResponse, Schema.String) },
+  GotOrderMessage: { message: RadioGroup.Message },
   GotEditorMessage: { message: Dialog.Message },
   GotRemoveDialogMessage: { message: Dialog.Message },
 })

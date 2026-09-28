@@ -1,18 +1,19 @@
 import { Effect, Option, Schema } from 'effect'
 import { HttpClient } from 'effect/unstable/http'
-import { Dialog } from '@foldkit/ui'
+import { Dialog, RadioGroup } from '@foldkit/ui'
 import { AsyncData, Command, FieldValidation, Update } from 'foldkit'
 import { pushUrl, replaceUrl } from 'foldkit/navigation'
 import { modifyFields } from 'foldkit/struct'
 
 import { type ApiFailure, type ApiOrigin, type ChainPage, Query, call } from '../../api'
-import { ChainsQuery, type Order, chainsUrl } from '../../route'
+import { ChainsQuery, type Order, chainsUrl, defaultChainsQuery } from '../../route'
 import { trimmedOrEmpty } from '../../ui/format'
 import { searchDelay } from '../../ui/search'
 import { Message, OutMessage } from './message'
 import {
   type Chains,
   Model,
+  OrderRadio,
   codeRules,
   initialModel,
   isFormValid,
@@ -181,6 +182,29 @@ const openRemoveDialog = Update.foldChildStep({
   foldOutMessage: foldRemoveDialogOutMessage,
 })
 
+const foldOrderOutMessage = RadioGroup.OutMessage.match<
+  Update.Step<Model, Message>,
+  RadioGroup.OutMessage<Order>
+>({
+  Selected: ({ value }) => (model) => ({
+    model,
+    commands: [
+      NavigateChains({
+        url: chainsUrl({ ...model.query, order: value, page: 1 }),
+      }),
+    ],
+  }),
+})
+
+const foldOrder = Update.foldChild({
+  update: OrderRadio.update,
+  read: (model: Model) => Option.some(model.orderRadio),
+  write: (model, nextOrderRadio) =>
+    modifyFields(model, { orderRadio: () => nextOrderRadio }),
+  toParentMessage: (message) => Message.GotOrderMessage({ message }),
+  foldOutMessage: foldOrderOutMessage,
+})
+
 // LOAD
 
 const loadQuery = (model: Model, query: ChainsQuery): Update.Return<Model, Message> => ({
@@ -278,6 +302,28 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         ],
       }
     },
+
+    ChangedSort: ({ column }) => ({
+      model,
+      commands: [
+        NavigateChains({
+          url: chainsUrl({ ...model.query, sort: column, page: 1 }),
+        }),
+      ],
+    }),
+
+    ClickedClearFilters: () => ({
+      model,
+      commands: [
+        NavigateChains({
+          url: chainsUrl({
+            ...defaultChainsQuery,
+            search: model.query.search,
+            limit: model.query.limit,
+          }),
+        }),
+      ],
+    }),
 
     ChangedPageSize: ({ value }) => ({
       model,
@@ -430,6 +476,8 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     SettledFetchChains: ({ result }) => ({
       model: modifyFields(model, { chains: AsyncData.settle(result) }),
     }),
+
+    GotOrderMessage: ({ message }) => foldOrder(model, message),
 
     GotEditorMessage: ({ message }) => foldEditor(model, message),
     GotRemoveDialogMessage: ({ message }) => foldRemoveDialog(model, message),

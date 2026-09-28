@@ -29,6 +29,7 @@ const marks = {
   play: [{ path: 'M8 5l11 7-11 7V5z' }],
   stop: [{ path: 'M7 7h10v10H7z' }],
   refresh: [{ path: 'M20 12a8 8 0 11-2.3-5.7' }, { path: 'M20 4v4h-4' }],
+  chevron: [{ path: 'M6 9l6 6 6-6' }],
   chart: [
     { path: 'M4 19h16' },
     { path: 'M7 16V9' },
