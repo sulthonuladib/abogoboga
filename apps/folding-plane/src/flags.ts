@@ -15,7 +15,8 @@ import * as ExchangeDetail from './page/exchangeDetail'
 import * as Exchanges from './page/exchanges'
 import * as Workers from './page/workers'
 import { chainsQueryFromRoute, coinsQueryFromRoute, exchangesQueryFromRoute, urlToAppRoute } from './route'
-import { themeFromCookieHeader } from './theme'
+import { Preset } from './model'
+import { presetFromCookieHeader, themeFromCookieHeader } from './theme'
 
 // FAILURE
 
@@ -53,6 +54,7 @@ export const settled = <A, E>(
  */
 export const Flags = Schema.Struct({
   theme: Schema.Literals(['Light', 'Dark']),
+  preset: Preset,
   coverage: CoverageData.schema,
   chains: Schema.Option(Chains.Chains.schema),
   chainDetail: Schema.Option(ChainDetail.Seed),
@@ -159,6 +161,7 @@ export const flagsFor = (
 
     return Flags.make({
       theme: themeFromCookieHeader(cookieHeader),
+      preset: presetFromCookieHeader(cookieHeader),
       coverage: yield* settled(readCoverage),
       chains,
       chainDetail,

@@ -341,11 +341,11 @@ describe('exchanges listing', () => {
     scene(
       { update, view },
       given(loadedModel),
-      expect(role('combobox', { name: 'Rows per page' })).toHaveValue('20'),
-      change(role('combobox', { name: 'Rows per page' }), '10'),
+      expect(role('combobox', { name: 'Rows per page' })).toHaveValue('10'),
+      change(role('combobox', { name: 'Rows per page' }), '50'),
       Command.resolve(
         NavigateExchanges({
-          url: exchangesUrl({ ...defaultExchangesQuery, limit: 10, page: 1 }),
+          url: exchangesUrl({ ...defaultExchangesQuery, limit: 50, page: 1 }),
         }),
         Message.CompletedNavigateExchanges(),
       ),

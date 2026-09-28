@@ -16,7 +16,7 @@ import { describe, test } from 'vitest'
 import { initialModel } from './model'
 import { Coverage } from './coverage'
 import { chainsUrl, dashboardRouter, defaultChainsQuery } from './route'
-import { ThemeMenu } from './themeMenu'
+import { PresetMenu, ThemeMenu } from './themeMenu'
 import { update } from './update'
 import { view } from './view'
 
@@ -47,6 +47,10 @@ const staleCoverageModel = modifyFields(initialModel, {
 
 const openMenuModel = modifyFields(initialModel, {
   themeMenu: () => ThemeMenu.open(Menu.init({ id: 'theme-menu' })).model,
+})
+
+const openPresetMenuModel = modifyFields(initialModel, {
+  presetMenu: () => PresetMenu.open(Menu.init({ id: 'preset-menu' })).model,
 })
 
 const openTooltipModel = modifyFields(failedCoverageModel, {
@@ -129,6 +133,23 @@ describe('shell', () => {
       ),
       expect(role('menuitem', { name: 'Light' })).toExist(),
       expect(role('menuitem', { name: 'Dark' })).toExist(),
+    )
+  })
+
+  test('the preset picker names its palettes', () => {
+    scene(
+      { update, view },
+      given(openPresetMenuModel),
+      Mount.resolveAll(
+        [Menu.AnchorMenu, Menu.Message.CompletedAnchorMenu()],
+        [Menu.PortalMenuBackdrop, Menu.Message.CompletedPortalMenuBackdrop()],
+      ),
+      expect(role('menuitem', { name: 'Default' })).toExist(),
+      expect(role('menuitem', { name: 'Zinc' })).toExist(),
+      expect(role('menuitem', { name: 'Slate' })).toExist(),
+      expect(role('menuitem', { name: 'Stone' })).toExist(),
+      expect(role('menuitem', { name: 'Neutral' })).toExist(),
+      expect(role('menuitem', { name: 'Gray' })).toExist(),
     )
   })
 

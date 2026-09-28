@@ -183,7 +183,7 @@ describe('update', () => {
     expect(AsyncData.isLoading(next.model.coins)).toBe(true)
   })
 
-  test('sorting a new column navigates ascending from the first page', () => {
+  test('toggling the current column flips the direction', () => {
     story(
       update,
       given(loadedModel),

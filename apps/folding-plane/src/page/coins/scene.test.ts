@@ -162,8 +162,8 @@ describe('coins listing', () => {
     scene(
       { update, view },
       given(loadedModel),
-      expect(role('button', { name: 'Sort by Coin, currently ascending' })).toExist(),
-      expect(role('button', { name: 'Sort by Markets, currently not sorted' })).toExist(),
+      expect(role('button', { name: 'Sort by Coin, currently not sorted' })).toExist(),
+      expect(role('button', { name: 'Sort by Markets, currently descending' })).toExist(),
       expect(role('button', { name: 'Sort by Chains, currently not sorted' })).toExist(),
       expect(role('button', { name: 'Sort by Blocked, currently not sorted' })).toExist(),
       expect(role('link', { name: 'BTC' })).toHaveAttr('href', coinRoutesUrl(1)),
@@ -244,21 +244,21 @@ describe('coins listing', () => {
     scene(
       { update, view },
       given(loadedModel),
-      change(role('combobox', { name: 'Sort by' }), 'markets'),
+      change(role('combobox', { name: 'Sort by' }), 'chains'),
       Command.resolve(
         NavigateCoins({
-          url: coinsUrl({ ...defaultCoinsQuery, sort: 'markets', page: 1 }),
+          url: coinsUrl({ ...defaultCoinsQuery, sort: 'chains', page: 1 }),
         }),
         Message.CompletedNavigateCoins(),
       ),
-      click(role('radio', { name: 'Descending' })),
+      click(role('radio', { name: 'Ascending' })),
       Command.resolve(
-        RadioGroup.FocusOption({ id: 'coin-order', index: 1 }),
+        RadioGroup.FocusOption({ id: 'coin-order', index: 0 }),
         RadioGroup.Message.CompletedFocusOption(),
       ),
       Command.resolve(
         NavigateCoins({
-          url: coinsUrl({ ...defaultCoinsQuery, order: 'desc', page: 1 }),
+          url: coinsUrl({ ...defaultCoinsQuery, order: 'asc', page: 1 }),
         }),
         Message.CompletedNavigateCoins(),
       ),
@@ -272,7 +272,7 @@ describe('coins listing', () => {
         query: () => ({ ...defaultCoinsQuery, search: 'bit', flag: 'blocked', sort: 'markets', order: 'desc' }),
         coins: () => AsyncData.succeed(fixturePage),
       })),
-      click(role('button', { name: 'Clear 2 filters' })),
+      click(role('button', { name: 'Clear 1 filters' })),
       Command.resolve(
         NavigateCoins({
           url: coinsUrl({ ...defaultCoinsQuery, search: 'bit' }),
@@ -286,7 +286,7 @@ describe('coins listing', () => {
     scene(
       { update, view },
       given(loadedModel),
-      expect(role('combobox', { name: 'Rows per page' })).toHaveValue('20'),
+      expect(role('combobox', { name: 'Rows per page' })).toHaveValue('10'),
       change(role('combobox', { name: 'Rows per page' }), '50'),
       Command.resolve(
         NavigateCoins({

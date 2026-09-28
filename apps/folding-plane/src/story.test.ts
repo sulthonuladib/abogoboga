@@ -13,8 +13,8 @@ import * as Chains from './page/chains'
 import * as Dashboard from './page/dashboard'
 import * as Exchanges from './page/exchanges'
 import { AppRoute, defaultChainsQuery } from './route'
-import { themeFromCookieHeader } from './theme'
-import { FetchCoverage, PersistTheme, update } from './update'
+import { presetFromCookieHeader, themeFromCookieHeader } from './theme'
+import { FetchCoverage, PersistPreset, PersistTheme, update } from './update'
 
 const urlOrThrow = (raw: string) =>
   Option.getOrThrowWith(
@@ -218,5 +218,32 @@ describe('theme', () => {
     expect(themeFromCookieHeader('lister-theme=Dark')).toBe('Dark')
     expect(themeFromCookieHeader('lister-theme=Light')).toBe('Light')
     expect(themeFromCookieHeader('lister-theme=Sepia')).toBe('Light')
+  })
+
+  test('selecting a preset switches the palette and persists it', () => {
+    story(
+      update,
+      given(initialModel),
+      message(
+        Message.GotPresetMenuMessage({
+          message: Menu.Message.SelectedItem({ index: 2, item: 'Slate' }),
+        }),
+      ),
+      model((next) => {
+        expect(next.preset).toBe('Slate')
+      }),
+      Command.resolve(
+        PersistPreset({ preset: 'Slate' }),
+        Message.CompletedPersistPreset(),
+      ),
+      Command.expectNone(),
+    )
+  })
+
+  test('the server renders the preset from the cookie, defaulting to Default', () => {
+    expect(presetFromCookieHeader('')).toBe('Default')
+    expect(presetFromCookieHeader('lister-preset=Zinc')).toBe('Zinc')
+    expect(presetFromCookieHeader('lister-preset=Default')).toBe('Default')
+    expect(presetFromCookieHeader('lister-preset=Unknown')).toBe('Default')
   })
 })
