@@ -9,6 +9,7 @@ import {
   CryptocurrencyPageResponse,
   MarketListResponse,
 } from '../../api'
+import { MarketSort } from './model'
 
 // MESSAGE
 
@@ -17,6 +18,11 @@ export const Message = defineMessageUnion({
   SettledFetchExchange: { result: Schema.Result(ExchangeModel.json, Schema.String) },
   SettledFetchMarkets: { result: Schema.Result(MarketListResponse, Schema.String) },
   SettledFetchCoins: { result: Schema.Result(CryptocurrencyPageResponse, Schema.String) },
+  // Markets table
+  UpdatedMarketSearch: { value: Schema.String },
+  ClickedMarketSort: { column: MarketSort },
+  ChangedMarketPage: { page: Schema.Int },
+  ChangedMarketPageSize: { value: Schema.Int },
   // Assign
   ClickedAssignMarket: {},
   UpdatedAssignSearch: { value: Schema.String },

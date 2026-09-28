@@ -1,4 +1,4 @@
-import { Dialog } from '@foldkit/ui'
+import { Dialog, RadioGroup } from '@foldkit/ui'
 import { Option, Result, Schema } from 'effect'
 import { AsyncData, FieldValidation } from 'foldkit'
 import {
@@ -292,6 +292,45 @@ describe('exchanges listing', () => {
       Command.resolve(
         NavigateExchanges({
           url: exchangesUrl({ ...defaultExchangesQuery, searchBy: ['name', 'slug', 'id'], page: 1 }),
+        }),
+        Message.CompletedNavigateExchanges(),
+      ),
+    )
+  })
+
+  test('the sort controls navigate and the clear resets the facets', () => {
+    scene(
+      { update, view },
+      given(loadedModel),
+      change(role('combobox', { name: 'Sort by' }), 'slug'),
+      Command.resolve(
+        NavigateExchanges({
+          url: exchangesUrl({ ...defaultExchangesQuery, sort: 'slug', page: 1 }),
+        }),
+        Message.CompletedNavigateExchanges(),
+      ),
+      click(role('radio', { name: 'Descending' })),
+      Command.resolve(
+        RadioGroup.FocusOption({ id: 'exchange-order', index: 1 }),
+        RadioGroup.Message.CompletedFocusOption(),
+      ),
+      Command.resolve(
+        NavigateExchanges({
+          url: exchangesUrl({ ...defaultExchangesQuery, order: 'desc', page: 1 }),
+        }),
+        Message.CompletedNavigateExchanges(),
+      ),
+    )
+    scene(
+      { update, view },
+      given(modifyFields(initialModel, {
+        query: () => ({ ...defaultExchangesQuery, search: 'bin', sort: 'slug', order: 'desc' }),
+        exchanges: () => AsyncData.succeed(fixturePage),
+      })),
+      click(role('button', { name: 'Clear 1 filters' })),
+      Command.resolve(
+        NavigateExchanges({
+          url: exchangesUrl({ ...defaultExchangesQuery, search: 'bin' }),
         }),
         Message.CompletedNavigateExchanges(),
       ),

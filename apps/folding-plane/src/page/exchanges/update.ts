@@ -1,18 +1,19 @@
 import { Effect, Option, Schema } from 'effect'
 import { HttpClient } from 'effect/unstable/http'
-import { Dialog } from '@foldkit/ui'
+import { Dialog, RadioGroup } from '@foldkit/ui'
 import { AsyncData, Command, FieldValidation, Update } from 'foldkit'
 import { pushUrl, replaceUrl } from 'foldkit/navigation'
 import { modifyFields } from 'foldkit/struct'
 
 import { type ApiFailure, type ApiOrigin, type ExchangePage, Query, call } from '../../api'
-import { ExchangesQuery, type Order, exchangesUrl } from '../../route'
+import { ExchangesQuery, type Order, defaultExchangesQuery, exchangesUrl } from '../../route'
 import { trimmedOrEmpty } from '../../ui/format'
 import { searchDelay } from '../../ui/search'
 import { Message, OutMessage } from './message'
 import {
   type Exchanges,
   Model,
+  OrderRadio,
   coingeckoIdRules,
   initialModel,
   isFormValid,
@@ -200,6 +201,29 @@ const openRemoveDialog = Update.foldChildStep({
   foldOutMessage: foldRemoveDialogOutMessage,
 })
 
+const foldOrderOutMessage = RadioGroup.OutMessage.match<
+  Update.Step<Model, Message>,
+  RadioGroup.OutMessage<Order>
+>({
+  Selected: ({ value }) => (model) => ({
+    model,
+    commands: [
+      NavigateExchanges({
+        url: exchangesUrl({ ...model.query, order: value, page: 1 }),
+      }),
+    ],
+  }),
+})
+
+const foldOrder = Update.foldChild({
+  update: OrderRadio.update,
+  read: (model: Model) => Option.some(model.orderRadio),
+  write: (model, nextOrderRadio) =>
+    modifyFields(model, { orderRadio: () => nextOrderRadio }),
+  toParentMessage: (message) => Message.GotOrderMessage({ message }),
+  foldOutMessage: foldOrderOutMessage,
+})
+
 // LOAD
 
 const loadQuery = (model: Model, query: ExchangesQuery): Update.Return<Model, Message> => ({
@@ -297,6 +321,28 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         ],
       }
     },
+
+    ChangedSort: ({ column }) => ({
+      model,
+      commands: [
+        NavigateExchanges({
+          url: exchangesUrl({ ...model.query, sort: column, page: 1 }),
+        }),
+      ],
+    }),
+
+    ClickedClearFilters: () => ({
+      model,
+      commands: [
+        NavigateExchanges({
+          url: exchangesUrl({
+            ...defaultExchangesQuery,
+            search: model.query.search,
+            limit: model.query.limit,
+          }),
+        }),
+      ],
+    }),
 
     ChangedPageSize: ({ value }) => ({
       model,
@@ -486,6 +532,8 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     SettledFetchExchanges: ({ result }) => ({
       model: modifyFields(model, { exchanges: AsyncData.settle(result) }),
     }),
+
+    GotOrderMessage: ({ message }) => foldOrder(model, message),
 
     GotEditorMessage: ({ message }) => foldEditor(model, message),
     GotRemoveDialogMessage: ({ message }) => foldRemoveDialog(model, message),

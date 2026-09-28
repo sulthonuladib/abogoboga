@@ -1,5 +1,5 @@
 import { CryptocurrencySearchField } from '@lister/api/client'
-import { Dialog } from '@foldkit/ui'
+import { Dialog, RadioGroup } from '@foldkit/ui'
 import { Schema } from 'effect'
 import { Command } from 'foldkit'
 import { defineMessageUnion } from 'foldkit/message'
@@ -9,8 +9,7 @@ import {
   CryptocurrencyStatsPageResponse,
   ExchangePageResponse,
 } from '../../api'
-import type { CoverageFlag, CoverageSort } from '../../route'
-import { ScopeKind } from './model'
+import { type CoverageFlag, CoverageSort } from '../../route'
 
 // MESSAGE
 
@@ -20,11 +19,10 @@ export const Message = defineMessageUnion({
   CompletedInterruptSearchCoins: { outcome: Command.Interruptible.Outcome },
   CompletedNavigateCoins: {},
   ClickedSort: { column: Schema.Literals(['symbol', 'markets', 'chains', 'blocked']) },
-  ChangedFlag: { flag: Schema.Literals(['all', 'blocked', 'single']) },
+  ChangedSort: { column: CoverageSort },
+  ClickedClearFilters: {},
   ChangedPageSize: { value: Schema.Int },
   ToggledSearchField: { field: CryptocurrencySearchField, isChecked: Schema.Boolean },
-  ClickedScope: {},
-  ChangedScopeKind: { kind: ScopeKind },
   UpdatedScopeSearch: { value: Schema.String },
   SettledFetchScopeExchanges: { result: Schema.Result(ExchangePageResponse, Schema.String) },
   SettledFetchScopeChains: { result: Schema.Result(ChainPageResponse, Schema.String) },
@@ -54,7 +52,10 @@ export const Message = defineMessageUnion({
   SucceededRemoveCoin: { symbol: Schema.String },
   FailedRemoveCoin: { detail: Schema.String },
   SettledFetchCoins: { result: Schema.Result(CryptocurrencyStatsPageResponse, Schema.String) },
-  GotScopeDialogMessage: { message: Dialog.Message },
+  ToggledScopeSection: { isOpen: Schema.Boolean },
+  GotCoverageMessage: { message: RadioGroup.Message },
+  GotScopeKindMessage: { message: RadioGroup.Message },
+  GotOrderMessage: { message: RadioGroup.Message },
   GotEditorMessage: { message: Dialog.Message },
   GotRemoveDialogMessage: { message: Dialog.Message },
 })

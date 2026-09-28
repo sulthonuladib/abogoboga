@@ -1,17 +1,19 @@
 import { AsyncData, Submodel } from 'foldkit'
 import { Array, Option } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
+import { Disclosure } from '@foldkit/ui'
 
 import type { CoinStat, CoinStatPage } from '../../api'
-import { type CoinsQuery, coinRoutesUrl, coinsUrl, pageSizeChoices } from '../../route'
+import { type CoinsQuery, type CoverageSort, coinRoutesUrl, coinsUrl, defaultCoinsQuery, defaultCoinsSearchBy, pageSizeChoices } from '../../route'
 import { badge } from '../../ui/badge'
 import { dialog } from '../../ui/dialog'
-import { selectField, textField } from '../../ui/field'
-import { pageSizeSelect, searchFieldsField } from '../../ui/filters'
+import { textField } from '../../ui/field'
+import { clearFilters, filterBar, filterRadio, filterRow, filterSelect, filterStatus, pageSizeSelect, searchFieldChecks } from '../../ui/filters'
 import { formatCount } from '../../ui/format'
 import { icon } from '../../ui/icon'
 import { action, iconAction, pageHeader } from '../../ui/pageHeader'
 import { pagination } from '../../ui/pagination'
+import { pickerSearch } from '../../ui/picker'
 import { searchField } from '../../ui/search'
 import { errorPanel, staleNotice } from '../../ui/states'
 import {
@@ -27,7 +29,10 @@ import {
 } from '../../ui/table'
 import { Message } from './message'
 import {
+  CoverageRadio,
   Model,
+  OrderRadio,
+  ScopeKindRadio,
   confirmLabel,
   editorTitle,
   isEditing,
@@ -56,17 +61,28 @@ export const view = Submodel.defineView<Model, Message>((model, h) =>
     controlsView(model, h),
     coinsView(model, h),
     pagerView(model, h),
-    scopeView(model, h),
     editorView(model, h),
     removeView(model, h),
   ]))
 
 // CONTROLS
 
-const flagChoices = [
+const coverageOptions = [
   { value: 'all', label: 'All coins' },
   { value: 'blocked', label: 'Blocked routes' },
   { value: 'single', label: 'Single market' },
+] as const
+
+const sortOptions = [
+  { value: 'symbol', label: 'Coin' },
+  { value: 'markets', label: 'Markets' },
+  { value: 'chains', label: 'Chains' },
+  { value: 'blocked', label: 'Blocked' },
+] as const
+
+const orderOptions = [
+  { value: 'asc', label: 'Ascending' },
+  { value: 'desc', label: 'Descending' },
 ] as const
 
 const searchFieldChoices = [
@@ -115,67 +131,145 @@ const statusText = (query: CoinsQuery): string => {
   return parts.join(' · ')
 }
 
-const scopeControl = (model: Model, h: HtmlBuilder<Message>): Html =>
-  h.div([h.Class('flex items-center gap-2')], [
-    h.button(
-      [
-        h.Type('button'),
-        h.OnClick(Message.ClickedScope()),
-        h.Class(
-          'h-9 rounded-lg bg-card px-3 text-sm shadow-[var(--shadow-border)] transition-[scale,box-shadow,background-color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted',
-        ),
-      ],
-      [scopeLabel(model.query)],
-    ),
-    ...(hasScope(model.query)
-      ? [
-        h.button(
-          [
-            h.Type('button'),
-            h.OnClick(Message.ClickedClearScope()),
-            h.AriaLabel('Clear scope'),
-            h.Class('text-xs text-muted-foreground underline-offset-4 hover:underline'),
-          ],
-          ['Clear'],
-        ),
-      ]
-      : []),
-  ])
+const sortColumn = (value: string): CoverageSort =>
+  value === 'symbol' || value === 'markets' || value === 'chains' || value === 'blocked'
+    ? value
+    : 'symbol'
+
+const isDefaultSearchBy = (searchBy: CoinsQuery['searchBy']): boolean =>
+  searchBy.length === defaultCoinsSearchBy.length &&
+  defaultCoinsSearchBy.every((field) => searchBy.includes(field))
+
+const activeFilterCount = (query: CoinsQuery): number =>
+  (query.flag === defaultCoinsQuery.flag ? 0 : 1) +
+  (hasScope(query) ? 1 : 0) +
+  (isDefaultSearchBy(query.searchBy) ? 0 : 1) +
+  (query.sort === defaultCoinsQuery.sort && query.order === defaultCoinsQuery.order ? 0 : 1)
+
+const scopeTriggerClass =
+  'inline-flex h-8 items-center gap-1.5 rounded-lg border border-input bg-background px-2.5 text-xs outline-none transition-[scale,background-color] duration-[var(--duration-quick)] ease-[var(--ease-app)] active:scale-[0.96] hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring'
+
+const scopePanelClass = 'flex flex-col gap-3 rounded-xl border border-border bg-background p-3'
 
 const controlsView = (model: Model, h: HtmlBuilder<Message>): Html =>
-  h.div([h.Class('flex flex-col gap-3')], [
-    h.div([h.Class('flex flex-wrap items-center gap-3')], [
+  filterBar(h, [
+    filterRow(h, [
       searchField({
         id: 'coin-search',
         value: model.query.search,
         placeholder: 'Search coins',
+        label: 'Search coins',
         onInput: (value) => Message.UpdatedSearch({ value }),
+        wrapperClass: 'w-full sm:w-56',
         h,
       }),
-      h.div([h.Class('w-full sm:w-48')], [
-        selectField({
-          id: 'coin-coverage',
-          label: 'Coverage',
-          value: model.query.flag,
-          choices: [...flagChoices],
-          onChange: (value) =>
-            Message.ChangedFlag({
-              flag: value === 'blocked' ? 'blocked' : value === 'single' ? 'single' : 'all',
-            }),
-          h,
-        }),
-      ]),
-      scopeControl(model, h),
-      h.p([h.Class('text-sm text-muted-foreground')], [statusText(model.query)]),
+      filterRadio({
+        bundle: CoverageRadio,
+        model: model.coverageRadio,
+        options: [...coverageOptions],
+        selected: model.query.flag,
+        label: 'Coverage',
+        toParentMessage: (message) => Message.GotCoverageMessage({ message }),
+        h,
+      }),
+      filterSelect({
+        id: 'coin-sort',
+        label: 'Sort by',
+        value: model.query.sort,
+        choices: [...sortOptions],
+        onChange: (value) => Message.ChangedSort({ column: sortColumn(value) }),
+        h,
+      }),
+      filterRadio({
+        bundle: OrderRadio,
+        model: model.orderRadio,
+        options: [...orderOptions],
+        selected: model.query.order,
+        label: 'Sort direction',
+        toParentMessage: (message) => Message.GotOrderMessage({ message }),
+        h,
+      }),
+      filterStatus(h, statusText(model.query)),
+      clearFilters({
+        activeCount: activeFilterCount(model.query),
+        onClear: Message.ClickedClearFilters(),
+        h,
+      }),
     ]),
-    searchFieldsField({
-      legend: 'Search fields',
+    searchFieldChecks({
+      label: 'Search in',
       choices: searchFieldChoices,
       selected: model.query.searchBy,
       onToggle: (field, isChecked) => Message.ToggledSearchField({ field, isChecked }),
       h,
     }),
+    scopeDisclosure(model, h),
   ])
+
+/**
+ * The scope picker as an inline section: a trigger naming the current scope
+ * and an expanding panel with the kind, the search, and the options. It
+ * renders in flow and pushes the table down rather than floating over it,
+ * and it stays mounted while collapsed so the expand animates.
+ */
+const scopeDisclosure = (model: Model, h: HtmlBuilder<Message>): Html =>
+  Disclosure.view(
+    {
+      id: 'coin-scope',
+      isOpen: model.isScopeOpen,
+      onToggle: (isOpen) => Message.ToggledScopeSection({ isOpen }),
+      toView: ({ button, panel, animatePanel }) =>
+        h.div([h.Class('flex flex-col gap-2')], [
+          h.button([...button, h.Class(scopeTriggerClass)], [
+            scopeLabel(model.query),
+            icon('chevron', h, 'size-3.5'),
+          ]),
+          animatePanel(
+            h.div([...panel, h.Class(scopePanelClass)], [
+              hasScope(model.query)
+                ? h.div([h.Class('flex items-center justify-between gap-2')], [
+                  h.p([h.Class('text-sm')], [scopeLabel(model.query)]),
+                  h.button(
+                    [
+                      h.Type('button'),
+                      h.OnClick(Message.ClickedClearScope()),
+                      h.Class('text-xs text-muted-foreground underline-offset-4 hover:underline'),
+                    ],
+                    ['Clear'],
+                  ),
+                ])
+                : h.p([h.Class('text-xs text-muted-foreground')], [
+                  'All coins. Pick an exchange or a chain to narrow the listing.',
+                ]),
+              filterRadio({
+                bundle: ScopeKindRadio,
+                model: model.scopeKindRadio,
+                options: [
+                  { value: 'exchange', label: 'Exchange' },
+                  { value: 'chain', label: 'Chain' },
+                ],
+                selected: model.scopeKind,
+                label: 'Scope by',
+                toParentMessage: (message) => Message.GotScopeKindMessage({ message }),
+                h,
+              }),
+              pickerSearch({
+                id: 'coin-scope-search',
+                label: model.scopeKind === 'exchange' ? 'Search exchanges' : 'Search chains',
+                value: model.scopeSearch,
+                placeholder: 'Search',
+                onInput: (value) => Message.UpdatedScopeSearch({ value }),
+                h,
+              }),
+              model.scopeKind === 'exchange'
+                ? scopeExchangeOptions(model, h)
+                : scopeChainOptions(model, h),
+            ]),
+          ),
+        ]),
+    },
+    h,
+  )
 
 // COINS
 
@@ -442,39 +536,6 @@ const scopeChainOptions = (model: Model, h: HtmlBuilder<Message>): Html =>
       page.data.length === 0
         ? scopeHint('No chains match.', h)
         : scopeChainList(page.data, h),
-  })
-
-const scopeView = (model: Model, h: HtmlBuilder<Message>): Html =>
-  dialog({
-    model: model.scopeDialog,
-    title: 'Scope the coin listing',
-    description: 'Show only the coins listed on one exchange, or the coins that carry one chain.',
-    toParentMessage: (message) => Message.GotScopeDialogMessage({ message }),
-    content: h.div([h.Class('flex flex-col gap-4')], [
-      selectField({
-        id: 'scope-kind',
-        label: 'Scope by',
-        value: model.scopeKind,
-        choices: [
-          { value: 'exchange', label: 'Exchange' },
-          { value: 'chain', label: 'Chain' },
-        ],
-        onChange: (value) =>
-          Message.ChangedScopeKind({ kind: value === 'chain' ? 'chain' : 'exchange' }),
-        h,
-      }),
-      searchField({
-        id: 'scope-search',
-        value: model.scopeSearch,
-        placeholder: 'Search',
-        onInput: (value) => Message.UpdatedScopeSearch({ value }),
-        h,
-      }),
-      model.scopeKind === 'exchange'
-        ? scopeExchangeOptions(model, h)
-        : scopeChainOptions(model, h),
-    ]),
-    h,
   })
 
 // DIALOG

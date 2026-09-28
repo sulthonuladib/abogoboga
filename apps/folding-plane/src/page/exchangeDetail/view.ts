@@ -3,25 +3,31 @@ import { Array, Option } from 'effect'
 import { type Html, type HtmlBuilder } from 'foldkit/html'
 
 import type { CoinMetadata, CoinPage, MarketAssignment } from '../../api'
-import { coinRoutesUrl, defaultExchangesQuery, exchangesUrl } from '../../route'
+import { coinRoutesUrl, defaultExchangesQuery, exchangesUrl, pageSizeChoices } from '../../route'
 import { badge } from '../../ui/badge'
 import { dialog } from '../../ui/dialog'
 import { textField, toggleField } from '../../ui/field'
+import { filterBar, filterRow, filterStatus, pageSizeSelect } from '../../ui/filters'
 import { formatCount, pendingCount } from '../../ui/format'
 import { icon } from '../../ui/icon'
 import { action, iconAction, pageHeader, statStrip } from '../../ui/pageHeader'
+import { clientPager } from '../../ui/pagination'
 import { pickerSearch } from '../../ui/picker'
 import { emptyState, errorPanel } from '../../ui/states'
 import {
   body,
+  emptyRow,
   head,
   loadingRows,
+  row,
+  sortableTh,
   table,
   td,
   th,
 } from '../../ui/table'
+import { searchField } from '../../ui/search'
 import { Message } from './message'
-import { Model, identityDescription, isAssignValid, isEditValid, isLinkValid, isMissing } from './model'
+import { type MarketSort, Model, identityDescription, isAssignValid, isEditValid, isLinkValid, isMissing } from './model'
 
 // VIEW
 
@@ -158,9 +164,9 @@ const marketsView = (model: Model, h: HtmlBuilder<Message>): Html =>
   AsyncData.match(model.markets, {
     onIdle: () => marketsTableView(loadingRows(h), h),
     onLoading: () => marketsTableView(loadingRows(h), h),
-    onRefreshing: (rows) => marketsTableView(marketRows(rows, model, h), h),
+    onRefreshing: (rows) => marketsListing(rows, model, h),
     onFailure: () => marketsTableView(loadingRows(h), h),
-    onStale: ({ data }) => marketsTableView(marketRows(data, model, h), h),
+    onStale: ({ data }) => marketsListing(data, model, h),
     onSuccess: (rows) =>
       Array.match(rows, {
         onEmpty: () =>
@@ -178,7 +184,7 @@ const marketsView = (model: Model, h: HtmlBuilder<Message>): Html =>
             ]),
             h,
           }),
-        onNonEmpty: () => marketsTableView(marketRows(rows, model, h), h),
+        onNonEmpty: () => marketsListing(rows, model, h),
       }),
   })
 
@@ -197,11 +203,21 @@ const marketsTableView = (
     body(h, rows),
   ])
 
-const marketRows = (
+/**
+ * One enriched row: the market with the coin fields the table searches and
+ * sorts by, resolved once so every stage below reads the same values.
+ */
+type EnrichedMarket = Readonly<{
+  market: MarketAssignment
+  label: string
+  symbol: string
+  name: string
+}>
+
+const enrichMarkets = (
   rows: ReadonlyArray<MarketAssignment>,
   model: Model,
-  h: HtmlBuilder<Message>,
-): ReadonlyArray<Html> => {
+): Readonly<{ enriched: ReadonlyArray<EnrichedMarket>, coinsById: ReadonlyMap<number, CoinPage['data'][number]>, isIndexLoaded: boolean }> => {
   const coins = AsyncData.getData(model.coins)
   const coinsById = Option.match(coins, {
     onNone: () => new Map<number, CoinPage['data'][number]>(),
@@ -209,58 +225,231 @@ const marketRows = (
   })
   const isIndexLoaded = Option.isSome(coins)
 
-  return rows.map((market) => {
-    const label = marketLabel(market, coinsById, isIndexLoaded)
+  return {
+    enriched: rows.map((market) => {
+      const coin = coinsById.get(market.cryptocurrencyId)
 
-    return h.keyed('tr')(String(market.id), [], [
-      td(h, coinCell(market, coinsById, isIndexLoaded, h)),
-      td(h, market.exchangeSymbol),
-      td(h, badge(market.listed ? 'listed' : 'not listed', h, market.listed ? 'positive' : 'neutral')),
-      td(h, badge(market.tradeEnabled ? 'enabled' : 'disabled', h, market.tradeEnabled ? 'positive' : 'neutral')),
-      td(
-        h,
-        h.div([h.Class('flex items-center justify-end gap-1')], [
-          iconAction({
-            label: `Manage chains for ${label}`,
-            icon: icon('chain', h, 'size-3.5'),
-            onClick: Message.ClickedManageLinks({
-              marketId: market.id,
-              cryptocurrencyId: market.cryptocurrencyId,
-              label,
-              symbol: market.exchangeSymbol,
-            }),
-            h,
-          }),
-          iconAction({
-            label: `Edit ${label} market`,
-            icon: icon('pencil', h, 'size-3.5'),
-            onClick: Message.ClickedEditMarket({
-              marketId: market.id,
-              cryptocurrencyId: market.cryptocurrencyId,
-              label,
-              symbol: market.exchangeSymbol,
-              listed: market.listed,
-              tradeEnabled: market.tradeEnabled,
-            }),
-            h,
-          }),
-          iconAction({
-            label: `Unassign ${label}`,
-            icon: icon('trash', h, 'size-3.5'),
-            onClick: Message.ClickedUnassignMarket({
-              marketId: market.id,
-              cryptocurrencyId: market.cryptocurrencyId,
-              label,
-              symbol: market.exchangeSymbol,
-            }),
-            h,
-          }),
-        ]),
-        { isNumeric: true },
-      ),
-    ])
+      return {
+        market,
+        label: marketLabel(market, coinsById, isIndexLoaded),
+        symbol: coin?.symbol ?? '',
+        name: coin?.name ?? '',
+      }
+    }),
+    coinsById,
+    isIndexLoaded,
+  }
+}
+
+const filterMarkets = (
+  rows: ReadonlyArray<EnrichedMarket>,
+  needle: string,
+): ReadonlyArray<EnrichedMarket> => {
+  const search = needle.trim().toLowerCase()
+
+  if (search === '') {
+    return rows
+  }
+
+  return rows.filter((row) =>
+    row.label.toLowerCase().includes(search) ||
+    row.symbol.toLowerCase().includes(search) ||
+    row.name.toLowerCase().includes(search) ||
+    row.market.exchangeSymbol.toLowerCase().includes(search)
+  )
+}
+
+const sortKeyOf = (row: EnrichedMarket, sort: MarketSort): string =>
+  sort === 'coin'
+    ? (row.symbol === '' ? row.label : row.symbol).toLowerCase()
+    : row.market.exchangeSymbol.toLowerCase()
+
+const sortMarkets = (
+  rows: ReadonlyArray<EnrichedMarket>,
+  sort: MarketSort,
+  order: 'asc' | 'desc',
+): ReadonlyArray<EnrichedMarket> => {
+  const direction = order === 'asc' ? 1 : -1
+
+  return [...rows].sort((left, right) => {
+    const leftKey = sortKeyOf(left, sort)
+    const rightKey = sortKeyOf(right, sort)
+
+    if (leftKey === rightKey) {
+      return left.market.id - right.market.id
+    }
+
+    return leftKey < rightKey ? -direction : direction
   })
 }
+
+/**
+ * The markets table with its toolbar and pager. The rows arrive whole —
+ * `market.list` has no server paging — so search, sort, and slicing run here
+ * over the in-memory array. The page clamps against the filtered count, so a
+ * removal or a narrower search cannot strand the pager past the last page.
+ */
+const marketsListing = (
+  rows: ReadonlyArray<MarketAssignment>,
+  model: Model,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const { enriched, coinsById, isIndexLoaded } = enrichMarkets(rows, model)
+  const matching = filterMarkets(enriched, model.marketSearch)
+  const sorted = sortMarkets(matching, model.marketSort, model.marketOrder)
+  const limit = Math.max(model.marketLimit, 1)
+  const pages = Math.max(Math.ceil(sorted.length / limit), 1)
+  const page = Math.min(Math.max(model.marketPage, 1), pages)
+  const pageRows = sorted.slice((page - 1) * limit, page * limit)
+
+  return h.div([h.Class('flex flex-col gap-3')], [
+    filterBar(h, [
+      filterRow(h, [
+        searchField({
+          id: 'markets-search',
+          value: model.marketSearch,
+          placeholder: 'Search markets',
+          label: 'Search markets',
+          onInput: (value) => Message.UpdatedMarketSearch({ value }),
+          wrapperClass: 'w-full min-w-52 flex-1 sm:max-w-none',
+          h,
+        }),
+        filterStatus(h, marketsStatus(model.marketSearch, sorted.length, rows.length)),
+      ]),
+    ]),
+    table(h, [
+      head(h, marketColumns(model, h)),
+      body(h, marketPageRows(pageRows, coinsById, isIndexLoaded, model.marketSearch, h)),
+    ]),
+    h.div([h.Class('flex flex-wrap items-center justify-between gap-3')], [
+      Array.match(sorted, {
+        onEmpty: () =>
+          clientPager({
+            page: 1,
+            pages: 1,
+            from: 0,
+            to: 0,
+            total: 0,
+            onPage: (next) => Message.ChangedMarketPage({ page: next }),
+            h,
+          }),
+        onNonEmpty: (matching) =>
+          clientPager({
+            page,
+            pages,
+            from: (page - 1) * limit + 1,
+            to: Math.min(page * limit, matching.length),
+            total: matching.length,
+            onPage: (next) => Message.ChangedMarketPage({ page: next }),
+            h,
+          }),
+      }),
+      pageSizeSelect({
+        id: 'markets-page-size',
+        value: model.marketLimit,
+        choices: pageSizeChoices,
+        onChange: (value) => Message.ChangedMarketPageSize({ value }),
+        h,
+      }),
+    ]),
+  ])
+}
+
+const marketsStatus = (search: string, matching: number, total: number): string =>
+  search.trim() === ''
+    ? `${formatCount(total)} ${total === 1 ? 'market' : 'markets'}`
+    : `${formatCount(matching)} of ${formatCount(total)} · Matching “${search.trim()}”`
+
+const marketColumns = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> => [
+  sortableTh({
+    label: 'Coin',
+    column: 'coin',
+    sort: model.marketSort,
+    order: model.marketOrder,
+    onSort: (column) => Message.ClickedMarketSort({ column }),
+    h,
+  }),
+  sortableTh({
+    label: 'Exchange symbol',
+    column: 'symbol',
+    sort: model.marketSort,
+    order: model.marketOrder,
+    onSort: (column) => Message.ClickedMarketSort({ column }),
+    h,
+  }),
+  th('Listed', h),
+  th('Trade enabled', h),
+  th('Actions', h, true),
+]
+
+const marketPageRows = (
+  rows: ReadonlyArray<EnrichedMarket>,
+  coinsById: ReadonlyMap<number, CoinPage['data'][number]>,
+  isIndexLoaded: boolean,
+  search: string,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Html> =>
+  Array.match(rows, {
+    onEmpty: () => [
+      row(h, [
+        emptyRow(
+          h,
+          search.trim() === ''
+            ? 'No markets on this page.'
+            : `No markets match “${search.trim()}”. Try a shorter search.`,
+        ),
+      ]),
+    ],
+    onNonEmpty: (page) =>
+      page.map(({ market }) =>
+        h.keyed('tr')(String(market.id), [], [
+          td(h, coinCell(market, coinsById, isIndexLoaded, h)),
+          td(h, market.exchangeSymbol),
+          td(h, badge(market.listed ? 'listed' : 'not listed', h, market.listed ? 'positive' : 'neutral')),
+          td(h, badge(market.tradeEnabled ? 'enabled' : 'disabled', h, market.tradeEnabled ? 'positive' : 'neutral')),
+          td(
+            h,
+            h.div([h.Class('flex items-center justify-end gap-1')], [
+              iconAction({
+                label: `Manage chains for ${marketLabel(market, coinsById, isIndexLoaded)}`,
+                icon: icon('chain', h, 'size-3.5'),
+                onClick: Message.ClickedManageLinks({
+                  marketId: market.id,
+                  cryptocurrencyId: market.cryptocurrencyId,
+                  label: marketLabel(market, coinsById, isIndexLoaded),
+                  symbol: market.exchangeSymbol,
+                }),
+                h,
+              }),
+              iconAction({
+                label: `Edit ${marketLabel(market, coinsById, isIndexLoaded)} market`,
+                icon: icon('pencil', h, 'size-3.5'),
+                onClick: Message.ClickedEditMarket({
+                  marketId: market.id,
+                  cryptocurrencyId: market.cryptocurrencyId,
+                  label: marketLabel(market, coinsById, isIndexLoaded),
+                  symbol: market.exchangeSymbol,
+                  listed: market.listed,
+                  tradeEnabled: market.tradeEnabled,
+                }),
+                h,
+              }),
+              iconAction({
+                label: `Unassign ${marketLabel(market, coinsById, isIndexLoaded)}`,
+                icon: icon('trash', h, 'size-3.5'),
+                onClick: Message.ClickedUnassignMarket({
+                  marketId: market.id,
+                  cryptocurrencyId: market.cryptocurrencyId,
+                  label: marketLabel(market, coinsById, isIndexLoaded),
+                  symbol: market.exchangeSymbol,
+                }),
+                h,
+              }),
+            ]),
+            { isNumeric: true },
+          ),
+        ])),
+  })
 
 const marketLabel = (
   market: MarketAssignment,

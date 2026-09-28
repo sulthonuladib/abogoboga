@@ -1,4 +1,4 @@
-import { Dialog } from '@foldkit/ui'
+import { Dialog, RadioGroup } from '@foldkit/ui'
 import { Option, Result, Schema } from 'effect'
 import { AsyncData, FieldValidation } from 'foldkit'
 import {
@@ -270,6 +270,45 @@ describe('chains listing', () => {
       Command.resolve(
         NavigateChains({
           url: chainsUrl({ ...defaultChainsQuery, searchBy: ['name'], page: 1 }),
+        }),
+        Message.CompletedNavigateChains(),
+      ),
+    )
+  })
+
+  test('the sort controls navigate and the clear resets the facets', () => {
+    scene(
+      { update, view },
+      given(loadedModel),
+      change(role('combobox', { name: 'Sort by' }), 'code'),
+      Command.resolve(
+        NavigateChains({
+          url: chainsUrl({ ...defaultChainsQuery, sort: 'code', page: 1 }),
+        }),
+        Message.CompletedNavigateChains(),
+      ),
+      click(role('radio', { name: 'Descending' })),
+      Command.resolve(
+        RadioGroup.FocusOption({ id: 'chain-order', index: 1 }),
+        RadioGroup.Message.CompletedFocusOption(),
+      ),
+      Command.resolve(
+        NavigateChains({
+          url: chainsUrl({ ...defaultChainsQuery, order: 'desc', page: 1 }),
+        }),
+        Message.CompletedNavigateChains(),
+      ),
+    )
+    scene(
+      { update, view },
+      given(modifyFields(initialModel, {
+        query: () => ({ ...defaultChainsQuery, searchBy: ['name'], order: 'desc' }),
+        chains: () => AsyncData.succeed(fixturePage),
+      })),
+      click(role('button', { name: 'Clear 2 filters' })),
+      Command.resolve(
+        NavigateChains({
+          url: chainsUrl({ ...defaultChainsQuery }),
         }),
         Message.CompletedNavigateChains(),
       ),

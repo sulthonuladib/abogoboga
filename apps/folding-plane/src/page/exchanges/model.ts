@@ -1,9 +1,9 @@
-import { Dialog } from '@foldkit/ui'
+import { Dialog, RadioGroup } from '@foldkit/ui'
 import { Option, Schema } from 'effect'
 import { AsyncData, FieldValidation } from 'foldkit'
 
 import { ExchangePageResponse } from '../../api'
-import { ExchangesQuery, defaultExchangesQuery } from '../../route'
+import { ExchangesQuery, type Order, defaultExchangesQuery } from '../../route'
 
 // FORM
 
@@ -39,6 +39,14 @@ export const logoRules = FieldValidation.makeRules({
 export const BaseCurrency = Schema.Literals(['usdt', 'idr'])
 export type BaseCurrency = typeof BaseCurrency.Type
 
+/**
+ * The sort-direction pills in the filter panel, bound to the query's order
+ * union so a selection carries its type into the update fold with no cast.
+ * The group holds no selection itself — the URL query owns it — only the
+ * roving-tabindex cursor while keyboard focus moves through the options.
+ */
+export const OrderRadio = RadioGroup.create<Order>()
+
 const Editing = Schema.Struct({ id: Schema.Int })
 const Removing = Schema.Struct({ id: Schema.Int, name: Schema.String })
 
@@ -50,6 +58,7 @@ export const Model = Schema.Struct({
   query: ExchangesQuery,
   loadedQuery: Schema.Option(ExchangesQuery),
   exchanges: Exchanges.schema,
+  orderRadio: RadioGroup.Model,
   editor: Dialog.Model,
   editing: Schema.Option(Editing),
   name: FieldValidation.Field(Schema.String),
@@ -74,6 +83,7 @@ export const init = (query: ExchangesQuery): Model => ({
   query,
   loadedQuery: Option.none(),
   exchanges: AsyncData.Idle(),
+  orderRadio: RadioGroup.init({ id: 'exchange-order' }),
   editor: Dialog.init({ id: 'exchange-editor' }),
   editing: Option.none(),
   name: FieldValidation.NotValidated({ value: '' }),
