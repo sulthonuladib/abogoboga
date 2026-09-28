@@ -36,3 +36,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # openspec working results (local only)
 # openspec/changes/
 # openspec/specs/
+
+# vendored upstream reference checkouts live in repos/ and are committed as
+# git subtrees (read-only, pinned per release). See repos/README.md.

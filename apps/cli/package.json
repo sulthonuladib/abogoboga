@@ -10,12 +10,12 @@
   },
   "dependencies": {
     "@coingecko/coingecko-typescript": "8.1.0",
-    "@effect/platform-bun": "^4.0.0-rc.115",
+    "@effect/platform-bun": "catalog:",
     "@lister/config": "workspace:*",
     "@lister/crawler": "workspace:*",
     "@lister/db": "workspace:*",
     "@lister/domain": "workspace:*",
     "drizzle-orm": "1.0.0-rc.4",
-    "effect": "^4.0.0-rc.115"
+    "effect": "catalog:"
   }
 }

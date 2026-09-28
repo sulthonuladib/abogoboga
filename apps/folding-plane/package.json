@@ -1,0 +1,40 @@
+{
+  "name": "@lister/folding-plane",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "node scripts/serve.ts",
+    "typecheck": "tsc --noEmit",
+    "format": "oxfmt",
+    "test": "vitest run",
+    "lint": "oxlint src scripts"
+  },
+  "dependencies": {
+    "@effect/platform-browser": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@effect/platform-node-shared": "catalog:",
+    "@foldkit/ui": "catalog:",
+    "@lister/api": "workspace:*",
+    "@lister/domain": "workspace:*",
+    "effect": "catalog:",
+    "foldkit": "catalog:"
+  },
+  "devDependencies": {
+    "@foldkit/devtools": "catalog:",
+    "@foldkit/devtools-mcp": "catalog:",
+    "@foldkit/oxlint-plugin": "catalog:",
+    "@foldkit/vite-plugin": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "happy-dom": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

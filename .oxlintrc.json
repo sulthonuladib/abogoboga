@@ -13,7 +13,8 @@
     ".roo/**",
     ".windsurf/**",
     "tools/oxlint/anti-slop/**",
-    "src/crawl-workers/**"
+    "src/crawl-workers/**",
+    "repos/**"
   ],
   "jsPlugins": [
     {

@@ -9,13 +9,13 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
-    "@effect/platform-bun": "^4.0.0-rc.115",
-    "@lister/config": "workspace:*",
+    "@effect/platform-bun": "catalog:",
     "@lister/api": "workspace:*",
+    "@lister/config": "workspace:*",
     "@lister/crawler": "workspace:*",
     "@lister/db": "workspace:*",
     "@lister/domain": "workspace:*",
     "@lister/observability": "workspace:*",
-    "effect": "^4.0.0-rc.115"
+    "effect": "catalog:"
   }
 }
