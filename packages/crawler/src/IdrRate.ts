@@ -17,7 +17,7 @@ export class IdrRate extends Context.Service<IdrRate, {
    * @param rate - The fixed USDT→IDR rate to report.
    * @returns A layer reporting the constant rate.
    */
-  static readonly constantLayer = (rate: number = 16_000): Layer.Layer<IdrRate> =>
+  static readonly constantLayer = (rate: number = 17_976): Layer.Layer<IdrRate> =>
     Layer.succeed(
       IdrRate,
       IdrRate.of({ current: Effect.succeed(rate) })
