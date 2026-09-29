@@ -5,7 +5,7 @@ import {
   type WorkerSourceFactory,
   WorkerSourceError
 } from "@lister/worker-contract"
-import { Clock, Deferred, Effect, Option, Ref, Schema, Stream } from "effect"
+import { Clock, Deferred, Duration, Effect, Option, Ref, Schema, Stream } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/unstable/http"
 import * as Socket from "effect/unstable/socket/Socket"
 
@@ -36,6 +36,13 @@ const emitDepth = 50
  * pushes up to every 100ms; the parent only needs about one tick per second.
  */
 const emitIntervalMillis = 1000
+
+/**
+ * Spacing between subscription control messages, in milliseconds. KuCoin
+ * disconnects a client that floods subscribe requests, so at most ten leave per
+ * second.
+ */
+const subscriptionSpacingMillis = 100
 
 /**
  * Client keepalive cadence, safely under the 18-second server `pingInterval`.
@@ -90,8 +97,10 @@ const fetchConnection = (): Effect.Effect<Connection, WorkerSourceError> =>
  * Posts to `bullet-public` for a token and instance server, opens one socket,
  * and subscribes to `/spotMarket/level2Depth50:<pair>` topics with live control
  * messages. Each push is a complete 50-level snapshot at up to 100ms; pushes
- * are throttled to at most one tick per second per pair with a last-sent store.
- * The worker answers server pings and sends its own keepalive pings.
+ * are throttled to at most one tick per second per pair with a last-sent store,
+ * and subscription control messages are spaced to at most ten per second so a
+ * large shard never floods the server. The worker answers server pings and
+ * sends its own keepalive pings.
  *
  * - `initial` seeds the subscription set at boot.
  * - `subscribe`/`unsubscribe` mutate that set live.
@@ -108,6 +117,8 @@ export const source: WorkerSourceFactory = (initial, context) =>
     const lastSent = yield* Ref.make<ReadonlyMap<string, number>>(new Map())
     // Monotonic subscribe/unsubscribe request id.
     const ids = yield* Ref.make(1)
+    // Next free subscription slot (epoch ms), spacing control writes.
+    const nextSlot = yield* Ref.make(0)
     // Closed when the host tears the worker down; interrupts `ticks`.
     const closed = yield* Deferred.make<void>()
 
@@ -132,6 +143,21 @@ export const source: WorkerSourceFactory = (initial, context) =>
         })
       )
 
+    const acquireSubscriptionSlot = (): Effect.Effect<void> =>
+      Effect.gen(function*() {
+        const now = yield* Clock.currentTimeMillis
+
+        const slot = yield* Ref.modify(nextSlot, (current) => {
+          const start = current > now ? current : now
+
+          return [start, start + subscriptionSpacingMillis]
+        })
+
+        const wait = slot - now
+
+        if (wait > 0) yield* Effect.sleep(Duration.millis(wait))
+      })
+
     const sendSubscription = (
       kind: "subscribe" | "unsubscribe",
       topic: string
@@ -139,6 +165,7 @@ export const source: WorkerSourceFactory = (initial, context) =>
       Effect.gen(function*() {
         const request: SubscribeRequest = { id: yield* nextId(), type: kind, topic, response: true }
 
+        yield* acquireSubscriptionSlot()
         yield* write(request)
       })
 
