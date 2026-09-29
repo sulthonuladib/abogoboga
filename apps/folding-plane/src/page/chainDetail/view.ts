@@ -6,6 +6,7 @@ import type { ChainLink, CoinPage, MarketAssignment } from '../../api'
 import { chainsUrl, coinRoutesUrl, coinsUrl, defaultChainsQuery, defaultCoinsQuery } from '../../route'
 import { badge } from '../../ui/badge'
 import { formatCount, pendingCount } from '../../ui/format'
+import { logo } from '../../ui/logo'
 import { pageHeader, statStrip } from '../../ui/pageHeader'
 import { emptyState, errorPanel } from '../../ui/states'
 import {
@@ -279,9 +280,19 @@ const marketCell = (
     h.a(
       [
         h.Href(coinRoutesUrl(coin.id)),
-        h.Class('font-medium uppercase underline-offset-4 hover:underline'),
+        h.Class('inline-flex items-center gap-2 font-medium uppercase underline-offset-4 hover:underline'),
       ],
-      [coin.symbol],
+      [
+        logo({
+          src: coin.logo,
+          fallback: coin.symbol,
+          alt: coin.symbol,
+          isDecorative: true,
+          sizeClass: 'size-6',
+          h,
+        }),
+        h.span([], [coin.symbol]),
+      ],
     ),
     h.span([h.Class('text-xs text-muted-foreground')], [market.exchangeSymbol]),
   ])

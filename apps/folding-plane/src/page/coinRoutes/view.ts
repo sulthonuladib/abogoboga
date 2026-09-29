@@ -9,6 +9,7 @@ import { dialog } from '../../ui/dialog'
 import { inlineCheck, textField, toggleField } from '../../ui/field'
 import { formatCount } from '../../ui/format'
 import { icon } from '../../ui/icon'
+import { logo } from '../../ui/logo'
 import { action, iconAction, pageHeader } from '../../ui/pageHeader'
 import { pickerSearch } from '../../ui/picker'
 import { emptyState, errorPanel, sectionHeading } from '../../ui/states'
@@ -61,6 +62,14 @@ const headerView = (model: Model, h: HtmlBuilder<Message>): Html =>
       pageHeader({
         title: `${metadata.symbol} routes`,
         back: { href: coinsUrl(defaultCoinsQuery), label: 'Coins' },
+        mark: logo({
+          src: metadata.logo,
+          fallback: metadata.symbol,
+          alt: metadata.symbol,
+          isDecorative: true,
+          sizeClass: 'size-9',
+          h,
+        }),
         actions: [
           action({
             label: 'Assign market',
@@ -258,9 +267,19 @@ const marketRows = (
             h.a(
               [
                 h.Href(exchangeDetailUrl(market.id)),
-                h.Class('font-medium underline-offset-4 hover:underline'),
+                h.Class('inline-flex items-center gap-2 font-medium underline-offset-4 hover:underline'),
               ],
-              [market.name],
+              [
+                logo({
+                  src: market.logo,
+                  fallback: market.name,
+                  alt: market.name,
+                  isDecorative: true,
+                  sizeClass: 'size-6',
+                  h,
+                }),
+                h.span([], [market.name]),
+              ],
             ),
           ),
           td(h, market.symbol, { isMuted: true }),
@@ -366,7 +385,20 @@ const matrixBody = (metadata: CoinMetadata, h: HtmlBuilder<Message>): Html => {
       h,
       markets.map((from) =>
         h.keyed('tr')(String(from.marketId), [], [
-          td(h, h.span([h.Class('font-medium')], [from.name])),
+          td(
+            h,
+            h.span([h.Class('inline-flex items-center gap-2 font-medium')], [
+              logo({
+                src: from.logo,
+                fallback: from.name,
+                alt: from.name,
+                isDecorative: true,
+                sizeClass: 'size-6',
+                h,
+              }),
+              h.span([], [from.name]),
+            ]),
+          ),
           ...markets.map((to) => matrixCell(metadata, from.marketId, to.marketId, h)),
         ]),
       ),
@@ -475,7 +507,7 @@ const exchangePicker = (model: Model, h: HtmlBuilder<Message>): Html =>
   })
 
 const exchangeOptions = (
-  exchanges: ReadonlyArray<{ id: number, name: string, slug: string }>,
+  exchanges: ReadonlyArray<{ id: number, name: string, slug: string, logo: string }>,
   model: Model,
   h: HtmlBuilder<Message>,
 ): Html =>
@@ -494,11 +526,19 @@ const exchangeOptions = (
           h.AriaSelected(isSelected),
           h.Class(
             isSelected
-              ? 'rounded-lg bg-muted px-2.5 py-1.5 text-left text-sm'
-              : 'rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-muted/60',
+              ? 'flex items-center gap-2 rounded-lg bg-muted px-2.5 py-1.5 text-left text-sm'
+              : 'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-muted/60',
           ),
         ],
         [
+          logo({
+            src: exchange.logo,
+            fallback: exchange.name,
+            alt: exchange.name,
+            isDecorative: true,
+            sizeClass: 'size-6',
+            h,
+          }),
           h.span([h.Class('font-medium')], [exchange.name]),
           ' ',
           h.span([h.Class('text-xs text-muted-foreground')], [exchange.slug]),

@@ -11,6 +11,7 @@ import { textField } from '../../ui/field'
 import { clearFilters, filterBar, filterRadio, filterRow, filterSelect, filterStatus, pageSizeSelect, searchFieldChecks } from '../../ui/filters'
 import { formatCount } from '../../ui/format'
 import { icon } from '../../ui/icon'
+import { logo } from '../../ui/logo'
 import { action, iconAction, pageHeader } from '../../ui/pageHeader'
 import { pagination } from '../../ui/pagination'
 import { pickerSearch } from '../../ui/picker'
@@ -367,9 +368,19 @@ const coinRows = (
             h.a(
               [
                 h.Href(coinRoutesUrl(coin.id)),
-                h.Class('font-medium uppercase underline-offset-4 hover:underline'),
+                h.Class('inline-flex items-center gap-2 font-medium uppercase underline-offset-4 hover:underline'),
               ],
-              [coin.symbol],
+              [
+                logo({
+                  src: coin.logo,
+                  fallback: coin.symbol,
+                  alt: coin.symbol,
+                  isDecorative: true,
+                  sizeClass: 'size-6',
+                  h,
+                }),
+                h.span([], [coin.symbol]),
+              ],
             ),
           ),
           td(h, coin.name),
@@ -457,7 +468,7 @@ const scopeError = (detail: string, h: HtmlBuilder<Message>): Html =>
   h.p([h.Class('text-xs text-destructive')], [detail])
 
 const scopeExchangeList = (
-  exchanges: ReadonlyArray<{ id: number, name: string, slug: string }>,
+  exchanges: ReadonlyArray<{ id: number, name: string, slug: string, logo: string }>,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
@@ -472,9 +483,17 @@ const scopeExchangeList = (
           h.Type('button'),
           h.OnClick(Message.PickedScopeExchange({ id: exchange.id, name: exchange.name })),
           h.Role('option'),
-          h.Class('rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-muted/60'),
+          h.Class('flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-muted/60'),
         ],
         [
+          logo({
+            src: exchange.logo,
+            fallback: exchange.name,
+            alt: exchange.name,
+            isDecorative: true,
+            sizeClass: 'size-6',
+            h,
+          }),
           h.span([h.Class('font-medium')], [exchange.name]),
           ' ',
           h.span([h.Class('text-xs text-muted-foreground')], [exchange.slug]),

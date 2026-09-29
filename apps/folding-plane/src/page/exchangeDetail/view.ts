@@ -10,6 +10,7 @@ import { inlineCheck, textField, toggleField } from '../../ui/field'
 import { filterBar, filterRow, filterStatus, pageSizeSelect } from '../../ui/filters'
 import { formatCount, pendingCount } from '../../ui/format'
 import { icon } from '../../ui/icon'
+import { logo } from '../../ui/logo'
 import { action, iconAction, pageHeader, statStrip } from '../../ui/pageHeader'
 import { clientPager } from '../../ui/pagination'
 import { pickerSearch } from '../../ui/picker'
@@ -66,6 +67,14 @@ const headerView = (model: Model, h: HtmlBuilder<Message>): Html => {
       pageHeader({
         title: exchange.name,
         back: { href: exchangesUrl(defaultExchangesQuery), label: 'Exchanges' },
+        mark: logo({
+          src: exchange.logo,
+          fallback: exchange.name,
+          alt: exchange.name,
+          isDecorative: true,
+          sizeClass: 'size-9',
+          h,
+        }),
         actions,
         h,
       }),
@@ -478,9 +487,17 @@ const coinCell = (
   return h.a(
     [
       h.Href(coinRoutesUrl(coin.id)),
-      h.Class('underline-offset-4 hover:underline'),
+      h.Class('inline-flex items-center gap-2 underline-offset-4 hover:underline'),
     ],
     [
+      logo({
+        src: coin.logo,
+        fallback: coin.symbol,
+        alt: coin.symbol,
+        isDecorative: true,
+        sizeClass: 'size-6',
+        h,
+      }),
       h.span([h.Class('font-medium')], [coin.symbol]),
       ' ',
       h.span([h.Class('text-muted-foreground')], [coin.name]),
@@ -588,11 +605,19 @@ const coinOptions = (
             h.AriaSelected(isSelected),
             h.Class(
               isSelected
-                ? 'rounded-lg bg-muted px-2.5 py-1.5 text-left text-sm'
-                : 'rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-muted/60',
+                ? 'flex items-center gap-2 rounded-lg bg-muted px-2.5 py-1.5 text-left text-sm'
+                : 'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm hover:bg-muted/60',
             ),
           ],
           [
+            logo({
+              src: coin.logo,
+              fallback: coin.symbol,
+              alt: coin.symbol,
+              isDecorative: true,
+              sizeClass: 'size-6',
+              h,
+            }),
             h.span([h.Class('font-medium')], [coin.symbol]),
             ' ',
             h.span([h.Class('text-xs text-muted-foreground')], [coin.name]),

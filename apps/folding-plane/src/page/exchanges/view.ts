@@ -18,6 +18,7 @@ import { selectField, textField, toggleField } from '../../ui/field'
 import { clearFilters, filterBar, filterRadio, filterRow, filterSelect, filterStatus, pageSizeSelect, searchFieldChecks } from '../../ui/filters'
 import { formatDate } from '../../ui/format'
 import { icon } from '../../ui/icon'
+import { logo } from '../../ui/logo'
 import { action, iconAction, pageHeader } from '../../ui/pageHeader'
 import { pagination } from '../../ui/pagination'
 import { searchField } from '../../ui/search'
@@ -232,9 +233,19 @@ const exchangeRows = (
             h.a(
               [
                 h.Href(exchangeDetailUrl(exchange.id)),
-                h.Class('font-medium underline-offset-4 hover:underline'),
+                h.Class('inline-flex items-center gap-2 font-medium underline-offset-4 hover:underline'),
               ],
-              [exchange.name],
+              [
+                logo({
+                  src: exchange.logo,
+                  fallback: exchange.name,
+                  alt: exchange.name,
+                  isDecorative: true,
+                  sizeClass: 'size-6',
+                  h,
+                }),
+                h.span([], [exchange.name]),
+              ],
             ),
           ),
           td(h, exchange.slug),
