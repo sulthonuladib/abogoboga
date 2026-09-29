@@ -22,8 +22,10 @@ import {
   CryptocurrencyHandlers,
   Exchange,
   ExchangeHandlers,
+  EventChannel,
   Market,
   MarketHandlers,
+  SignalProjector,
   WorkersHandlers,
   apiDocsLayer,
   chainLinkStoreLayer,
@@ -32,6 +34,7 @@ import {
   exchangeDirectoryLayer,
   exchangeStoreLayer,
   marketStoreLayer,
+  signalStoreLayer,
   workerControlLiveLayer
 } from "@lister/api"
 import {
@@ -52,6 +55,7 @@ import { HttpRouter } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
+import { EventSocketRoute } from "./EventSocket.ts"
 import { SpaRoutes } from "./Spa.ts"
 
 const workerEntrypointFor = (exchangeSlug: string): string =>
@@ -83,10 +87,23 @@ const storesLayer = Layer.mergeAll(
   chainLinkStoreLayer,
   exchangeDirectoryLayer,
   eligibilityStoreLayer,
-  opportunityStoreLayer
+  opportunityStoreLayer,
+  signalStoreLayer
 )
 
 const storesProvided = storesLayer.pipe(Layer.provide(databaseLayer))
+
+const eventChannelLayer = EventChannel.layer
+
+const signalProjectorProvided = SignalProjector.layer.pipe(
+  Layer.provide(Layer.mergeAll(eventChannelLayer, storesProvided))
+)
+
+const signalProjectorLoop = Layer.effectDiscard(
+  Effect.flatMap(SignalProjector, (projector) => Effect.forkScoped(projector.start))
+).pipe(Layer.provide(signalProjectorProvided))
+
+const eventServices = Layer.mergeAll(signalProjectorProvided, signalProjectorLoop)
 
 const opportunityWriterLayer = OpportunityWriter.layer().pipe(Layer.provide(storesProvided))
 
@@ -176,6 +193,7 @@ const handlersLayer = Layer.mergeAll(
 const routeLayers = Layer.mergeAll(
   HttpApiBuilder.layer(Api).pipe(Layer.provide(handlersLayer)),
   apiDocsLayer,
+  EventSocketRoute,
   SpaRoutes
 )
 
@@ -200,4 +218,7 @@ const serverLayer = Layer.unwrap(
  * The HTTP server serving the JSON API, the OpenAPI document, and the browser
  * application.
  */
-export const HttpLive = HttpRouter.serve(ApplicationLive).pipe(Layer.provide(serverLayer))
+export const HttpLive = HttpRouter.serve(ApplicationLive).pipe(
+  Layer.provide(serverLayer),
+  Layer.provide(eventServices)
+)

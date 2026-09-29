@@ -6,6 +6,7 @@ import { toString as urlToString } from 'foldkit/url'
 import { Menu, Tooltip } from '@foldkit/ui'
 
 import { call, isApiFailure } from './api'
+import { ConnectionState } from './connection'
 import { readCoverage } from './coverage'
 import type { Flags } from './flags'
 import { Message } from './message'
@@ -17,8 +18,9 @@ import * as Coins from './page/coins'
 import * as Dashboard from './page/dashboard'
 import * as ExchangeDetail from './page/exchangeDetail'
 import * as Exchanges from './page/exchanges'
+import * as Signals from './page/signals'
 import * as Workers from './page/workers'
-import { AppRoute, chainsQueryFromRoute, coinsQueryFromRoute, exchangesQueryFromRoute, urlToAppRoute } from './route'
+import { AppRoute, chainsQueryFromRoute, coinsQueryFromRoute, exchangesQueryFromRoute, signalsQueryFromRoute, urlToAppRoute } from './route'
 import { PRESET_COOKIE, THEME_COOKIE } from './theme'
 import { PresetMenu, ThemeMenu } from './themeMenu'
 
@@ -321,6 +323,27 @@ const enteredDashboard = Update.foldChildStep({
   toParentMessage: (message) => Message.GotDashboardMessage({ message }),
 })
 
+const foldSignals = Update.foldChild({
+  update: Signals.update,
+  read: (model: Model) => Option.some(model.signals),
+  write: (model, nextSignals) => modifyFields(model, { signals: () => nextSignals }),
+  toParentMessage: (message) => Message.GotSignalsMessage({ message }),
+})
+
+const enteredSignals = Update.foldChildStep({
+  update: Signals.entered,
+  read: (model: Model) => Option.some(model.signals),
+  write: (model, nextSignals) => modifyFields(model, { signals: () => nextSignals }),
+  toParentMessage: (message) => Message.GotSignalsMessage({ message }),
+})
+
+const foldSignalsRouteChanged = Update.foldChild({
+  update: Signals.informRouteChanged,
+  read: (model: Model) => Option.some(model.signals),
+  write: (model, nextSignals) => modifyFields(model, { signals: () => nextSignals }),
+  toParentMessage: (message) => Message.GotSignalsMessage({ message }),
+})
+
 // ROUTE
 
 const setRoute =
@@ -354,6 +377,10 @@ const pageSteps = (route: AppRoute): ReadonlyArray<Update.Step<Model, Message>> 
       foldExchangeDetailRouteChanged(exchangeId),
     ]),
     Match.tag('Workers', () => [enteredWorkers]),
+    Match.tag('Signals', (signalsRoute) => [
+      foldSignalsRouteChanged(signalsQueryFromRoute(signalsRoute)),
+      enteredSignals,
+    ]),
     Match.orElse(() => []),
   )
 
@@ -384,6 +411,9 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, Flags> = (
     exchanges: Exchanges.initialModel,
     exchangeDetail: ExchangeDetail.initFor(0),
     workers: Workers.initialModel,
+    signals: Signals.initialModel,
+    connection: ConnectionState.Connecting(),
+    socketGeneration: 0,
     hasNavigated: false,
   }
 
@@ -469,6 +499,15 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, Flags> = (
           Message.GotWorkersMessage({ message })),
       }
     }),
+    Match.tag('Signals', (signalsRoute) => {
+      const signalsInit = Signals.init(signalsQueryFromRoute(signalsRoute))
+
+      return {
+        model: { ...base, signals: signalsInit.model },
+        commands: Command.mapMessages(signalsInit.commands, (message) =>
+          Message.GotSignalsMessage({ message })),
+      }
+    }),
     Match.orElse(() => ({ model: base })),
   )
 }
@@ -524,4 +563,25 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     GotExchangeDetailMessage: ({ message }) => foldExchangeDetail(model, message),
 
     GotWorkersMessage: ({ message }) => foldWorkers(model, message),
+
+    GotSignalsMessage: ({ message }) => foldSignals(model, message),
+
+    SocketAcquired: () => ({
+      model: modifyFields(model, { connection: () => ConnectionState.Connected() }),
+    }),
+
+    SocketReleased: () => ({
+      model: modifyFields(model, { connection: () => ConnectionState.Disconnected() }),
+    }),
+
+    SocketFailed: ({ detail }) => ({
+      model: modifyFields(model, { connection: () => ConnectionState.Error({ detail }) }),
+    }),
+
+    SocketClosed: () => ({
+      model: modifyFields(model, {
+        connection: () => ConnectionState.Connecting(),
+        socketGeneration: (generation) => generation + 1,
+      }),
+    }),
   })

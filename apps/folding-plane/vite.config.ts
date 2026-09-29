@@ -29,6 +29,7 @@ const proxy = {
   '/api': {
     target: apiOrigin,
     changeOrigin: true,
+    ws: true,
   },
 }
 

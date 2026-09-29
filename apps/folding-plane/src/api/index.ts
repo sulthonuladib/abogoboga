@@ -13,15 +13,22 @@ export * as Query from './query'
 export {
   ChainLinkListResponse,
   ChainPageResponse,
+  ClientFrame,
   CryptocurrencyMetadataResponse,
   CryptocurrencyPageResponse,
   CryptocurrencyStatsPageResponse,
+  ExchangeJson,
   ExchangePageResponse,
   MarketListResponse,
   PaginationMeta,
+  ServerEvent,
+  SignalEvent,
+  SignalRow,
+  Topic,
   WorkerEvent,
   WorkerShardStatus,
   WorkerStatus,
+  freshnessWindowMs,
 } from './query'
 export type {
   Chain,

@@ -1,0 +1,148 @@
+/**
+ * The event WebSocket route.
+ *
+ * A plain `HttpRouter` route upgrades a request to a `Socket.Socket`, then
+ * tracks the connection's topic subscriptions: a subscribe frame starts
+ * forwarding that topic's stream, an unsubscribe frame stops it, and the
+ * connection's scope releases every stream when the socket closes. The route
+ * sits beside the static SPA routes, so it shares the server without touching
+ * the JSON API group.
+ *
+ * @module
+ */
+
+import {
+  ClientFrame,
+  ServerEvent,
+  SignalProjector,
+  type SignalProjectorService,
+  type Topic
+} from "@lister/api"
+import { Effect, Fiber, Match, Option, Queue, Ref, Schema, Stream } from "effect"
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
+import { Socket } from "effect/unstable/socket"
+
+/**
+ * Path the event socket is served on.
+ */
+export const eventSocketPath = "/api/events"
+
+const ClientFrameJson = Schema.fromJsonString(ClientFrame)
+const ServerEventJson = Schema.fromJsonString(ServerEvent)
+
+const decodeClientFrame = Schema.decodeUnknownOption(ClientFrameJson)
+const encodeServerEvent = Schema.encodeSync(ServerEventJson)
+
+const topicStream = (
+  projector: SignalProjectorService,
+  topic: Topic
+): Stream.Stream<ServerEvent> =>
+  Match.value(topic).pipe(
+    Match.when("signal", () => projector.subscribe),
+    Match.exhaustive
+  )
+
+/**
+ * Run one upgraded connection until the socket closes.
+ *
+ * A single writer fiber drains an outbound queue, so subscription streams never
+ * write to the socket concurrently. Each subscribed topic owns a scoped fiber;
+ * interrupting it stops that topic without disturbing the others.
+ */
+const runEventSocket = (
+  socket: Socket.Socket,
+  projector: SignalProjectorService
+): Effect.Effect<void> =>
+  Effect.scoped(
+    Effect.gen(function*() {
+      const writer = yield* socket.writer
+      const outbound = yield* Queue.unbounded<string>()
+      const subscriptions = yield* Ref.make(new Map<Topic, Fiber.Fiber<void, never>>())
+
+      yield* Effect.forkScoped(
+        Stream.fromQueue(outbound).pipe(
+          Stream.runForEach((frame) => Effect.orDie(writer.write(frame)))
+        )
+      )
+
+      const subscribeTopic = (topic: Topic) =>
+        Effect.gen(function*() {
+          const current = yield* Ref.get(subscriptions)
+
+          if (current.has(topic)) {
+            return
+          }
+
+          const fiber = yield* Effect.forkScoped(
+            topicStream(projector, topic).pipe(
+              Stream.runForEach((event) => Queue.offer(outbound, encodeServerEvent(event))),
+              Effect.orDie
+            )
+          )
+
+          yield* Ref.update(subscriptions, (map) => new Map(map).set(topic, fiber))
+        })
+
+      const unsubscribeTopic = (topic: Topic) =>
+        Effect.gen(function*() {
+          const current = yield* Ref.get(subscriptions)
+          const fiber = current.get(topic)
+
+          if (fiber === undefined) {
+            return
+          }
+
+          yield* Ref.update(subscriptions, (map) => {
+            const next = new Map(map)
+            next.delete(topic)
+
+            return next
+          })
+          yield* Fiber.interrupt(fiber)
+        })
+
+      const handleFrame = (frame: ClientFrame) =>
+        frame.type === "subscribe" ? subscribeTopic(frame.topic) : unsubscribeTopic(frame.topic)
+
+      const { pull } = yield* socket.reader
+      const decoder = new TextDecoder()
+
+      yield* Effect.forever(
+        Effect.flatMap(pull, (chunks) =>
+          Effect.forEach(chunks, (chunk) => {
+            const text = typeof chunk === "string" ? chunk : decoder.decode(chunk)
+
+            return Option.match(decodeClientFrame(text), {
+              onNone: () => Effect.void,
+              onSome: handleFrame
+            })
+          }))
+      ).pipe(Effect.catchTag("SocketError", () => Effect.void))
+    })
+  ).pipe(Effect.catchTag("SocketError", () => Effect.void))
+
+const handleEventSocket: Effect.Effect<
+  HttpServerResponse.HttpServerResponse,
+  never,
+  HttpServerRequest.HttpServerRequest | SignalProjector
+> = Effect.gen(function*() {
+  const request = yield* HttpServerRequest.HttpServerRequest
+  const projector = yield* SignalProjector
+
+  const upgraded = yield* request.upgrade.pipe(Effect.option)
+
+  if (Option.isNone(upgraded)) {
+    return HttpServerResponse.text("WebSocket upgrade required", { status: 426 })
+  }
+
+  yield* runEventSocket(upgraded.value, projector)
+
+  return HttpServerResponse.empty()
+})
+
+/**
+ * The event WebSocket route, unprovided.
+ *
+ * Requires the hub's projector and the router it registers on.
+ */
+export const EventSocketRoute = HttpRouter.add("GET", eventSocketPath, handleEventSocket)

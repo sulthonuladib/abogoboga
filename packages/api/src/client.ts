@@ -31,6 +31,8 @@ export * from "./ExchangeApi.ts"
 
 export * from "./ExchangeErrors.ts"
 
+export * from "./EventChannel.ts"
+
 export * from "./MarketApi.ts"
 
 export * from "./MarketErrors.ts"
@@ -38,6 +40,8 @@ export * from "./MarketErrors.ts"
 export * from "./Pagination.ts"
 
 export * from "./RequestValidation.ts"
+
+export * from "./Signal.ts"
 
 export * from "./WorkerControl.ts"
 
