@@ -106,13 +106,13 @@ export class TickIngestion extends Context.Service<TickIngestion, {
           yield* writer.recordBuy({
             ...base,
             price: quote.buyPrice,
-            volume: quote.buyAmount
+            volume: quote.buyVolume
           })
 
           yield* writer.recordSell({
             ...base,
             price: quote.sellPrice,
-            volume: quote.sellAmount
+            volume: quote.sellVolume
           })
         }).pipe(
           Effect.annotateLogs({ exchange: context.exchangeSlug, shard: context.shardId }),

@@ -91,8 +91,8 @@ describe("quote pipeline", () => {
     expect(out).not.toBeNull()
     expect(out?.buyPrice).toBe(1_000_000)
     expect(out?.sellPrice).toBe(1_000_000)
-    expect(out?.buyAmount).toBe(2)
-    expect(out?.sellAmount).toBe(2)
+    expect(out?.buyVolume).toBe(2_000_000)
+    expect(out?.sellVolume).toBe(2_000_000)
   })
 
   test("walk uses the marginal price at the target level", () => {
@@ -161,11 +161,11 @@ describe("tick ingestion", () => {
     expect(result).toEqual([
       {
         side: "buy",
-        update: { cryptocurrencyId: 42, exchangeId: 1, price: 1_000_000, volume: 2, tickTimestamp: 1_700_000_000_000 }
+        update: { cryptocurrencyId: 42, exchangeId: 1, price: 1_000_000, volume: 2_000_000, tickTimestamp: 1_700_000_000_000 }
       },
       {
         side: "sell",
-        update: { cryptocurrencyId: 42, exchangeId: 1, price: 1_000_000, volume: 2, tickTimestamp: 1_700_000_000_000 }
+        update: { cryptocurrencyId: 42, exchangeId: 1, price: 1_000_000, volume: 2_000_000, tickTimestamp: 1_700_000_000_000 }
       }
     ])
   })

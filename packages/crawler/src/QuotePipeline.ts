@@ -70,18 +70,25 @@ export interface ExecutableQuote {
   readonly buyPrice: number
   /** Marginal bid price in IDR (the sell price). */
   readonly sellPrice: number
-  /** Cumulative base amount bought to reach the target. */
-  readonly buyAmount: number
-  /** Cumulative base amount sold to reach the target. */
-  readonly sellAmount: number
+  /**
+   * IDR value of the bought depth at or below `buyPrice` (`>= target`, whole
+   * levels). In IDR, matching the price.
+   */
+  readonly buyVolume: number
+  /**
+   * IDR value of the sold depth at or above `sellPrice` (`>= target`, whole
+   * levels). In IDR, matching the price.
+   */
+  readonly sellVolume: number
 }
 
 /**
  * Convert a canonical tick into an executable quote.
  *
- * Book prices are converted to IDR before the walk using the supplied rate.
- * Buy lifts asks and sell hits bids. Returns `null` for a thin book so callers
- * leave the stored opportunity side untouched.
+ * Book prices are converted to IDR before the walk using the supplied rate, and
+ * both the price and the volume are reported in IDR. Buy lifts asks and sell
+ * hits bids. Returns `null` for a thin book so callers leave the stored
+ * opportunity side untouched.
  *
  * @param tick - The tick to convert.
  * @param quote - The exchange's quote currency.
@@ -103,7 +110,7 @@ export const processTick = (
   return {
     buyPrice: askWalk.price,
     sellPrice: bidWalk.price,
-    buyAmount: askWalk.amount,
-    sellAmount: bidWalk.amount
+    buyVolume: askWalk.value,
+    sellVolume: bidWalk.value
   }
 }
