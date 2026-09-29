@@ -111,6 +111,7 @@ describe('signals view', () => {
       expect(text('6,789')).toExist(),
       expect(text('10.00%')).toExist(),
       expect(text('0.2')).toExist(),
+      expect(text('USDT → IDR')).toExist(),
       expect(text('Buy price')).toBeAbsent(),
       expect(text('No signals yet. Fresh, profitable routes appear as workers tick.')).toBeAbsent(),
     )
@@ -134,6 +135,7 @@ describe('signals view', () => {
       expect(text('Sell price')).toExist(),
       expect(text('Sell vol')).toExist(),
       expect(text('10.00%')).toExist(),
+      expect(role('img', { name: 'USDT → IDR' })).toExist(),
       expect(text('#1')).toBeAbsent(),
     )
   })

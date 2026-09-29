@@ -258,6 +258,52 @@ const emptyDescription = (model: Model): string =>
 const visibleExchanges = (model: Model): ReadonlyArray<Exchange> =>
   Option.getOrElse(AsyncData.getData(model.exchanges), () => [])
 
+// ROUTE TONE
+
+/**
+ * The trade direction a signal moves through: the base currency of the buy
+ * exchange into the base currency of the sell exchange. It drives the row's
+ * colour, and its label keeps the direction readable without the colour.
+ */
+type RouteTone = Readonly<{ key: string; label: string }>
+
+const routeTone = (
+  signal: SignalRow,
+  exchanges: ReadonlyArray<Exchange>,
+): Option.Option<RouteTone> =>
+  Option.flatMap(
+    Array.findFirst(exchanges, (exchange) => exchange.id === signal.buyExchangeId),
+    (buy) =>
+      Option.map(
+        Array.findFirst(exchanges, (exchange) => exchange.id === signal.sellExchangeId),
+        (sell) => ({
+          key: `${buy.baseCurrency}-${sell.baseCurrency}`,
+          label: `${buy.baseCurrency.toUpperCase()} → ${sell.baseCurrency.toUpperCase()}`,
+        }),
+      ),
+  )
+
+const toneClass = (tone: RouteTone): string =>
+  classNames(`route-${tone.key}`, 'route-accent border-l-4')
+
+const routeChip = (tone: RouteTone, h: HtmlBuilder<Message>): Html =>
+  h.span(
+    [
+      h.Class(
+        'route-chip inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium',
+      ),
+    ],
+    [tone.label],
+  )
+
+const routeDot = (tone: RouteTone, h: HtmlBuilder<Message>): Html =>
+  h.span([
+    h.Role('img'),
+    h.AriaLabel(tone.label),
+    h.Title(tone.label),
+    h.Class('route-dot inline-block size-2 shrink-0 rounded-full'),
+  ])
+
 // CARDS
 
 const cardsView = (model: Model, h: HtmlBuilder<Message>): Html => {
@@ -282,15 +328,26 @@ const signalCard = (
   signal: SignalRow,
   exchanges: ReadonlyArray<Exchange>,
   h: HtmlBuilder<Message>,
-): Html =>
-  h.keyed('article')(String(signal.opportunityId), [
+): Html => {
+  const tone = routeTone(signal, exchanges)
+
+  return h.keyed('article')(String(signal.opportunityId), [
     h.Class(
-      'flex flex-col gap-3 rounded-2xl bg-card p-3 shadow-[var(--shadow-border)]',
+      classNames(
+        'flex flex-col gap-3 rounded-2xl bg-card p-3 shadow-[var(--shadow-border)]',
+        Option.match(tone, { onNone: () => '', onSome: toneClass }),
+      ),
     ),
   ], [
     h.header([h.Class('flex items-center justify-between gap-2')], [
-      h.span([h.Class('text-xs tabular-nums text-muted-foreground')], [
-        `#${signal.opportunityId}`,
+      h.div([h.Class('flex items-center gap-2')], [
+        h.span([h.Class('text-xs tabular-nums text-muted-foreground')], [
+          `#${signal.opportunityId}`,
+        ]),
+        ...Option.match(tone, {
+          onNone: () => [],
+          onSome: (value) => [routeChip(value, h)],
+        }),
       ]),
       h.div([h.Class('flex items-baseline gap-2')], [
         h.span([h.Class('text-sm font-semibold tabular-nums')], [
@@ -328,6 +385,7 @@ const signalCard = (
       ),
     ]),
   ])
+}
 
 const cardSide = (
   input: Readonly<{
@@ -394,18 +452,34 @@ const signalRow = (
   signal: SignalRow,
   exchanges: ReadonlyArray<Exchange>,
   h: HtmlBuilder<Message>,
-): Html =>
-  h.keyed('tr')(String(signal.opportunityId), [], [
-    td(h, h.span([h.Class('font-medium')], [signal.symbol])),
-    td(h, exchangeMark(signal.buyExchangeId, signal.buyExchangeSymbol, exchanges, h)),
-    td(h, formatAmount(signal.buyPrice), { isNumeric: true }),
-    td(h, formatAmount(signal.buyVolume), { isNumeric: true }),
-    td(h, exchangeMark(signal.sellExchangeId, signal.sellExchangeSymbol, exchanges, h)),
-    td(h, formatAmount(signal.sellPrice), { isNumeric: true }),
-    td(h, formatAmount(signal.sellVolume), { isNumeric: true }),
-    td(h, `${signal.profitPercent.toFixed(2)}%`, { isNumeric: true }),
-    td(h, formatAmount(signal.profitVolume), { isNumeric: true }),
-  ])
+): Html => {
+  const tone = routeTone(signal, exchanges)
+
+  return h.keyed('tr')(
+    String(signal.opportunityId),
+    Option.match(tone, {
+      onNone: () => [],
+      onSome: (value) => [h.Class(toneClass(value))],
+    }),
+    [
+      td(h, h.span([h.Class('inline-flex items-center gap-2')], [
+        ...Option.match(tone, {
+          onNone: () => [],
+          onSome: (value) => [routeDot(value, h)],
+        }),
+        h.span([h.Class('font-medium')], [signal.symbol]),
+      ])),
+      td(h, exchangeMark(signal.buyExchangeId, signal.buyExchangeSymbol, exchanges, h)),
+      td(h, formatAmount(signal.buyPrice), { isNumeric: true }),
+      td(h, formatAmount(signal.buyVolume), { isNumeric: true }),
+      td(h, exchangeMark(signal.sellExchangeId, signal.sellExchangeSymbol, exchanges, h)),
+      td(h, formatAmount(signal.sellPrice), { isNumeric: true }),
+      td(h, formatAmount(signal.sellVolume), { isNumeric: true }),
+      td(h, `${signal.profitPercent.toFixed(2)}%`, { isNumeric: true }),
+      td(h, formatAmount(signal.profitVolume), { isNumeric: true }),
+    ],
+  )
+}
 
 const exchangeMark = (
   exchangeId: number,
