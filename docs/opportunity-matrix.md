@@ -43,10 +43,11 @@ closed on `B` yields only `(B, A)`.
   are left untouched. The scan re-runs when the active exchange set changes and
   when coin detail changes.
 - A tick resolves the coin mapping and the current USDT→IDR rate, walks the
-  book to the 2,000,000 IDR target, then writes the buy columns on every row
-  whose `buyExchangeId` matches the tick's exchange and the sell columns on
-  rows whose `sellExchangeId` matches. A tick for a coin with no rows is a
-  no-op.
+  book to the 2,000,000 IDR target, and records the buy and sell quotes. Writes
+  are coalesced: only the latest quote per coin and exchange is kept, and a
+  flush applies the whole batch in one transaction about every 500 ms. A row can
+  therefore lag the exchange by up to one flush interval, and a tick for a coin
+  with no rows is a no-op.
 
 ## Intended read path
 
