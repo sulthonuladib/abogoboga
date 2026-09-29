@@ -5,7 +5,7 @@ import {
   type WorkerSourceFactory,
   WorkerSourceError
 } from "@lister/worker-contract"
-import { Deferred, Effect, Option, Ref, Schema, Stream } from "effect"
+import { Clock, Deferred, Effect, Option, Ref, Schema, Stream } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/unstable/http"
 import * as Socket from "effect/unstable/socket/Socket"
 
@@ -30,6 +30,12 @@ import { tickFor } from "./orderbook.ts"
  * reach the IDR executable target.
  */
 const emitDepth = 50
+
+/**
+ * Minimum interval between emitted ticks per pair, in milliseconds. KuCoin
+ * pushes up to every 100ms; the parent only needs about one tick per second.
+ */
+const emitIntervalMillis = 1000
 
 /**
  * Client keepalive cadence, safely under the 18-second server `pingInterval`.
@@ -83,9 +89,9 @@ const fetchConnection = (): Effect.Effect<Connection, WorkerSourceError> =>
  *
  * Posts to `bullet-public` for a token and instance server, opens one socket,
  * and subscribes to `/spotMarket/level2Depth50:<pair>` topics with live control
- * messages. Each push is a complete 50-level snapshot at up to 100ms, so every
- * frame is emitted as a tick directly with no local-book maintenance. The
- * worker answers server pings and sends its own keepalive pings.
+ * messages. Each push is a complete 50-level snapshot at up to 100ms; pushes
+ * are throttled to at most one tick per second per pair with a last-sent store.
+ * The worker answers server pings and sends its own keepalive pings.
  *
  * - `initial` seeds the subscription set at boot.
  * - `subscribe`/`unsubscribe` mutate that set live.
@@ -98,6 +104,8 @@ export const source: WorkerSourceFactory = (initial, context) =>
 
     // Normalized pair symbol → subscribed coin.
     const subscriptions = yield* Ref.make<ReadonlyMap<string, BootstrapCoin>>(new Map())
+    // Normalized pair symbol → last emitted epoch-millisecond time.
+    const lastSent = yield* Ref.make<ReadonlyMap<string, number>>(new Map())
     // Monotonic subscribe/unsubscribe request id.
     const ids = yield* Ref.make(1)
     // Closed when the host tears the worker down; interrupts `ticks`.
@@ -190,6 +198,24 @@ export const source: WorkerSourceFactory = (initial, context) =>
         )
       })
 
+    const shouldEmit = (pair: string): Effect.Effect<boolean> =>
+      Effect.gen(function*() {
+        const now = yield* Clock.currentTimeMillis
+        const previous = yield* Ref.get(lastSent).pipe(Effect.map((current) => current.get(pair) ?? 0))
+
+        if (now - previous < emitIntervalMillis) return false
+
+        yield* Ref.update(lastSent, (current) => {
+          const next = new Map(current)
+
+          next.set(pair, now)
+
+          return next
+        })
+
+        return true
+      })
+
     const parseFrame = (frame: string): ServerMessage | null => {
       let raw: unknown
 
@@ -218,6 +244,8 @@ export const source: WorkerSourceFactory = (initial, context) =>
         const coin = yield* Ref.get(subscriptions).pipe(Effect.map((current) => current.get(pair)))
 
         if (coin === undefined) return null
+
+        if (!(yield* shouldEmit(pair))) return null
 
         return tickFor(message.data, coin, exchangeSlug, message.data.timestamp, emitDepth)
       })

@@ -11,14 +11,12 @@ import * as Socket from "effect/unstable/socket/Socket"
 
 import {
   type ClientMessage,
-  type LimitDepths,
   type PingRequest,
   type SubscriptionRequest,
   depthChannelFor,
   normalizeSymbol,
   pingInterval,
   pingMethod,
-  sampleInterval,
   subscribeMethod,
   unsubscribeMethod,
   wsUrl
@@ -29,6 +27,12 @@ import { tickFromDepths } from "./orderbook.ts"
  * Depth levels requested per pair; matches {@link depthLevels} in the channel.
  */
 const emitDepth = 20
+
+/**
+ * Minimum interval between emitted ticks per pair, in milliseconds. MEXC pushes
+ * several times per second; the parent only needs about one tick per second.
+ */
+const emitIntervalMillis = 1000
 
 /**
  * One decoded MEXC push wrapper.
@@ -64,10 +68,8 @@ const decodePush = (bytes: Uint8Array): DecodedPush | null => {
  * Keeps one protobuf WebSocket (`wss://wbs-api.mexc.com/ws`) open: it subscribes
  * to `spot@public.limit.depth.v3.api.pb@<pair>@20` channels with JSON control
  * messages, answers keepalives, and decodes binary frames with the generated
- * `PushDataV3ApiWrapper`. Each push is a complete limited-depth snapshot, but
- * MEXC has no fixed 100ms feed, so the worker samples the latest book once per
- * second and emits a `CanonicalTick` per subscribed pair, per the workers
- * guidance.
+ * `PushDataV3ApiWrapper`. Each push is a complete limited-depth snapshot; pushes
+ * are throttled to at most one tick per second per pair with a last-sent store.
  *
  * - `initial` seeds the subscription set at boot.
  * - `subscribe`/`unsubscribe` mutate that set live.
@@ -80,8 +82,8 @@ export const source: WorkerSourceFactory = (initial, context) =>
 
     // Normalized pair symbol → subscribed coin.
     const subscriptions = yield* Ref.make<ReadonlyMap<string, BootstrapCoin>>(new Map())
-    // Normalized pair symbol → latest decoded limit-depth snapshot.
-    const books = yield* Ref.make<ReadonlyMap<string, LimitDepths>>(new Map())
+    // Normalized pair symbol → last emitted epoch-millisecond time.
+    const lastSent = yield* Ref.make<ReadonlyMap<string, number>>(new Map())
     // Closed when the host tears the worker down; interrupts `ticks`.
     const closed = yield* Deferred.make<void>()
 
@@ -106,6 +108,35 @@ export const source: WorkerSourceFactory = (initial, context) =>
         const request: SubscriptionRequest = { method, params: [channel] }
 
         yield* write(request)
+      })
+
+    const sendPing = (): Effect.Effect<void> =>
+      Effect.gen(function*() {
+        const request: PingRequest = { method: pingMethod }
+
+        yield* write(request).pipe(
+          Effect.catch((error) =>
+            Effect.logWarning(`mexc: ping failed: ${error.message ?? "unknown"}`)
+          )
+        )
+      })
+
+    const shouldEmit = (pair: string): Effect.Effect<boolean> =>
+      Effect.gen(function*() {
+        const now = yield* Clock.currentTimeMillis
+        const previous = yield* Ref.get(lastSent).pipe(Effect.map((current) => current.get(pair) ?? 0))
+
+        if (now - previous < emitIntervalMillis) return false
+
+        yield* Ref.update(lastSent, (current) => {
+          const next = new Map(current)
+
+          next.set(pair, now)
+
+          return next
+        })
+
+        return true
       })
 
     const subscribeOne = (coin: BootstrapCoin): Effect.Effect<void, WorkerSourceError> =>
@@ -144,71 +175,32 @@ export const source: WorkerSourceFactory = (initial, context) =>
 
           return next
         })
-
-        yield* Ref.update(books, (current) => {
-          const next = new Map(current)
-
-          next.delete(pair)
-
-          return next
-        })
       })
 
-    const sendPing = (): Effect.Effect<void> =>
-      Effect.gen(function*() {
-        const request: PingRequest = { method: pingMethod }
-
-        yield* write(request).pipe(
-          Effect.catch((error) =>
-            Effect.logWarning(`mexc: ping failed: ${error.message ?? "unknown"}`)
-          )
-        )
-      })
-
-    const handleFrame = (bytes: Uint8Array): Effect.Effect<void> =>
+    const handleFrame = (bytes: Uint8Array): Effect.Effect<CanonicalTick | null> =>
       Effect.gen(function*() {
         // JSON control frames start with `{`; protobuf pushes start with a field tag.
-        if (bytes[0] === 0x7b) return
+        if (bytes[0] === 0x7b) return null
 
         const message = decodePush(bytes)
 
-        if (message === null) return
+        if (message === null) return null
 
         const depths = message.publicLimitDepths
         const symbol = message.symbol
 
-        if (depths === undefined || symbol === undefined) return
+        if (depths === undefined || symbol === undefined) return null
 
         const pair = normalizeSymbol(symbol)
-        const subscribed = yield* Ref.get(subscriptions).pipe(Effect.map((current) => current.has(pair)))
+        const coin = yield* Ref.get(subscriptions).pipe(Effect.map((current) => current.get(pair)))
 
-        if (!subscribed) return
+        if (coin === undefined) return null
 
-        yield* Ref.update(books, (current) => {
-          const next = new Map(current)
+        if (!(yield* shouldEmit(pair))) return null
 
-          next.set(pair, depths)
+        const timestamp = message.sendTime ?? (yield* Clock.currentTimeMillis)
 
-          return next
-        })
-      })
-
-    const emitTicks = (): Effect.Effect<ReadonlyArray<CanonicalTick>> =>
-      Effect.gen(function*() {
-        const timestamp = yield* Clock.currentTimeMillis
-        const currentBooks = yield* Ref.get(books)
-        const currentSubscriptions = yield* Ref.get(subscriptions)
-        const ticks: Array<CanonicalTick> = []
-
-        for (const [pair, depths] of currentBooks) {
-          const coin = currentSubscriptions.get(pair)
-
-          if (coin === undefined) continue
-
-          ticks.push(tickFromDepths(depths, coin, exchangeSlug, timestamp, emitDepth))
-        }
-
-        return ticks
+        return tickFromDepths(depths, coin, exchangeSlug, timestamp, emitDepth)
       })
 
     const ticks = Stream.unwrap(
@@ -230,19 +222,12 @@ export const source: WorkerSourceFactory = (initial, context) =>
           { concurrency: "unbounded", discard: true }
         )
 
-        const frames = Stream.fromEffectRepeat(
+        const messages = Stream.fromEffectRepeat(
           pull.pipe(Effect.mapError((cause) => sourceError("mexc: websocket read failed", cause)))
         ).pipe(
-          Stream.flatMap((batch) => Stream.fromIterable(batch))
-        )
-
-        // Read loop: keeps the latest book per pair, emitting nothing itself.
-        const updates = frames.pipe(Stream.mapEffect(handleFrame), Stream.drain)
-
-        // Once-per-second sample of every subscribed pair's latest book.
-        const samples = Stream.tick(sampleInterval).pipe(
-          Stream.mapEffect(() => emitTicks()),
-          Stream.flatMap((batch) => Stream.fromIterable(batch))
+          Stream.flatMap((batch) => Stream.fromIterable(batch)),
+          Stream.mapEffect(handleFrame),
+          Stream.filter((tick): tick is CanonicalTick => tick !== null)
         )
 
         const pings = Stream.tick(pingInterval).pipe(
@@ -250,7 +235,7 @@ export const source: WorkerSourceFactory = (initial, context) =>
           Stream.drain
         )
 
-        return Stream.merge(updates, Stream.merge(samples, pings))
+        return Stream.merge(messages, pings)
       })
     ).pipe(Stream.interruptWhen(Deferred.await(closed)))
 
