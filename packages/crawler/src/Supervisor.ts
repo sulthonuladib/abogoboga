@@ -42,6 +42,8 @@ export const shardCapacityFor = (exchangeSlug: string): number => {
       return 100
     case "gateio":
       return 50
+    case "kucoin":
+      return 100
     default:
       return shardCapacity
   }
