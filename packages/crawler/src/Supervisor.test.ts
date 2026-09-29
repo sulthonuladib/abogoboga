@@ -401,7 +401,7 @@ describe("Supervisor pure helpers", () => {
   test("shardCapacityFor resolves per-exchange limits with a default fallback", () => {
     expect(shardCapacityFor("binance")).toBe(100)
     expect(shardCapacityFor("gateio")).toBe(50)
-    expect(shardCapacityFor("kucoin")).toBe(20)
+    expect(shardCapacityFor("kucoin")).toBe(100)
     expect(shardCapacityFor("unknown")).toBe(20)
   })
 })
