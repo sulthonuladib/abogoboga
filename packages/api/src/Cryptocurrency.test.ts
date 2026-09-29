@@ -330,6 +330,7 @@ describe("Cryptocurrency application service", () => {
 
     expect(result.metadata.exchanges).toHaveLength(1)
     expect(result.metadata.exchanges[0]?.symbol).toBe("BTCUSDT")
+    expect(result.metadata.exchanges[0]?.logo).toBe("binance.svg")
     expect(result.metadata.exchanges[0]?.chains[0]?.code).toBe("ETH")
     expect(result.missing.reason).toBeInstanceOf(CryptocurrencyNotFound)
   })

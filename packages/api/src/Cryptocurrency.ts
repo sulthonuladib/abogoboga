@@ -169,6 +169,7 @@ export type CryptocurrencyMarketListing = {
   readonly id: ExchangeId
   readonly name: string
   readonly slug: string
+  readonly logo: string
   readonly symbol: string
   readonly marketId: MarketId
   readonly listed: boolean
@@ -190,6 +191,7 @@ export type CryptocurrencyExchangeListing = {
   readonly exchangeId: ExchangeId
   readonly exchangeName: string
   readonly exchangeSlug: string
+  readonly exchangeLogo: string
   readonly exchangeSymbol: string
   readonly marketId: MarketId
   readonly listed: boolean
@@ -402,6 +404,7 @@ export class Cryptocurrency extends Context.Service<
             id: listing.exchangeId,
             name: listing.exchangeName,
             slug: listing.exchangeSlug,
+            logo: listing.exchangeLogo,
             symbol: listing.exchangeSymbol,
             marketId: listing.marketId,
             listed: listing.listed,

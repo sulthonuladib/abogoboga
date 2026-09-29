@@ -116,6 +116,7 @@ export const CryptocurrencyMarketListingResponse = Schema.Struct({
   id: ExchangeId,
   name: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   slug: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
+  logo: Schema.String.pipe(Schema.check(Schema.isMaxLength(255))),
   symbol: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255))),
   marketId: MarketId,
   listed: Schema.Boolean,

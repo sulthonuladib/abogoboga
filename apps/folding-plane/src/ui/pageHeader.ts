@@ -12,6 +12,8 @@ export const pageHeader = <Message>(
     title: string
     back?: Readonly<{ href: string, label: string }> | undefined
     actions?: ReadonlyArray<Html> | undefined
+    /** An optional leading mark, for example the record's logo. */
+    mark?: Html | undefined
     h: HtmlBuilder<Message>
   }>,
 ): Html => {
@@ -28,7 +30,10 @@ export const pageHeader = <Message>(
           ],
           [`← ${input.back.label}`],
         ),
-      h.h1([h.Class('text-lg font-semibold tracking-tight')], [input.title]),
+      h.div([h.Class('flex min-w-0 items-center gap-2.5')], [
+        input.mark === undefined ? h.empty : input.mark,
+        h.h1([h.Class('text-lg font-semibold tracking-tight')], [input.title]),
+      ]),
     ]),
     input.actions === undefined || input.actions.length === 0
       ? h.empty

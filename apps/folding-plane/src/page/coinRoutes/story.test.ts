@@ -52,6 +52,7 @@ const marketOn = (overrides: Record<string, unknown>) => ({
   id: 10,
   name: 'Binance',
   slug: 'binance',
+  logo: '',
   symbol: 'BTC/USDT',
   marketId: 100,
   listed: true,

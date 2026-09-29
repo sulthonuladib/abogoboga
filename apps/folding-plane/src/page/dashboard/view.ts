@@ -7,6 +7,7 @@ import type { Coverage } from '../../coverage'
 import { coinRoutesUrl } from '../../route'
 import { badge } from '../../ui/badge'
 import { formatCount, pendingCount } from '../../ui/format'
+import { logo } from '../../ui/logo'
 import { pageHeader, statStrip } from '../../ui/pageHeader'
 import { emptyState, errorPanel, sectionHeading, staleNotice } from '../../ui/states'
 import {
@@ -158,9 +159,19 @@ const blockedRows = (page: CoinStatPage, h: HtmlBuilder<Message>): ReadonlyArray
         h.a(
           [
             h.Href(coinRoutesUrl(coin.id)),
-            h.Class('font-medium uppercase underline-offset-4 hover:underline'),
+            h.Class('inline-flex items-center gap-2 font-medium uppercase underline-offset-4 hover:underline'),
           ],
-          [coin.symbol],
+          [
+            logo({
+              src: coin.logo,
+              fallback: coin.symbol,
+              alt: coin.symbol,
+              isDecorative: true,
+              sizeClass: 'size-6',
+              h,
+            }),
+            h.span([], [coin.symbol]),
+          ],
         ),
       ),
       td(h, marketsCell(coin, h), { isNumeric: true }),
@@ -223,9 +234,19 @@ const thinRows = (page: CoinStatPage, h: HtmlBuilder<Message>): ReadonlyArray<Ht
         h.a(
           [
             h.Href(coinRoutesUrl(coin.id)),
-            h.Class('font-medium uppercase underline-offset-4 hover:underline'),
+            h.Class('inline-flex items-center gap-2 font-medium uppercase underline-offset-4 hover:underline'),
           ],
-          [coin.symbol],
+          [
+            logo({
+              src: coin.logo,
+              fallback: coin.symbol,
+              alt: coin.symbol,
+              isDecorative: true,
+              sizeClass: 'size-6',
+              h,
+            }),
+            h.span([], [coin.symbol]),
+          ],
         ),
       ),
       td(h, marketsCell(coin, h), { isNumeric: true }),
