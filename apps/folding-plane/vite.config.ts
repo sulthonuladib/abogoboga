@@ -48,6 +48,7 @@ export default defineConfig({
     entries: ['src/entry.ts'],
   },
   server: {
+    host: true,
     proxy,
   },
   preview: {
