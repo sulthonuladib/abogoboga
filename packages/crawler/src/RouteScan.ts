@@ -15,7 +15,11 @@ export interface RouteLinkRow {
   readonly exchangeId: number
   /** Database cryptocurrency id. */
   readonly cryptocurrencyId: number
-  /** Coin symbol carried in worker bootstrap messages. */
+  /**
+   * Exchange-specific trading symbol (`exchange_cryptocurrency.exchange_symbol`)
+   * carried in worker bootstrap messages. Exchanges name the same coin
+   * differently, so this is never the canonical `cryptocurrency.symbol`.
+   */
   readonly symbol: string
   /** CoinGecko id carried in worker bootstrap messages. */
   readonly coingeckoId: string

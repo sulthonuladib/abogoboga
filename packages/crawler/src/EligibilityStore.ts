@@ -38,7 +38,7 @@ export const layer: Layer.Layer<Eligibility, never, Database> = Layer.effect(
         .select({
           exchangeId: exchangeCryptocurrencyTable.exchangeId,
           cryptocurrencyId: exchangeCryptocurrencyTable.cryptocurrencyId,
-          symbol: cryptocurrencyTable.symbol,
+          symbol: exchangeCryptocurrencyTable.exchangeSymbol,
           coingeckoId: cryptocurrencyTable.coingeckoId,
           listed: exchangeCryptocurrencyTable.listed,
           tradeEnabled: exchangeCryptocurrencyTable.tradeEnabled,
