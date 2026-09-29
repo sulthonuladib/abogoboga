@@ -46,7 +46,22 @@ export {
   WorkerStatus,
 } from '@lister/api/client'
 
+export {
+  ClientFrame,
+  ServerEvent,
+  SignalEvent,
+  SignalRow,
+  Topic,
+  freshnessWindowMs,
+} from '@lister/api/client'
+
 // DOMAIN
+
+/**
+ * The exchange JSON schema, so a page can hold an exchange directory in its
+ * Model and map a row's exchange id to its logo without a second request.
+ */
+export const ExchangeJson = ExchangeModel.json
 
 export type ChainPage = typeof ChainPageResponse.Type
 export type CoinPage = typeof CryptocurrencyPageResponse.Type

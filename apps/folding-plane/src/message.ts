@@ -12,6 +12,7 @@ import * as Coins from './page/coins'
 import * as Dashboard from './page/dashboard'
 import * as ExchangeDetail from './page/exchangeDetail'
 import * as Exchanges from './page/exchanges'
+import * as Signals from './page/signals'
 import * as Workers from './page/workers'
 
 // MESSAGE
@@ -36,6 +37,11 @@ export const Message = defineMessageUnion({
   GotExchangesMessage: { message: Exchanges.Message },
   GotExchangeDetailMessage: { message: ExchangeDetail.Message },
   GotWorkersMessage: { message: Workers.Message },
+  GotSignalsMessage: { message: Signals.Message },
+  SocketAcquired: {},
+  SocketReleased: {},
+  SocketFailed: { detail: Schema.String },
+  SocketClosed: {},
 })
 
 export type Message = typeof Message.Type

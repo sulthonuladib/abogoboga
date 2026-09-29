@@ -6,6 +6,7 @@ import {
   type ChainsQuery,
   type CoinsQuery,
   type ExchangesQuery,
+  type SignalsQuery,
   chainsQueryFromRoute,
   chainsUrl,
   coinsQueryFromRoute,
@@ -13,8 +14,11 @@ import {
   defaultChainsQuery,
   defaultCoinsQuery,
   defaultExchangesQuery,
+  defaultSignalsQuery,
   exchangesQueryFromRoute,
   exchangesUrl,
+  signalsQueryFromRoute,
+  signalsUrl,
   urlToAppRoute,
 } from './route'
 
@@ -40,6 +44,12 @@ const chainsRoundTrip = (query: ChainsQuery): ChainsQuery => {
   const route = urlToAppRoute(parse(chainsUrl(query)))
 
   return route._tag === 'Chains' ? chainsQueryFromRoute(route) : defaultChainsQuery
+}
+
+const signalsRoundTrip = (query: SignalsQuery): SignalsQuery => {
+  const route = urlToAppRoute(parse(signalsUrl(query)))
+
+  return route._tag === 'Signals' ? signalsQueryFromRoute(route) : defaultSignalsQuery
 }
 
 describe('listing URLs', () => {
@@ -107,5 +117,43 @@ describe('listing URLs', () => {
     }
 
     expect(chainsRoundTrip(query)).toEqual(query)
+  })
+
+  test('the default signals query keeps every parameter out of the URL', () => {
+    const href = signalsUrl(defaultSignalsQuery)
+
+    expect(href).not.toContain('view')
+    expect(href).not.toContain('sort')
+    expect(href).not.toContain('threshold')
+    expect(href).not.toContain('hidden')
+    expect(signalsRoundTrip(defaultSignalsQuery)).toEqual(defaultSignalsQuery)
+  })
+
+  test('a fully set signals query round-trips', () => {
+    const query: SignalsQuery = {
+      view: 'table',
+      sort: 'profitVolume',
+      threshold: 0.5,
+      hiddenExchanges: [2, 3],
+    }
+
+    expect(signalsRoundTrip(query)).toEqual(query)
+  })
+
+  test('the hidden set keeps integers and drops the rest', () => {
+    const route = urlToAppRoute(parse('/signals?hidden=2,bogus,2,3.5,5'))
+
+    const query = route._tag === 'Signals' ? signalsQueryFromRoute(route) : defaultSignalsQuery
+
+    expect(query.hiddenExchanges).toEqual([2, 5])
+  })
+})
+
+describe('static routes', () => {
+  test('the signals path resolves to the signals route', () => {
+    const route = urlToAppRoute(parse('/signals'))
+
+    expect(route._tag).toBe('Signals')
+    expect(signalsUrl(defaultSignalsQuery)).toBe('/signals')
   })
 })

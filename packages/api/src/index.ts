@@ -41,6 +41,8 @@ export { layer as cryptocurrencyStoreLayer } from "./CryptocurrencyStore.ts"
 
 export * from "./DrizzleErrors.ts"
 
+export * from "./EventChannel.ts"
+
 export * from "./Exchange.ts"
 
 export * from "./ExchangeApi.ts"
@@ -66,6 +68,10 @@ export * from "./Pagination.ts"
 export * from "./RequestValidation.ts"
 
 export * from "./RowDecoding.ts"
+
+export * from "./Signal.ts"
+
+export { layer as signalStoreLayer } from "./SignalStore.ts"
 
 export * from "./WorkerControl.ts"
 

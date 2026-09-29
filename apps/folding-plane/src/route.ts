@@ -5,7 +5,7 @@ import {
   ExchangeOrderField,
   ExchangeSearchField,
 } from '@lister/api/client'
-import { Option, Schema, pipe } from 'effect'
+import { Array, Option, Schema, pipe } from 'effect'
 import { Route } from 'foldkit'
 import { defineRouteUnion, int, literal, slash } from 'foldkit/route'
 
@@ -19,6 +19,19 @@ export type CoverageFlag = typeof CoverageFlag.Type
 
 export const CoverageSort = Schema.Literals(['symbol', 'markets', 'chains', 'blocked'])
 export type CoverageSort = typeof CoverageSort.Type
+
+/**
+ * The figures the signal feed can order by, both descending.
+ */
+export const SignalSort = Schema.Literals(['profitPercent', 'profitVolume'])
+export type SignalSort = typeof SignalSort.Type
+
+/**
+ * How the signal feed lays its rows out. Cards read the two sides faster; the
+ * table trades that for density.
+ */
+export const SignalView = Schema.Literals(['cards', 'table'])
+export type SignalView = typeof SignalView.Type
 
 // FILTERS
 
@@ -77,6 +90,15 @@ export const ChainsQuery = Schema.Struct({
 
 export type ChainsQuery = typeof ChainsQuery.Type
 
+export const SignalsQuery = Schema.Struct({
+  view: SignalView,
+  sort: SignalSort,
+  threshold: Schema.Finite,
+  hiddenExchanges: Schema.Array(Schema.Int),
+})
+
+export type SignalsQuery = typeof SignalsQuery.Type
+
 export const defaultCoinsQuery: CoinsQuery = {
   search: '',
   searchBy: defaultCoinsSearchBy,
@@ -105,6 +127,13 @@ export const defaultChainsQuery: ChainsQuery = {
   order: 'asc',
   limit: defaultPageSize,
   page: 1,
+}
+
+export const defaultSignalsQuery: SignalsQuery = {
+  view: 'cards',
+  sort: 'profitPercent',
+  threshold: 0,
+  hiddenExchanges: [],
 }
 
 const firstPage = 1
@@ -155,6 +184,28 @@ const readSearchBy = <A>(
   return parsed.length === 0 ? fallback : parsed
 }
 
+/**
+ * Hidden exchange ids travel as a comma-joined list. The empty set leaves the
+ * URL as the page's own address.
+ */
+const whenHiddenExchanges = (ids: ReadonlyArray<number>): Option.Option<string> =>
+  Array.isReadonlyArrayEmpty(ids) ? Option.none() : Option.some(ids.join(','))
+
+const readHiddenExchanges = (raw: Option.Option<string>): ReadonlyArray<number> =>
+  Option.match(raw, {
+    onNone: () => [],
+    onSome: (text) =>
+      pipe(
+        text.split(','),
+        Array.flatMap((token) =>
+          Option.match(Schema.decodeUnknownOption(Schema.FiniteFromString)(token.trim()), {
+            onNone: () => [],
+            onSome: (value) => (globalThis.Number.isInteger(value) ? [value] : []),
+          })),
+        Array.dedupe,
+      ),
+  })
+
 // ROUTE
 
 const CoinsQueryFields = {
@@ -187,6 +238,13 @@ const ChainsQueryFields = {
   page: Schema.OptionFromOptional(Schema.FiniteFromString),
 }
 
+const SignalsQueryFields = {
+  view: Schema.OptionFromOptional(SignalView),
+  sort: Schema.OptionFromOptional(SignalSort),
+  threshold: Schema.OptionFromOptional(Schema.FiniteFromString),
+  hidden: Schema.OptionFromOptional(Schema.String),
+}
+
 export const AppRoute = defineRouteUnion({
   Dashboard: {},
   Coins: CoinsQueryFields,
@@ -196,6 +254,7 @@ export const AppRoute = defineRouteUnion({
   Chains: ChainsQueryFields,
   ChainDetail: { chainId: Schema.Int },
   Workers: {},
+  Signals: SignalsQueryFields,
   NotFound: { path: Schema.String },
 })
 
@@ -204,6 +263,7 @@ export type AppRoute = typeof AppRoute.Type
 export type CoinsRoute = typeof AppRoute.Coins.Type
 export type ExchangesRoute = typeof AppRoute.Exchanges.Type
 export type ChainsRoute = typeof AppRoute.Chains.Type
+export type SignalsRoute = typeof AppRoute.Signals.Type
 export type CoinRoutesRoute = typeof AppRoute.CoinRoutes.Type
 export type ExchangeDetailRoute = typeof AppRoute.ExchangeDetail.Type
 export type ChainDetailRoute = typeof AppRoute.ChainDetail.Type
@@ -254,6 +314,12 @@ export const workersRouter = pipe(
   Route.mapTo(AppRoute.Workers),
 )
 
+export const signalsRouter = pipe(
+  literal('signals'),
+  Route.query(Schema.Struct(SignalsQueryFields)),
+  Route.mapTo(AppRoute.Signals),
+)
+
 const routeParser = Route.oneOf(
   coinRoutesRouter,
   coinsRouter,
@@ -262,6 +328,7 @@ const routeParser = Route.oneOf(
   chainDetailRouter,
   chainsRouter,
   workersRouter,
+  signalsRouter,
   dashboardRouter,
 )
 
@@ -312,6 +379,14 @@ export const chainsUrl = (query: ChainsQuery): string =>
 
 export const chainDetailUrl = (chainId: number): string => chainDetailRouter({ chainId })
 
+export const signalsUrl = (query: SignalsQuery): string =>
+  signalsRouter({
+    view: whenSet(query.view, query.view === defaultSignalsQuery.view),
+    sort: whenSet(query.sort, query.sort === defaultSignalsQuery.sort),
+    threshold: whenSet(query.threshold, query.threshold === defaultSignalsQuery.threshold),
+    hidden: whenHiddenExchanges(query.hiddenExchanges),
+  })
+
 // READ
 
 export const coinsQueryFromRoute = (route: CoinsRoute): CoinsQuery => ({
@@ -354,4 +429,11 @@ export const chainsQueryFromRoute = (route: ChainsRoute): ChainsQuery => ({
   order: Option.getOrElse(route.order, () => defaultChainsQuery.order),
   limit: Option.getOrElse(route.limit, () => defaultChainsQuery.limit),
   page: readPage(route.page),
+})
+
+export const signalsQueryFromRoute = (route: SignalsRoute): SignalsQuery => ({
+  view: Option.getOrElse(route.view, () => defaultSignalsQuery.view),
+  sort: Option.getOrElse(route.sort, () => defaultSignalsQuery.sort),
+  threshold: Option.getOrElse(route.threshold, () => defaultSignalsQuery.threshold),
+  hiddenExchanges: readHiddenExchanges(route.hidden),
 })

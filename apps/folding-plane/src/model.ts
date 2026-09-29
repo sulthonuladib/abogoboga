@@ -2,6 +2,7 @@ import { Schema } from 'effect'
 import { AsyncData } from 'foldkit'
 import { Menu, Tooltip } from '@foldkit/ui'
 
+import { ConnectionState } from './connection'
 import { CoverageData } from './coverage'
 import * as ChainDetail from './page/chainDetail'
 import * as Chains from './page/chains'
@@ -10,6 +11,7 @@ import * as Coins from './page/coins'
 import * as Dashboard from './page/dashboard'
 import * as ExchangeDetail from './page/exchangeDetail'
 import * as Exchanges from './page/exchanges'
+import * as Signals from './page/signals'
 import * as Workers from './page/workers'
 import { AppRoute } from './route'
 
@@ -44,6 +46,9 @@ export const Model = Schema.Struct({
   exchanges: Exchanges.Model,
   exchangeDetail: ExchangeDetail.Model,
   workers: Workers.Model,
+  signals: Signals.Model,
+  connection: ConnectionState,
+  socketGeneration: Schema.Int,
   hasNavigated: Schema.Boolean,
 })
 
@@ -67,6 +72,9 @@ export const init = (theme: Theme, preset: Preset): Model => ({
   exchanges: Exchanges.initialModel,
   exchangeDetail: ExchangeDetail.initFor(0),
   workers: Workers.initialModel,
+  signals: Signals.initialModel,
+  connection: ConnectionState.Connecting(),
+  socketGeneration: 0,
   hasNavigated: false,
 })
 

@@ -15,6 +15,10 @@ subtree_prompted: true
   of truth for search, sort, and page, which is why those are route parameters.
 - `src/api.ts`: the only module that talks to the control-plane API. Every page reaches
   the server through it.
+- `src/realtime.ts`: the app-wide event socket. One ManagedResource opens the WebSocket at
+  boot and keeps it across navigation; Subscriptions read its frames and gate the `signal`
+  topic on the Signals route. The server projector runs only while that topic has a
+  subscriber.
 - `src/ui/`: the shared view helpers. There is no table, badge, alert, or empty-state
   component in `@foldkit/ui`, so they are written here as plain functions over `h`.
 - `src/page/`: one directory per page, each a Submodel with `model.ts`, `message.ts`,

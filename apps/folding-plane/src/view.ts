@@ -12,6 +12,7 @@ import * as Coins from './page/coins'
 import * as Dashboard from './page/dashboard'
 import * as ExchangeDetail from './page/exchangeDetail'
 import * as Exchanges from './page/exchanges'
+import * as Signals from './page/signals'
 import * as Workers from './page/workers'
 import {
   AppRoute,
@@ -22,6 +23,8 @@ import {
   defaultCoinsQuery,
   defaultExchangesQuery,
   exchangesUrl,
+  defaultSignalsQuery,
+  signalsUrl,
 } from './route'
 import { PresetMenu, ThemeMenu, presetItems, themeItems } from './themeMenu'
 import { formatCount, pendingCount } from './ui/format'
@@ -68,6 +71,12 @@ const navItems: ReadonlyArray<NavItem> = [
     mark: 'pulse',
     isCurrent: (route) => route._tag === 'Workers',
   },
+  {
+    label: 'Signals',
+    href: () => signalsUrl(defaultSignalsQuery),
+    mark: 'pulse',
+    isCurrent: (route) => route._tag === 'Signals',
+  },
 ]
 
 // VIEW
@@ -82,6 +91,7 @@ const title = (route: AppRoute): string =>
     Chains: () => 'Chains | Lister control plane',
     ChainDetail: () => 'Chain | Lister control plane',
     Workers: () => 'Workers | Lister control plane',
+    Signals: () => 'Signals | Lister control plane',
     NotFound: () => 'Not found | Lister control plane',
   })
 
@@ -431,6 +441,14 @@ const routeView = (model: Model, h: HtmlBuilder<Message>): Html =>
         model: model.workers,
         view: Workers.view,
         toParentMessage: (message) => Message.GotWorkersMessage({ message }),
+      }),
+    Signals: () =>
+      h.submodel({
+        slotId: 'signals',
+        model: model.signals,
+        view: Signals.view,
+        viewInputs: { connection: model.connection },
+        toParentMessage: (message) => Message.GotSignalsMessage({ message }),
       }),
     NotFound: ({ path }) => notFoundView(path, h),
   })

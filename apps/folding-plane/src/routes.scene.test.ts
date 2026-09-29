@@ -109,6 +109,23 @@ describe('routes', () => {
     )
   })
 
+  test('the signal feed resolves', () => {
+    scene(
+      { update, view },
+      given(modifyFields(initialModel, {
+        route: () =>
+          AppRoute.Signals({
+            view: Option.none(),
+            sort: Option.none(),
+            threshold: Option.none(),
+            hidden: Option.none(),
+          }),
+      })),
+      expect(text('Signals')).toExist(),
+      expect(text('No signals yet. Fresh, profitable routes appear as workers tick.')).toExist(),
+    )
+  })
+
   test('an unknown path renders the not-found page with a way back', () => {
     scene(
       { update, view },
