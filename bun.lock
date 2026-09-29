@@ -206,17 +206,6 @@
         "@effect/platform-bun": "catalog:",
       },
     },
-    "apps/workers/indodax-single": {
-      "name": "@lister/worker-indodax-single",
-      "version": "1.0.0",
-      "dependencies": {
-        "@lister/worker-contract": "workspace:*",
-        "effect": "catalog:",
-      },
-      "devDependencies": {
-        "@effect/platform-bun": "catalog:",
-      },
-    },
     "apps/workers/kucoin": {
       "name": "@lister/worker-kucoin",
       "version": "1.0.0",
@@ -657,8 +646,6 @@
     "@lister/worker-huobi": ["@lister/worker-huobi@workspace:apps/workers/huobi"],
 
     "@lister/worker-indodax": ["@lister/worker-indodax@workspace:apps/workers/indodax"],
-
-    "@lister/worker-indodax-single": ["@lister/worker-indodax-single@workspace:apps/workers/indodax-single"],
 
     "@lister/worker-kucoin": ["@lister/worker-kucoin@workspace:apps/workers/kucoin"],
 
