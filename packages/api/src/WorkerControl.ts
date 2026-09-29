@@ -1,3 +1,4 @@
+import { workerEventTypeLiterals } from "@lister/crawler/events"
 import { Context, Effect, Layer, Option, PubSub, Ref, Schema, Stream } from "effect"
 
 /**
@@ -27,7 +28,7 @@ export const WorkerStatus = Schema.Struct({
   running: Schema.Boolean,
   shards: Schema.Array(WorkerShardStatus),
   restarts: Schema.Int,
-  eligibleCoins: Schema.Int
+  subscribedCoins: Schema.Int
 })
 
 /**
@@ -37,15 +38,10 @@ export type WorkerStatus = typeof WorkerStatus.Type
 
 /**
  * Worker lifecycle event kinds emitted on the monitoring stream.
+ *
+ * The literal list lives once, in the crawler's browser-safe event module.
  */
-export const WorkerEventType = Schema.Literals([
-  "started",
-  "stopped",
-  "shard-spawned",
-  "shard-exited",
-  "reconnecting",
-  "reconciled"
-])
+export const WorkerEventType = Schema.Literals(workerEventTypeLiterals)
 
 /**
  * One worker lifecycle event as delivered to monitoring clients.
@@ -176,8 +172,8 @@ export class WorkerControl extends Context.Service<WorkerControl, WorkerControlS
       WorkerControl,
       Effect.gen(function*() {
         const state = yield* Ref.make(
-          new Map<number, { readonly slug: string, readonly running: boolean, readonly restarts: number }>(
-            exchanges.map((exchange) => [exchange.id, { slug: exchange.slug, running: false, restarts: 0 }])
+          new Map<number, { readonly slug: string, readonly desired: boolean, readonly restarts: number }>(
+            exchanges.map((exchange) => [exchange.id, { slug: exchange.slug, desired: false, restarts: 0 }])
           )
         )
 
@@ -195,15 +191,19 @@ export class WorkerControl extends Context.Service<WorkerControl, WorkerControlS
 
           if (entry === undefined) return undefined
 
+          const desiredCount = [...current.values()].filter((candidate) => candidate.desired).length
+          const gateOpen = desiredCount >= 2
+          const subscribedCoins = entry.desired && gateOpen ? 2 : 0
+
           return {
             exchangeId,
             exchangeSlug: entry.slug,
-            desired: entry.running ? ("started" as const) : ("stopped" as const),
-            running: entry.running,
-            shards: entry.running
+            desired: entry.desired ? ("started" as const) : ("stopped" as const),
+            running: entry.desired,
+            shards: entry.desired
               ? [{
                 shardId: `${entry.slug}-shard-1`,
-                size: 1,
+                size: subscribedCoins,
                 restarts: entry.restarts,
                 phase: "running" as const,
                 attempt: null,
@@ -211,7 +211,7 @@ export class WorkerControl extends Context.Service<WorkerControl, WorkerControlS
               }]
               : [],
             restarts: entry.restarts,
-            eligibleCoins: entry.running ? 2 : 0
+            subscribedCoins
           }
         })
 
@@ -223,17 +223,17 @@ export class WorkerControl extends Context.Service<WorkerControl, WorkerControlS
             return yield* new WorkerExchangeNotFound({ exchangeId })
           }
 
-          if (action === "start" && entry.running) {
+          if (action === "start" && entry.desired) {
             return yield* new WorkerConflict({ exchangeId, action, message: "worker is already running" })
           }
 
-          if (action === "stop" && !entry.running) {
+          if (action === "stop" && !entry.desired) {
             return yield* new WorkerConflict({ exchangeId, action, message: "worker is not running" })
           }
 
           const next = new Map(current)
 
-          next.set(exchangeId, { slug: entry.slug, running: action === "start", restarts: entry.restarts })
+          next.set(exchangeId, { slug: entry.slug, desired: action === "start", restarts: entry.restarts })
 
           yield* Ref.set(state, next)
           yield* publish({

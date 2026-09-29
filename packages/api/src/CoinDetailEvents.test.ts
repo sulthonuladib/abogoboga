@@ -12,10 +12,10 @@ import { HttpApiTest } from "effect/unstable/httpapi"
 import { Api } from "./Api.ts"
 import { layer as chainLinkStoreLayer } from "./ChainLinkStore.ts"
 import { ChainLink } from "./ChainLink.ts"
-import { ChainLinkHandlersNoDeps } from "./ChainLinkHandlers.ts"
+import { ChainLinkHandlers, ChainLinkHandlersNoDeps } from "./ChainLinkHandlers.ts"
 import { CoinDetailEvents, type CoinDetailChange } from "./CoinDetailEvents.ts"
 import { Market } from "./Market.ts"
-import { MarketHandlersNoDeps } from "./MarketHandlers.ts"
+import { MarketHandlers, MarketHandlersNoDeps } from "./MarketHandlers.ts"
 import { layer as marketStoreLayer } from "./MarketStore.ts"
 import { RequestValidationLive } from "./RequestValidation.ts"
 
@@ -54,6 +54,19 @@ const HandlersLayer = Layer.mergeAll(MarketTestHandlers, ChainLinkTestHandlers).
 )
 
 const TestLayer = Layer.mergeAll(HandlersLayer, HttpServer.layerServices)
+
+/**
+ * The handlers as the composition root assembles them, with a recording
+ * publisher supplied externally — exactly the seam that a baked-in no-op layer
+ * would break.
+ */
+const ProductionTestLayer = Layer.mergeAll(
+  Layer.mergeAll(MarketHandlers, ChainLinkHandlers).pipe(
+    Layer.provide(RecordingEvents),
+    Layer.provideMerge(Database.layerMemory())
+  ),
+  HttpServer.layerServices
+)
 
 const makeClient = HttpApiTest.groups(Api, ["market", "chainLink"])
 
@@ -146,4 +159,85 @@ describe("coin-detail mutation events", () => {
       }
     ])
   })
+})
+
+describe("production handler event wiring", () => {
+  test(
+    "a chain-link update through the production handlers publishes an event",
+    async () => {
+      recorded.length = 0
+
+      await Effect.runPromise(
+        Effect.gen(function*() {
+          const { db } = yield* Database
+
+          const [exchange] = yield* db
+            .insert(exchangeTable)
+            .values({
+              coingeckoId: "binance",
+              name: "Binance",
+              slug: "binance",
+              logo: "binance.svg",
+              baseCurrency: "usdt"
+            })
+            .returning()
+
+          const [coin] = yield* db
+            .insert(cryptocurrencyTable)
+            .values({ coingeckoId: "bitcoin", name: "Bitcoin", symbol: "BTC", slug: "bitcoin", logo: "btc.svg" })
+            .returning()
+
+          const [chain] = yield* db.insert(chainTable).values({ name: "Ethereum", code: "ETH" }).returning()
+
+          const client = yield* makeClient
+
+          const market = yield* client.market.assign({
+            payload: {
+              exchangeId: exchangeId(exchange!.id),
+              cryptocurrencyId: cryptocurrencyId(coin!.id),
+              exchangeSymbol: "BTCUSDT",
+              listed: true,
+              tradeEnabled: true
+            }
+          })
+
+          const link = yield* client.chainLink.add({
+            payload: {
+              exchangeCryptocurrencyId: market.id,
+              chainId: chainId(chain!.id),
+              exchangeChainCode: "ERC20",
+              exchangeChainName: null,
+              withdrawEnabled: true,
+              depositEnabled: true
+            }
+          })
+
+          recorded.length = 0
+
+          yield* client.chainLink.update({
+            params: { id: link.id },
+            payload: {
+              exchangeCryptocurrencyId: market.id,
+              chainId: chainId(chain!.id),
+              exchangeChainCode: "ERC20",
+              exchangeChainName: null,
+              withdrawEnabled: false,
+              depositEnabled: true
+            }
+          })
+        }).pipe(Effect.provide(ProductionTestLayer), Effect.scoped)
+      )
+
+      expect(recorded).toEqual([
+        {
+          kind: "chain-updated",
+          exchangeId: 1,
+          cryptocurrencyId: 1,
+          exchangeCryptocurrencyId: 1,
+          chainId: 1
+        }
+      ])
+    },
+    20000
+  )
 })

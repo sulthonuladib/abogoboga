@@ -15,11 +15,15 @@ import { ChainNotFound } from "./ChainErrors.ts"
 import { ChainLinkCreatePayload } from "./ChainLinkApi.ts"
 import { ChainLinkExists, ChainLinkNotFound } from "./ChainLinkErrors.ts"
 import { ChainLinkHandlers } from "./ChainLinkHandlers.ts"
+import { CoinDetailEvents } from "./CoinDetailEvents.ts"
 import { MarketNotFound } from "./MarketErrors.ts"
 
 const DatabaseTestLayer = Database.layerMemory()
 
-const HandlersLayer = ChainLinkHandlers.pipe(Layer.provideMerge(DatabaseTestLayer))
+const HandlersLayer = ChainLinkHandlers.pipe(
+  Layer.provide(CoinDetailEvents.layerNoop),
+  Layer.provideMerge(DatabaseTestLayer)
+)
 
 const TestLayer = Layer.mergeAll(HandlersLayer, HttpServer.layerServices)
 

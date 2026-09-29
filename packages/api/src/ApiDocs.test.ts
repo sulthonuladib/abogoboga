@@ -7,6 +7,7 @@ import { Api } from "./Api.ts"
 import { docsPath, layer as ApiDocsLayer, openApiJsonPath } from "./ApiDocs.ts"
 import { ChainHandlers } from "./ChainHandlers.ts"
 import { ChainLinkHandlers } from "./ChainLinkHandlers.ts"
+import { CoinDetailEvents } from "./CoinDetailEvents.ts"
 import { CryptocurrencyHandlers } from "./CryptocurrencyHandlers.ts"
 import { ExchangeHandlers } from "./ExchangeHandlers.ts"
 import { MarketHandlers } from "./MarketHandlers.ts"
@@ -66,6 +67,7 @@ const ApiLayer = HttpApiBuilder.layer(Api).pipe(
       Layer.provide(WorkerControl.layerTest([{ id: 1, slug: "indodax" }]))
     )
   ),
+  Layer.provide(CoinDetailEvents.layerNoop),
   Layer.provide(Database.layerMemory()),
   Layer.provide(HttpServer.layerServices)
 )

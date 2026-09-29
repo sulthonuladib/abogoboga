@@ -117,6 +117,29 @@ describe("Supervisor shard placement", () => {
       }))
   })
 
+  test("pause keeps one resident shard and addCoins refills it", async () => {
+    await runSupervisor({ workerScript: dummyWorker }, (supervisor) =>
+      Effect.gen(function*() {
+        yield* supervisor.start(20, "dummy-ex", coins(21)).pipe(Effect.orDie)
+
+        expect((yield* supervisor.snapshot)[0]?.shards.map((shard) => shard.coins.length)).toEqual([20, 1])
+
+        yield* supervisor.pause(20)
+
+        expect(yield* supervisor.isRunning(20)).toBe(true)
+        expect((yield* supervisor.snapshot)[0]?.shards.map((shard) => shard.coins.length)).toEqual([0])
+
+        yield* supervisor.addCoins(20, [eth]).pipe(Effect.orDie)
+
+        expect((yield* supervisor.snapshot)[0]?.shards.map((shard) => shard.coins.length)).toEqual([1])
+        expect((yield* supervisor.snapshot)[0]?.shards[0]?.coins.map((coin) => coin.symbol)).toEqual(["ETH"])
+
+        yield* supervisor.stop(20)
+
+        expect(yield* supervisor.snapshot).toEqual([])
+      }))
+  })
+
   test("live subscription commands update the worker's tick stream", async () => {
     const ticks = Ref.makeUnsafe<ReadonlyArray<CanonicalTick>>([])
 

@@ -104,6 +104,5 @@ export const ChainLinkHandlers = ChainLinkHandlersNoDeps.pipe(
   Layer.provide(ChainLinkStoreLive),
   Layer.provide(Market.layer),
   Layer.provide(MarketStoreLive),
-  Layer.provide(CoinDetailEvents.layerNoop),
   Layer.provideMerge(RequestValidationLive)
 )

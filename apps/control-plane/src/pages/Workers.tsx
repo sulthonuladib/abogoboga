@@ -92,7 +92,7 @@ const WorkerRow = (props: {
           </span>
         </Td>
         <Td align="right">{formatCount(worker.restarts)}</Td>
-        <Td align="right">{formatCount(worker.eligibleCoins)}</Td>
+        <Td align="right">{formatCount(worker.subscribedCoins)}</Td>
         <Td align="right">
           {worker.running ? (
             <Button variant="outline" size="sm" onClick={props.onStop} disabled={props.pending}>
@@ -213,10 +213,10 @@ export const WorkersPage = () => {
             hint: "across all workers"
           },
           {
-            label: "Eligible coins",
+            label: "Subscribed coins",
             value: workersValue === undefined
               ? "…"
-              : formatCount(workersValue.reduce((total, worker) => total + worker.eligibleCoins, 0)),
+              : formatCount(workersValue.reduce((total, worker) => total + worker.subscribedCoins, 0)),
             hint: "assigned to running workers"
           }
         ]}
@@ -229,7 +229,7 @@ export const WorkersPage = () => {
             <Th>State</Th>
             <Th>Shards</Th>
             <Th align="right">Restarts</Th>
-            <Th align="right">Eligible coins</Th>
+            <Th align="right">Subscribed coins</Th>
             <Th align="right">Actions</Th>
           </Head>
           <LoadingRows colSpan={columns} />
@@ -253,7 +253,7 @@ export const WorkersPage = () => {
             <Th>State</Th>
             <Th>Shards</Th>
             <Th align="right">Restarts</Th>
-            <Th align="right">Eligible coins</Th>
+            <Th align="right">Subscribed coins</Th>
             <Th align="right">Actions</Th>
           </Head>
           <Body>

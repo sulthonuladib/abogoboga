@@ -10,10 +10,14 @@ import { ExchangeNotFound } from "./ExchangeErrors.ts"
 import { MarketCreatePayload } from "./MarketApi.ts"
 import { MarketExists, MarketNotFound } from "./MarketErrors.ts"
 import { MarketHandlers } from "./MarketHandlers.ts"
+import { CoinDetailEvents } from "./CoinDetailEvents.ts"
 
 const DatabaseTestLayer = Database.layerMemory()
 
-const HandlersLayer = MarketHandlers.pipe(Layer.provideMerge(DatabaseTestLayer))
+const HandlersLayer = MarketHandlers.pipe(
+  Layer.provide(CoinDetailEvents.layerNoop),
+  Layer.provideMerge(DatabaseTestLayer)
+)
 
 const TestLayer = Layer.mergeAll(HandlersLayer, HttpServer.layerServices)
 

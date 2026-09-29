@@ -269,12 +269,23 @@ export class Supervisor extends Context.Service<Supervisor, {
   /**
    * Remove coins from a running exchange.
    *
-   * A shard emptied by removals is terminated; other shards are untouched.
+   * A shard emptied by removals is terminated while the exchange keeps at least
+   * one resident shard; the last shard stays resident with zero coins.
    */
   readonly removeCoins: (
     exchangeId: number,
     coins: ReadonlyArray<BootstrapCoin>
   ) => Effect.Effect<void, ShardChangeError>
+  /**
+   * Unsubscribe every coin from a running exchange while keeping one resident
+   * shard.
+   *
+   * The gate pauses an exchange when fewer than two exchanges are active: the
+   * worker process stays resident and idle, and `addCoins` refills it when the
+   * gate reopens. Pausing an exchange that is not running succeeds without
+   * effects.
+   */
+  readonly pause: (exchangeId: number) => Effect.Effect<void>
   /** Terminate every shard of every exchange; the supervisor stays usable. */
   readonly shutdown: Effect.Effect<void>
 }>()("lister/crawler/Supervisor") {
@@ -568,6 +579,10 @@ export class Supervisor extends Context.Service<Supervisor, {
               yield* Effect.forEach(shardCoins(coins, capacityFor(exchangeSlug)), (chunk) => spawnShard(exchange, chunk), {
                 discard: true
               })
+
+              if (exchange.shards.size === 0) {
+                yield* spawnShard(exchange, [])
+              }
             }),
           stop: (exchangeId) => stopExchange(exchangeId),
           addCoins: (exchangeId, coins) =>
@@ -607,25 +622,43 @@ export class Supervisor extends Context.Service<Supervisor, {
                   shard.coins.delete(coinKey(coin))
                 }
 
-                if (shard.coins.size === 0) {
+                const [firstRemoved, ...restRemoved] = removed
+
+                if (firstRemoved !== undefined) {
+                  yield* Queue.offer(shard.commands, { type: "unsubscribe", coins: [firstRemoved, ...restRemoved] })
+                }
+
+                if (shard.coins.size === 0 && exchange.shards.size > 1) {
                   exchange.shards.delete(shard.shardId)
                   yield* FiberMap.remove(workers, shardKey(exchangeId, shard.shardId))
-                } else {
-                  const [firstRemoved, ...restRemoved] = removed
-
-                  if (firstRemoved !== undefined) {
-                    yield* Queue.offer(shard.commands, { type: "unsubscribe", coins: [firstRemoved, ...restRemoved] })
-                  }
                 }
               }
+            }),
+          pause: (exchangeId) =>
+            Effect.gen(function*() {
+              const exchange = yield* requireExchange(exchangeId)
 
-              if (exchange.shards.size === 0) {
-                yield* Ref.update(state, (exchanges) => {
-                  const next = new Map(exchanges)
+              if (exchange === undefined) return
 
-                  next.delete(exchangeId)
+              const [resident, ...others] = [...exchange.shards.values()]
 
-                  return next
+              for (const shard of others) {
+                exchange.shards.delete(shard.shardId)
+                yield* FiberMap.remove(workers, shardKey(exchangeId, shard.shardId))
+              }
+
+              if (resident === undefined) return
+
+              const removed = [...resident.coins.values()]
+
+              resident.coins.clear()
+
+              const [firstRemoved, ...restRemoved] = removed
+
+              if (firstRemoved !== undefined) {
+                yield* Queue.offer(resident.commands, {
+                  type: "unsubscribe",
+                  coins: [firstRemoved, ...restRemoved]
                 })
               }
             }),

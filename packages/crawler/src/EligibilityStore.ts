@@ -1,15 +1,17 @@
 import { Database, cryptocurrencyTable, exchangeCryptocurrencyChainTable, exchangeCryptocurrencyTable, exchangeTable } from "@lister/db"
-import { and, eq } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { Effect, Layer, Option } from "effect"
 import { Eligibility } from "./Reconciler.ts"
+import { scanRoutes } from "./RouteScan.ts"
 
 /**
  * Drizzle-backed implementation of the {@link Eligibility} port.
  *
- * The eligible set is recomputed from the database on every call, never cached:
- * a mapping is eligible when it is listed and trade-enabled and has at least one
- * chain link that allows both withdrawals and deposits. Duplicate rows produced
- * by multiple enabled chains are collapsed with `selectDistinct`.
+ * The route scan is recomputed from the database on every call, never cached:
+ * only chain-link rows are read, and the pure {@link scanRoutes} helper decides
+ * which coins are route-eligible and which ordered pairs the matrix should
+ * hold. Listed and trade-enabled flags are applied by the scan, not the query,
+ * so the predicate matrix stays in one tested place.
  */
 export const layer: Layer.Layer<Eligibility, never, Database> = Layer.effect(
   Eligibility,
@@ -27,37 +29,53 @@ export const layer: Layer.Layer<Eligibility, never, Database> = Layer.effect(
       return Option.map(Option.fromIterable(rows), (row) => row.slug)
     })
 
-    const coinsForExchange = Effect.fn("Eligibility.coinsForExchange")(function*(exchangeId: number) {
+    const scan = Effect.fn("Eligibility.scan")(function*(activeExchangeIds: ReadonlyArray<number>) {
+      if (activeExchangeIds.length === 0) {
+        return { subscriptions: [], pairs: [] }
+      }
+
       const rows = yield* db
-        .selectDistinct({
+        .select({
+          exchangeId: exchangeCryptocurrencyTable.exchangeId,
+          cryptocurrencyId: exchangeCryptocurrencyTable.cryptocurrencyId,
           symbol: cryptocurrencyTable.symbol,
-          coingeckoId: cryptocurrencyTable.coingeckoId
+          coingeckoId: cryptocurrencyTable.coingeckoId,
+          listed: exchangeCryptocurrencyTable.listed,
+          tradeEnabled: exchangeCryptocurrencyTable.tradeEnabled,
+          chainId: exchangeCryptocurrencyChainTable.chainId,
+          withdrawEnabled: exchangeCryptocurrencyChainTable.withdrawEnabled,
+          depositEnabled: exchangeCryptocurrencyChainTable.depositEnabled
         })
         .from(exchangeCryptocurrencyTable)
-        .innerJoin(
-          exchangeCryptocurrencyChainTable,
-          and(
-            eq(exchangeCryptocurrencyChainTable.exchangeCryptocurrencyId, exchangeCryptocurrencyTable.id),
-            eq(exchangeCryptocurrencyChainTable.withdrawEnabled, true),
-            eq(exchangeCryptocurrencyChainTable.depositEnabled, true)
-          )
-        )
         .innerJoin(
           cryptocurrencyTable,
           eq(cryptocurrencyTable.id, exchangeCryptocurrencyTable.cryptocurrencyId)
         )
-        .where(
-          and(
-            eq(exchangeCryptocurrencyTable.exchangeId, exchangeId),
-            eq(exchangeCryptocurrencyTable.listed, true),
-            eq(exchangeCryptocurrencyTable.tradeEnabled, true)
-          )
+        .innerJoin(
+          exchangeCryptocurrencyChainTable,
+          eq(exchangeCryptocurrencyChainTable.exchangeCryptocurrencyId, exchangeCryptocurrencyTable.id)
         )
+        .where(inArray(exchangeCryptocurrencyTable.exchangeId, [...activeExchangeIds]))
         .pipe(Effect.orDie)
 
-      return rows
+      return scanRoutes(rows, activeExchangeIds)
     })
 
-    return Eligibility.of({ exchangeSlug, coinsForExchange })
+    const coinsForExchange = Effect.fn("Eligibility.coinsForExchange")(function*(
+      exchangeId: number,
+      activeExchangeIds: ReadonlyArray<number>
+    ) {
+      const result = yield* scan(activeExchangeIds)
+
+      return result.subscriptions.find((subscription) => subscription.exchangeId === exchangeId)?.coins ?? []
+    })
+
+    const pairsFor = Effect.fn("Eligibility.pairsFor")(function*(activeExchangeIds: ReadonlyArray<number>) {
+      const result = yield* scan(activeExchangeIds)
+
+      return result.pairs
+    })
+
+    return Eligibility.of({ exchangeSlug, coinsForExchange, pairsFor })
   })
 )

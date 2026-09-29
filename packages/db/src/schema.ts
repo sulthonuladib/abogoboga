@@ -12,4 +12,4 @@ export { exchangeCryptocurrencyChainTable } from "./tables/exchange-cryptocurren
 
 export { chainTable } from "./tables/chain.sql";
 
-export { orderbookSnapshotTable } from "./tables/orderbook.sql";
+export { opportunityTable } from "./tables/opportunity.sql";

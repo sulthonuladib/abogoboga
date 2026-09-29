@@ -55,7 +55,8 @@ describe("workers HttpApi", () => {
     expect(result.started.running).toBe(true)
     expect(result.started.desired).toBe("started")
     expect(result.started.shards).toHaveLength(1)
-    expect(result.started.eligibleCoins).toBeGreaterThan(0)
+    // A single started exchange is below the two-exchange gate.
+    expect(result.started.subscribedCoins).toBe(0)
     expect(result.duplicateStart).toBeInstanceOf(WorkerConflict)
     expect(result.unknown).toBeInstanceOf(WorkerExchangeNotFound)
     expect(result.stopped.running).toBe(false)

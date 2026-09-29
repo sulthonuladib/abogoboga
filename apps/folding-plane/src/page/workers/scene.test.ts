@@ -25,7 +25,7 @@ const fixtureWorkers = Schema.decodeUnknownSync(Schema.Array(WorkerStatus))([
     running: false,
     shards: [],
     restarts: 0,
-    eligibleCoins: 12,
+    subscribedCoins: 12,
   },
   {
     exchangeId: 11,
@@ -43,7 +43,7 @@ const fixtureWorkers = Schema.decodeUnknownSync(Schema.Array(WorkerStatus))([
       },
     ],
     restarts: 1,
-    eligibleCoins: 8,
+    subscribedCoins: 8,
   },
   {
     exchangeId: 12,
@@ -61,7 +61,7 @@ const fixtureWorkers = Schema.decodeUnknownSync(Schema.Array(WorkerStatus))([
       },
     ],
     restarts: 3,
-    eligibleCoins: 5,
+    subscribedCoins: 5,
   },
 ])
 
@@ -152,6 +152,43 @@ describe('workers', () => {
         Message.SettledFetchWorkers({ result: Result.succeed(fixtureWorkers) }),
       ),
       expect(text('indodax')).toExist(),
+    )
+  })
+
+  test('a lone started exchange renders as running with zero subscribed', () => {
+    const lone: Model = {
+      ...initialModel,
+      workers: AsyncData.succeed(
+        Schema.decodeUnknownSync(Schema.Array(WorkerStatus))([
+          {
+            exchangeId: 20,
+            exchangeSlug: 'kraken',
+            desired: 'started',
+            running: true,
+            shards: [
+              {
+                shardId: 'kraken-shard-1',
+                size: 0,
+                restarts: 0,
+                phase: 'running',
+                attempt: null,
+                lastTickAt: null,
+              },
+            ],
+            restarts: 0,
+            subscribedCoins: 0,
+          },
+        ]),
+      ),
+    }
+
+    scene(
+      { update, view },
+      given(lone),
+      expect(text('kraken')).toExist(),
+      expect(text('running')).toExist(),
+      expect(text('Subscribed coins')).toExist(),
+      expect(role('button', { name: 'Stop kraken' })).toExist(),
     )
   })
 

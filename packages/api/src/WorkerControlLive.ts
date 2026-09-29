@@ -1,9 +1,10 @@
 import {
   DomainEvents,
-  Eligibility,
+  Gate,
   Supervisor,
   type WorkerEvent as CrawlerWorkerEvent
 } from "@lister/crawler"
+import { lifecycleTypes } from "@lister/crawler/events"
 import { Database, exchangeTable } from "@lister/db"
 import { asc, eq } from "drizzle-orm"
 import { Effect, Layer, Option, Stream } from "effect"
@@ -17,15 +18,6 @@ import {
   type WorkerEvent,
   type WorkerStatus
 } from "./WorkerControl.ts"
-
-const lifecycleTypes: ReadonlySet<string> = new Set([
-  "started",
-  "stopped",
-  "shard-spawned",
-  "shard-exited",
-  "reconnecting",
-  "reconciled"
-])
 
 /**
  * Drizzle adapter for {@link ExchangeDirectory}.
@@ -67,37 +59,41 @@ export const exchangeDirectoryLayer: Layer.Layer<ExchangeDirectory, never, Datab
 )
 
 /**
- * Live {@link WorkerControl} layer backed by the crawler {@link Supervisor}.
+ * Live {@link WorkerControl} layer backed by the crawler {@link Gate}.
  *
- * Start and stop drive the supervisor directly: a transition that is already
- * satisfied is rejected with a conflict before any supervisor call, so no
- * duplicate process is spawned and no lifecycle event is emitted for the
- * rejected request. Unknown exchanges fail with the not-found error. The event
- * stream replays and forwards the supervisor's lifecycle events.
+ * Start and stop route through the coordinator, which owns the desired set and
+ * the two-exchange policy: a lone started exchange stays resident and idle
+ * (running, zero subscribed) until a second exchange opens the gate. A request
+ * that is already satisfied is rejected with a conflict before any supervisor
+ * call, so no duplicate process is spawned and no lifecycle event is emitted.
+ * Unknown exchanges fail with the not-found error. Status reports the desired
+ * state from the gate and the subscribed-coin count from the supervisor
+ * snapshot; the event stream replays and forwards the supervisor's lifecycle
+ * events.
  */
 export const layerLive: Layer.Layer<
   WorkerControl,
   never,
-  Supervisor | DomainEvents | Eligibility | ExchangeDirectory
+  Supervisor | DomainEvents | Gate | ExchangeDirectory
 > = Layer.effect(
   WorkerControl,
   Effect.gen(function*() {
     const supervisor = yield* Supervisor
     const domainEvents = yield* DomainEvents
-    const eligibility = yield* Eligibility
+    const gate = yield* Gate
     const directory = yield* ExchangeDirectory
 
     const statusOf = (entry: ExchangeDirectoryEntry): Effect.Effect<WorkerStatus> =>
       Effect.gen(function*() {
         const snapshot = yield* supervisor.snapshot
         const exchange = snapshot.find((candidate) => candidate.exchangeId === entry.exchangeId)
-        const coins = yield* eligibility.coinsForExchange(entry.exchangeId)
+        const desired = yield* gate.isDesired(entry.exchangeId)
         const shards = exchange?.shards ?? []
 
         return {
           exchangeId: entry.exchangeId,
           exchangeSlug: entry.exchangeSlug,
-          desired: exchange === undefined ? "stopped" : "started",
+          desired: desired ? "started" : "stopped",
           running: exchange !== undefined,
           shards: shards.map((shard) => ({
             shardId: shard.shardId,
@@ -108,7 +104,7 @@ export const layerLive: Layer.Layer<
             lastTickAt: shard.lastTickAt
           })),
           restarts: shards.reduce((total, shard) => total + shard.restarts, 0),
-          eligibleCoins: coins.length
+          subscribedCoins: shards.reduce((total, shard) => total + shard.coins.length, 0)
         }
       })
 
@@ -119,7 +115,7 @@ export const layerLive: Layer.Layer<
         return yield* new WorkerExchangeNotFound({ exchangeId })
       }
 
-      if (yield* supervisor.isRunning(exchangeId)) {
+      if (yield* gate.isDesired(exchangeId)) {
         return yield* new WorkerConflict({
           exchangeId,
           action: "start",
@@ -127,9 +123,7 @@ export const layerLive: Layer.Layer<
         })
       }
 
-      const coins = yield* eligibility.coinsForExchange(exchangeId)
-
-      yield* supervisor.start(exchangeId, entry.value.exchangeSlug, coins).pipe(
+      yield* gate.start(exchangeId, entry.value.exchangeSlug).pipe(
         Effect.catchTags({
           SupervisorConflict: () =>
             new WorkerConflict({ exchangeId, action: "start", message: "worker is already running" }),
@@ -148,7 +142,7 @@ export const layerLive: Layer.Layer<
         return yield* new WorkerExchangeNotFound({ exchangeId })
       }
 
-      if (!(yield* supervisor.isRunning(exchangeId))) {
+      if (!(yield* gate.isDesired(exchangeId))) {
         return yield* new WorkerConflict({
           exchangeId,
           action: "stop",
@@ -156,7 +150,7 @@ export const layerLive: Layer.Layer<
         })
       }
 
-      yield* supervisor.stop(exchangeId)
+      yield* gate.stop(exchangeId)
 
       return yield* statusOf(entry.value)
     })
