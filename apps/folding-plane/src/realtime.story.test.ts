@@ -4,7 +4,6 @@ import { describe, expect, test } from 'vitest'
 import type { SignalRow } from './api'
 import { initialModel } from './model'
 import { Message } from './message'
-import * as Signals from './page/signals'
 import { update } from './update'
 
 const row: SignalRow = {
@@ -76,7 +75,7 @@ describe('signal frames', () => {
     story(
       update,
       given(initialModel),
-      message(Message.GotSignalsMessage({ message: Signals.Message.ReceivedSignal({ rows: [row] }) })),
+      message(Message.ReceivedSignalRows({ rows: [row] })),
       model((next) => {
         expect(next.signals.rows).toEqual([row])
       }),

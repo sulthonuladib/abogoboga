@@ -3,7 +3,7 @@ import { AsyncData } from 'foldkit'
 import { Command, given, message, model, story } from 'foldkit/story'
 import { describe, expect, test } from 'vitest'
 
-import { ExchangeJson, freshnessWindowMs, type SignalRow } from '../../api'
+import { ExchangeJson, type SignalRow, freshnessWindowMs } from '../../api'
 import { type SignalsQuery, defaultSignalsQuery, signalsUrl } from '../../route'
 import { Message } from './message'
 import { initialModel } from './model'

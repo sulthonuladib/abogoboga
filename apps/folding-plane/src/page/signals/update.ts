@@ -5,10 +5,10 @@ import { pushUrl, replaceUrl } from 'foldkit/navigation'
 import { modifyFields } from 'foldkit/struct'
 
 import { type ApiFailure, type ApiOrigin, type Exchange, Query, call } from '../../api'
-import { freshnessWindowMs, type SignalRow } from '../../api'
+import { type SignalRow, freshnessWindowMs } from '../../api'
 import {
-  type SignalsQuery,
   type SignalSort,
+  type SignalsQuery,
   defaultSignalsQuery,
   signalsUrl,
 } from '../../route'
@@ -80,6 +80,26 @@ const isFresh = (row: SignalRow, now: number): boolean =>
 
 export const prune = (rows: ReadonlyArray<SignalRow>, now: number): ReadonlyArray<SignalRow> =>
   rows.filter((row) => isFresh(row, now))
+
+// APPLY
+
+/**
+ * The socket delivered a snapshot. The parent drives this fact through this
+ * capability rather than constructing a child Message, so the socket wiring
+ * stays free of the page's Message union.
+ */
+export const receivedSignal = (
+  rows: ReadonlyArray<SignalRow>,
+): Update.Step<Model, Message> => (model) => ({
+  model: modifyFields(model, { rows: () => rows }),
+})
+
+/**
+ * A second passed. Rows whose ticks left the freshness window drop out.
+ */
+export const ticked = (now: number): Update.Step<Model, Message> => (model) => ({
+  model: modifyFields(model, { rows: (rows) => prune(rows, now) }),
+})
 
 // SORT
 
@@ -169,13 +189,9 @@ export const informRouteChanged = (
 
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
-    ReceivedSignal: ({ rows }) => ({
-      model: modifyFields(model, { rows: () => rows }),
-    }),
+    ReceivedSignal: ({ rows }) => receivedSignal(rows)(model),
 
-    Ticked: ({ now }) => ({
-      model: modifyFields(model, { rows: (rows) => prune(rows, now) }),
-    }),
+    Ticked: ({ now }) => ticked(now)(model),
 
     SelectedView: ({ view }) => ({
       model,

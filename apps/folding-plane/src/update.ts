@@ -5,7 +5,7 @@ import { modifyFields } from 'foldkit/struct'
 import { toString as urlToString } from 'foldkit/url'
 import { Menu, Tooltip } from '@foldkit/ui'
 
-import { call, isApiFailure } from './api'
+import { type SignalRow, call, isApiFailure } from './api'
 import { ConnectionState } from './connection'
 import { readCoverage } from './coverage'
 import type { Flags } from './flags'
@@ -344,6 +344,33 @@ const foldSignalsRouteChanged = Update.foldChild({
   toParentMessage: (message) => Message.GotSignalsMessage({ message }),
 })
 
+/**
+ * The socket and the clock drive the signal page through its own update
+ * capabilities, so the root never constructs a child Message. `foldSignals`
+ * carries the child's own Messages; these two carry the facts the root owns.
+ */
+const foldSignalsReceivedRows = (
+  model: Model,
+  rows: ReadonlyArray<SignalRow>,
+): Update.Return<Model, Message> =>
+  Update.foldChildStep({
+    update: Signals.receivedSignal(rows),
+    read: (parent: Model) => Option.some(parent.signals),
+    write: (parent, nextSignals) => modifyFields(parent, { signals: () => nextSignals }),
+    toParentMessage: (message) => Message.GotSignalsMessage({ message }),
+  })(model)
+
+const foldSignalsTicked = (
+  model: Model,
+  now: number,
+): Update.Return<Model, Message> =>
+  Update.foldChildStep({
+    update: Signals.ticked(now),
+    read: (parent: Model) => Option.some(parent.signals),
+    write: (parent, nextSignals) => modifyFields(parent, { signals: () => nextSignals }),
+    toParentMessage: (message) => Message.GotSignalsMessage({ message }),
+  })(model)
+
 // ROUTE
 
 const setRoute =
@@ -565,6 +592,10 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     GotWorkersMessage: ({ message }) => foldWorkers(model, message),
 
     GotSignalsMessage: ({ message }) => foldSignals(model, message),
+
+    ReceivedSignalRows: ({ rows }) => foldSignalsReceivedRows(model, rows),
+
+    TickedSignals: ({ now }) => foldSignalsTicked(model, now),
 
     SocketAcquired: () => ({
       model: modifyFields(model, { connection: () => ConnectionState.Connected() }),
