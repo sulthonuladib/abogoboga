@@ -473,6 +473,58 @@
     background-color: oklch(0.35 0.12 25);
     color: oklch(0.8 0.12 20);
   }
+
+  /* Signal route directions. Each pairing of the buy and sell exchange's base
+     currency carries its own hue, so a row's trade direction reads at a glance
+     across the feed: a USDT buy into an IDR sell is red, the reverse green,
+     USDT into USDT purple, and IDR into IDR chocolate. The route class sets
+     one variable; the accent, the dot, and the chip all read it. Every route
+     also carries a written label, so the meaning never rests on colour alone. */
+  .route-usdt-idr {
+    --route-color: oklch(0.55 0.2 25);
+  }
+
+  .route-idr-usdt {
+    --route-color: oklch(0.52 0.14 160);
+  }
+
+  .route-usdt-usdt {
+    --route-color: oklch(0.52 0.2 300);
+  }
+
+  .route-idr-idr {
+    --route-color: oklch(0.55 0.12 55);
+  }
+
+  [data-theme='Dark'] .route-usdt-idr {
+    --route-color: oklch(0.72 0.16 25);
+  }
+
+  [data-theme='Dark'] .route-idr-usdt {
+    --route-color: oklch(0.76 0.13 160);
+  }
+
+  [data-theme='Dark'] .route-usdt-usdt {
+    --route-color: oklch(0.74 0.16 300);
+  }
+
+  [data-theme='Dark'] .route-idr-idr {
+    --route-color: oklch(0.78 0.11 55);
+  }
+
+  .route-accent {
+    border-left-color: var(--route-color);
+  }
+
+  .route-dot {
+    background-color: var(--route-color);
+  }
+
+  .route-chip {
+    border-color: color-mix(in oklab, var(--route-color) 40%, transparent);
+    background-color: color-mix(in oklab, var(--route-color) 12%, transparent);
+    color: var(--route-color);
+  }
 }
 
 @keyframes chunk-enter {
