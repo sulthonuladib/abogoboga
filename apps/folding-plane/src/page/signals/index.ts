@@ -9,7 +9,9 @@ export {
   isRowHidden,
   prune,
   readExchanges,
+  receivedSignal,
   sortedRows,
+  ticked,
   update,
 } from './update'
 export { view } from './view'

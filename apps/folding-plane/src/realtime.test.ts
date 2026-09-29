@@ -158,12 +158,8 @@ describe('event message stream', () => {
 
     const message = Option.getOrThrow(received)
 
-    expect(message._tag).toBe('GotSignalsMessage')
-
-    const inner = message._tag === 'GotSignalsMessage' ? message.message : undefined
-
-    expect(inner?._tag).toBe('ReceivedSignal')
-    expect(inner?._tag === 'ReceivedSignal' ? inner.rows : []).toEqual([row])
+    expect(message._tag).toBe('ReceivedSignalRows')
+    expect(message._tag === 'ReceivedSignalRows' ? message.rows : []).toEqual([row])
   })
 
   test('a closed socket asks update to reconnect', async () => {

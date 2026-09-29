@@ -4,7 +4,6 @@ import { ManagedResource, Subscription } from 'foldkit'
 import { ClientFrame, ServerEvent } from './api'
 import { Message } from './message'
 import type { Model } from './model'
-import * as Signals from './page/signals'
 
 // SOCKET
 
@@ -156,9 +155,7 @@ export const eventMessageStream = (socket: EventSocket): Stream.Stream<Message> 
             if (Option.isSome(decoded) && decoded.value.type === 'signal') {
               Queue.offerUnsafe(
                 queue,
-                Message.GotSignalsMessage({
-                  message: Signals.Message.ReceivedSignal({ rows: decoded.value.rows }),
-                }),
+                Message.ReceivedSignalRows({ rows: decoded.value.rows }),
               )
             }
           },
@@ -196,7 +193,7 @@ const tickStream = (): Stream.Stream<Message> =>
     Stream.mapEffect(() =>
       Effect.map(
         Clock.currentTimeMillis,
-        (now) => Message.GotSignalsMessage({ message: Signals.Message.Ticked({ now }) }),
+        (now) => Message.TickedSignals({ now }),
       )),
   )
 

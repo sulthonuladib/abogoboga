@@ -22,8 +22,8 @@ import {
   defaultChainsQuery,
   defaultCoinsQuery,
   defaultExchangesQuery,
-  exchangesUrl,
   defaultSignalsQuery,
+  exchangesUrl,
   signalsUrl,
 } from './route'
 import { PresetMenu, ThemeMenu, presetItems, themeItems } from './themeMenu'
