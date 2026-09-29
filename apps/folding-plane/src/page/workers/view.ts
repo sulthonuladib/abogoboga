@@ -63,7 +63,7 @@ const statsView = (model: Model, h: HtmlBuilder<Message>): Html =>
         [
           { label: 'Running', value: pendingCount, hint: 'desired state is reconciled automatically' },
           { label: 'Reconnecting shards', value: pendingCount, hint: 'retrying their exchange connection' },
-          { label: 'Eligible coins', value: pendingCount, hint: 'assigned to running workers' },
+          { label: 'Subscribed coins', value: pendingCount, hint: 'route-eligible coins on active workers' },
         ],
         h,
       ),
@@ -86,9 +86,9 @@ const statsView = (model: Model, h: HtmlBuilder<Message>): Html =>
             hint: 'retrying their exchange connection',
           },
           {
-            label: 'Eligible coins',
-            value: formatCount(workers.reduce((total, worker) => total + worker.eligibleCoins, 0)),
-            hint: 'assigned to running workers',
+            label: 'Subscribed coins',
+            value: formatCount(workers.reduce((total, worker) => total + worker.subscribedCoins, 0)),
+            hint: 'route-eligible coins on active workers',
           },
         ],
         h,
@@ -134,7 +134,7 @@ const workersTableView = (
       th('State', h),
       th('Shards', h),
       th('Restarts', h, true),
-      th('Eligible coins', h, true),
+      th('Subscribed coins', h, true),
       th('Actions', h, true),
     ]),
     body(h, rows),
@@ -152,7 +152,7 @@ const workerRows = (
       td(h, badge(worker.running ? 'running' : 'stopped', h, worker.running ? 'positive' : 'neutral')),
       td(h, shardsCell(worker, h)),
       td(h, formatCount(worker.restarts), { isNumeric: true }),
-      td(h, formatCount(worker.eligibleCoins), { isNumeric: true }),
+      td(h, formatCount(worker.subscribedCoins), { isNumeric: true }),
       td(h, workerAction(worker, model, h), { isNumeric: true }),
     ]))
 

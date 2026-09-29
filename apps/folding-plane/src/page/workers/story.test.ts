@@ -16,7 +16,7 @@ const fixtureWorkers = Schema.decodeUnknownSync(Schema.Array(WorkerStatus))([
     running: false,
     shards: [],
     restarts: 0,
-    eligibleCoins: 12,
+    subscribedCoins: 12,
   },
   {
     exchangeId: 11,
@@ -34,7 +34,7 @@ const fixtureWorkers = Schema.decodeUnknownSync(Schema.Array(WorkerStatus))([
       },
     ],
     restarts: 2,
-    eligibleCoins: 8,
+    subscribedCoins: 8,
   },
 ])
 

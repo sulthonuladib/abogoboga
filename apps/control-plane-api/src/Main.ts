@@ -1,10 +1,10 @@
 /**
  * Control-plane composition root.
  *
- * Wires the persistence adapters, crawler supervisor/reconciler, JSON API
- * handlers, and the browser application's static routes into one HTTP server,
- * then runs it with the Bun runtime. Every dependency is chosen here; inner
- * modules stay framework- and vendor-independent.
+ * Wires the persistence adapters, crawler gate/reconcilers, JSON API handlers,
+ * and the browser application's static routes into one HTTP server, then runs
+ * it with the Bun runtime. Every dependency is chosen here; inner modules stay
+ * framework- and vendor-independent.
  *
  * @module
  */
@@ -34,7 +34,18 @@ import {
   marketStoreLayer,
   workerControlLiveLayer
 } from "@lister/api"
-import { DomainEvents, Reconciler, Supervisor, eligibilityStoreLayer, orderbookStoreLayer } from "@lister/crawler"
+import {
+  DomainEvents,
+  Gate,
+  IdrRate,
+  OpportunityReconciler,
+  OpportunityWriter,
+  Reconciler,
+  Supervisor,
+  TickIngestion,
+  eligibilityStoreLayer,
+  opportunityStoreLayer
+} from "@lister/crawler"
 import { Database } from "@lister/db"
 import { Effect, Layer } from "effect"
 import { HttpRouter } from "effect/unstable/http"
@@ -72,12 +83,28 @@ const storesLayer = Layer.mergeAll(
   chainLinkStoreLayer,
   exchangeDirectoryLayer,
   eligibilityStoreLayer,
-  orderbookStoreLayer
+  opportunityStoreLayer
 )
 
-const supervisorLayer = Supervisor.layer({
+const storesProvided = storesLayer.pipe(Layer.provide(databaseLayer))
+
+const opportunityWriterLayer = OpportunityWriter.layer().pipe(Layer.provide(storesProvided))
+
+const tickIngestionLayer = TickIngestion.layer.pipe(
+  Layer.provide(Layer.mergeAll(storesProvided, IdrRate.constantLayer(), opportunityWriterLayer))
+)
+
+const supervisorLayer = Supervisor.layer<TickIngestion>({
   workerScript: workerScriptFor("dummy"),
-  workerScriptFor
+  workerScriptFor,
+  onTick: (tick, context) =>
+    Effect.flatMap(TickIngestion, (ingestion) =>
+      ingestion.ingest(tick, context).pipe(
+        Effect.catchTag("TickMappingNotFound", (error) =>
+          Effect.logDebug(`no market mapping for ${error.coingeckoId} on ${error.exchangeSlug}`)
+        )
+      )
+    )
 })
 
 const coinDetailEventsLayer = Layer.effect(
@@ -97,10 +124,12 @@ const coinDetailEventsLayer = Layer.effect(
   })
 )
 
-const storesProvided = storesLayer.pipe(Layer.provide(databaseLayer))
-
 const supervisorProvided = supervisorLayer.pipe(
-  Layer.provide(Layer.mergeAll(DomainEvents.layer, BunWorker.layerPlatform))
+  Layer.provide(Layer.mergeAll(DomainEvents.layer, BunWorker.layerPlatform, tickIngestionLayer))
+)
+
+const gateProvided = Gate.layer.pipe(
+  Layer.provide(Layer.mergeAll(supervisorProvided, DomainEvents.layer))
 )
 
 const appServicesProvided = Layer.mergeAll(
@@ -113,9 +142,11 @@ const appServicesProvided = Layer.mergeAll(
 
 const coinDetailEventsProvided = coinDetailEventsLayer.pipe(Layer.provide(DomainEvents.layer))
 
-const crawlerBase = Layer.mergeAll(supervisorProvided, storesProvided, DomainEvents.layer)
+const crawlerBase = Layer.mergeAll(supervisorProvided, storesProvided, DomainEvents.layer, gateProvided)
 
 const reconcilerProvided = Reconciler.layer.pipe(Layer.provide(crawlerBase))
+
+const opportunityReconcilerProvided = OpportunityReconciler.layer.pipe(Layer.provide(crawlerBase))
 
 const workerControlProvided = workerControlLiveLayer.pipe(Layer.provide(crawlerBase))
 
@@ -123,6 +154,7 @@ const dependenciesLayer = Layer.mergeAll(
   appServicesProvided,
   coinDetailEventsProvided,
   reconcilerProvided,
+  opportunityReconcilerProvided,
   workerControlProvided,
   supervisorProvided,
   storesProvided,

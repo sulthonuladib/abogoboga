@@ -8,6 +8,7 @@ import { HttpApiBuilder, HttpApiTest } from "effect/unstable/httpapi"
 import { Api } from "./Api.ts"
 import { ChainHandlers } from "./ChainHandlers.ts"
 import { ChainLinkHandlers } from "./ChainLinkHandlers.ts"
+import { CoinDetailEvents } from "./CoinDetailEvents.ts"
 import { CryptocurrencyHandlers } from "./CryptocurrencyHandlers.ts"
 import { CryptocurrencyCoingeckoIdExists, CryptocurrencyNotFound } from "./CryptocurrencyErrors.ts"
 import { ExchangeHandlers } from "./ExchangeHandlers.ts"
@@ -210,7 +211,7 @@ describe("cryptocurrency HttpApi", () => {
           .insert(exchangeCryptocurrencyTable)
           .values({ exchangeId: otherExchange!.id, cryptocurrencyId: 2, exchangeSymbol: "LTCIDR" })
 
-        const filter = { search: "", flag: "all", exchangeId: exchangeId(exchange!.id) } as const
+        const filter = { search: "", flag: "all", exchangeId: exchangeId(exchange!.id), searchBy: ["symbol"] } as const
 
         const page = yield* client.cryptocurrency.stats({
           payload: { ...filter, page: 1, limit: 10, sortBy: "symbol", order: "asc" }
@@ -253,6 +254,7 @@ describe("cryptocurrency HttpApi request errors", () => {
           Layer.provide(WorkerControl.layerTest([{ id: 1, slug: "indodax" }]))
         )
       ),
+      Layer.provide(CoinDetailEvents.layerNoop),
       Layer.provide(Database.layerMemory()),
       Layer.provide(HttpServer.layerServices)
     )

@@ -4,6 +4,7 @@ import { type BootstrapCoin } from "@lister/worker-contract"
 import { Duration, Effect, Layer, Option, Ref } from "effect"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { Gate } from "./Gate.ts"
 import { Eligibility, Reconciler } from "./Reconciler.ts"
 import { Supervisor, type ExchangeSnapshot } from "./Supervisor.ts"
 import { DomainEvents } from "./WorkerEvents.ts"
@@ -40,17 +41,14 @@ const eligibilityLayer = (registry: Ref.Ref<Registry>): Layer.Layer<Eligibility>
           return entry === undefined ? Option.none() : Option.some(entry.slug)
         }),
       coinsForExchange: (exchangeId) =>
-        Effect.map(Ref.get(registry), (current) => current.get(exchangeId)?.coins ?? [])
+        Effect.map(Ref.get(registry), (current) => current.get(exchangeId)?.coins ?? []),
+      pairsFor: () => Effect.succeed([])
     })
   )
 
-const coinsOf = (snapshot: ReadonlyArray<ExchangeSnapshot>, exchangeId: number): ReadonlyArray<BootstrapCoin> =>
-  (snapshot.find((exchange) => exchange.exchangeId === exchangeId)?.shards ?? []).flatMap((shard) => [
-    ...shard.coins
-  ])
-
 const symbolsOf = (snapshot: ReadonlyArray<ExchangeSnapshot>, exchangeId: number): ReadonlyArray<string> =>
-  coinsOf(snapshot, exchangeId)
+  (snapshot.find((exchange) => exchange.exchangeId === exchangeId)?.shards ?? [])
+    .flatMap((shard) => [...shard.coins])
     .map((coin) => coin.symbol)
     .sort()
 
@@ -67,14 +65,17 @@ const waitUntil = (check: Effect.Effect<boolean>, label: string): Effect.Effect<
 
 const runWithReconciler = <A, E>(
   registry: Ref.Ref<Registry>,
-  program: Effect.Effect<A, E, Supervisor | DomainEvents>
+  program: Effect.Effect<A, E, Supervisor | DomainEvents | Gate>
 ): Promise<A> => {
   const base = Layer.mergeAll(DomainEvents.layer, BunWorker.layerPlatform)
+  const supervisorProvided = Supervisor.layer({ workerScript: dummyWorker }).pipe(Layer.provide(base))
+  const gateProvided = Gate.layer.pipe(Layer.provide(Layer.mergeAll(supervisorProvided, base)))
 
   const dependencies = Layer.mergeAll(
-    Supervisor.layer({ workerScript: dummyWorker }).pipe(Layer.provide(base)),
+    supervisorProvided,
     base,
-    eligibilityLayer(registry)
+    eligibilityLayer(registry),
+    gateProvided
   )
 
   return Effect.runPromise(
@@ -83,16 +84,27 @@ const runWithReconciler = <A, E>(
 }
 
 describe("Reconciler convergence", () => {
-  test("starts on operator intent, then adds and removes coins from database truth", async () => {
-    const registry = Ref.makeUnsafe<Registry>(new Map([[1, { slug: "dummy-ex", coins: [btc, eth] }]]))
+  test("converges subscriptions once the gate opens, then adds and removes coins from database truth", async () => {
+    const registry = Ref.makeUnsafe<Registry>(
+      new Map([
+        [1, { slug: "dummy-ex", coins: [btc, eth] }],
+        [2, { slug: "other-ex", coins: [] }]
+      ])
+    )
 
     await runWithReconciler(
       registry,
       Effect.gen(function*() {
         const supervisor = yield* Supervisor
         const events = yield* DomainEvents
+        const gate = yield* Gate
 
-        yield* events.publish({ type: "worker-changed", exchangeId: 1, action: "start" })
+        yield* gate.start(1, "dummy-ex").pipe(Effect.orDie)
+
+        // A lone exchange is resident but subscribes to nothing.
+        expect(symbolsOf(yield* supervisor.snapshot, 1)).toEqual([])
+
+        yield* gate.start(2, "other-ex").pipe(Effect.orDie)
 
         yield* waitUntil(
           Effect.map(supervisor.snapshot, (snapshot) => symbolsOf(snapshot, 1).length === 2),
@@ -131,10 +143,51 @@ describe("Reconciler convergence", () => {
 
         // Live subscription RPCs are queued; let the final unsubscribe settle before shutdown.
         yield* Effect.sleep(Duration.millis(100))
-        yield* supervisor.stop(1)
       })
     )
-  })
+  }, 20000)
+
+  test("a coin-detail change on one exchange re-reconciles the others", async () => {
+    const registry = Ref.makeUnsafe<Registry>(
+      new Map([
+        [1, { slug: "dummy-ex", coins: [btc] }],
+        [2, { slug: "other-ex", coins: [] }]
+      ])
+    )
+
+    await runWithReconciler(
+      registry,
+      Effect.gen(function*() {
+        const supervisor = yield* Supervisor
+        const events = yield* DomainEvents
+        const gate = yield* Gate
+
+        yield* gate.start(1, "dummy-ex").pipe(Effect.orDie)
+        yield* gate.start(2, "other-ex").pipe(Effect.orDie)
+
+        yield* waitUntil(
+          Effect.map(supervisor.snapshot, (snapshot) => symbolsOf(snapshot, 1).includes("BTC")),
+          "initial subscription"
+        )
+
+        // Exchange 1's eligibility changes, but the event names exchange 2.
+        yield* setRegistry(registry, 1, { slug: "dummy-ex", coins: [] })
+        yield* events.publish({
+          type: "coin-detail-changed",
+          exchangeId: 2,
+          exchangeCryptocurrencyId: 20,
+          cryptocurrencyId: 5
+        })
+
+        yield* waitUntil(
+          Effect.map(supervisor.snapshot, (snapshot) => symbolsOf(snapshot, 1).length === 0),
+          "other exchange reconciled"
+        )
+
+        expect(symbolsOf(yield* supervisor.snapshot, 1)).toEqual([])
+      })
+    )
+  }, 20000)
 
   test("ignores mapping changes for exchanges that are not running", async () => {
     const registry = Ref.makeUnsafe<Registry>(new Map([[1, { slug: "dummy-ex", coins: [btc] }]]))

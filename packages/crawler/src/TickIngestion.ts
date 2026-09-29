@@ -1,5 +1,7 @@
 import { type CanonicalTick } from "@lister/worker-contract"
 import { Context, Effect, Layer, Option, Schema } from "effect"
+import { IdrRate } from "./IdrRate.ts"
+import { OpportunityWriter } from "./OpportunityWriter.ts"
 import { processTick, type QuoteCurrency } from "./QuotePipeline.ts"
 import type { TickContext } from "./Supervisor.ts"
 
@@ -7,8 +9,8 @@ import type { TickContext } from "./Supervisor.ts"
  * Resolved identity and quote currency for one exchange coin mapping.
  */
 export interface ExchangeCryptocurrencyRef {
-  /** Primary key of the `exchange_cryptocurrency` mapping. */
-  readonly exchangeCryptocurrencyId: number
+  /** Primary key of the `cryptocurrency` the mapping points at. */
+  readonly cryptocurrencyId: number
   /** Quote currency the exchange's books are denominated in. */
   readonly quoteCurrency: QuoteCurrency
 }
@@ -32,41 +34,6 @@ export class MarketMappings extends Context.Service<MarketMappings, MarketMappin
 ) {}
 
 /**
- * One executable orderbook snapshot row to persist.
- */
-export interface OrderbookSnapshotWrite {
-  /** Database exchange id. */
-  readonly exchangeId: number
-  /** Mapping primary key the snapshot belongs to. */
-  readonly exchangeCryptocurrencyId: number
-  /** Marginal ask price in IDR (the buy price). */
-  readonly buyPrice: number
-  /** Marginal bid price in IDR (the sell price). */
-  readonly sellPrice: number
-  /** Base amount bought to reach the volume target. */
-  readonly buyAmount: number
-  /** Base amount sold to reach the volume target. */
-  readonly sellAmount: number
-  /** Worker-supplied tick timestamp in epoch milliseconds. */
-  readonly tickTimestamp: number
-}
-
-/**
- * Persistence port upserting executable snapshots.
- */
-export type OrderbookSnapshotsService = {
-  /** Upsert the snapshot for a mapping, replacing any previous row. */
-  readonly upsert: (snapshot: OrderbookSnapshotWrite) => Effect.Effect<void>
-}
-
-/**
- * Persistence port upserting executable snapshots.
- */
-export class OrderbookSnapshots extends Context.Service<OrderbookSnapshots, OrderbookSnapshotsService>()(
-  "lister/crawler/OrderbookSnapshots"
-) {}
-
-/**
  * Expected failure: a tick arrived for a coin with no mapping on its exchange.
  */
 export class TickMappingNotFound extends Schema.TaggedError<TickMappingNotFound>()("TickMappingNotFound", {
@@ -78,29 +45,37 @@ export class TickMappingNotFound extends Schema.TaggedError<TickMappingNotFound>
 /**
  * Tick pipeline application service.
  *
- * Converts canonical ticks into executable quotes and upserts one snapshot per
- * market mapping. Thin books leave the stored snapshot untouched, and ticks for
- * unmapped coins fail with {@link TickMappingNotFound} so the caller can decide
- * whether to log or drop them.
+ * Resolves the tick's mapping and the current {@link IdrRate}, walks the book
+ * to the volume target, then records the buy and sell sides with the
+ * {@link OpportunityWriter}, which coalesces them into one transaction per
+ * flush. Thin books leave the row untouched, a coin with no opportunity rows
+ * updates nothing, and ticks for unmapped coins fail with
+ * {@link TickMappingNotFound} so the caller can decide whether to log or drop
+ * them.
  */
 export class TickIngestion extends Context.Service<TickIngestion, {
   /**
    * Ingest one tick from a shard.
    *
    * Fails with `TickMappingNotFound` when the coin has no mapping on the
-   * exchange; every other outcome is a persisted snapshot or a skipped thin
+   * exchange; every other outcome is a recorded side update or a skipped thin
    * book.
    */
   readonly ingest: (tick: CanonicalTick, context: TickContext) => Effect.Effect<void, TickMappingNotFound>
 }>()("lister/crawler/TickIngestion") {
   /**
-   * Layer wiring the pipeline to its persistence ports.
+   * Layer wiring the pipeline to its persistence and rate ports.
    */
-  static readonly layer: Layer.Layer<TickIngestion, never, MarketMappings | OrderbookSnapshots> = Layer.effect(
+  static readonly layer: Layer.Layer<
+    TickIngestion,
+    never,
+    MarketMappings | OpportunityWriter | IdrRate
+  > = Layer.effect(
     TickIngestion,
     Effect.gen(function*() {
       const mappings = yield* MarketMappings
-      const snapshots = yield* OrderbookSnapshots
+      const writer = yield* OpportunityWriter
+      const rate = yield* IdrRate
 
       const ingest = (tick: CanonicalTick, context: TickContext): Effect.Effect<void, TickMappingNotFound> =>
         Effect.gen(function*() {
@@ -114,7 +89,7 @@ export class TickIngestion extends Context.Service<TickIngestion, {
             })
           }
 
-          const quote = processTick(tick, ref.value.quoteCurrency)
+          const quote = processTick(tick, ref.value.quoteCurrency, yield* rate.current)
 
           if (quote === null) {
             yield* Effect.logDebug(`thin book skipped ${tick.symbol}`)
@@ -122,14 +97,22 @@ export class TickIngestion extends Context.Service<TickIngestion, {
             return
           }
 
-          yield* snapshots.upsert({
+          const base = {
+            cryptocurrencyId: ref.value.cryptocurrencyId,
             exchangeId: context.exchangeId,
-            exchangeCryptocurrencyId: ref.value.exchangeCryptocurrencyId,
-            buyPrice: quote.buyPrice,
-            sellPrice: quote.sellPrice,
-            buyAmount: quote.buyAmount,
-            sellAmount: quote.sellAmount,
             tickTimestamp: tick.timestamp
+          }
+
+          yield* writer.recordBuy({
+            ...base,
+            price: quote.buyPrice,
+            volume: quote.buyAmount
+          })
+
+          yield* writer.recordSell({
+            ...base,
+            price: quote.sellPrice,
+            volume: quote.sellAmount
           })
         }).pipe(
           Effect.annotateLogs({ exchange: context.exchangeSlug, shard: context.shardId }),

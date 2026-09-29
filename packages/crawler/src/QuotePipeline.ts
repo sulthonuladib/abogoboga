@@ -6,14 +6,6 @@ import type { CanonicalTick, PriceLevel } from "@lister/worker-contract"
 export const idrVolumeTarget = 2_000_000 as const
 
 /**
- * Stub USDT/IDR rate.
- *
- * This is the single call site every conversion flows through; replace it here
- * when a rate source exists.
- */
-export const getUsdtToIdrRate = (): number => 16_000
-
-/**
  * Quote currency of one exchange book.
  */
 export type QuoteCurrency = "usdt" | "idr"
@@ -23,10 +15,11 @@ export type QuoteCurrency = "usdt" | "idr"
  *
  * @param price - Price in the exchange's quote currency.
  * @param quote - The exchange's quote currency.
+ * @param rate - Current USDT→IDR rate, applied only to `usdt` books.
  * @returns The price in IDR.
  */
-export const convertToIdr = (price: number, quote: QuoteCurrency): number =>
-  quote === "idr" ? price : price * getUsdtToIdrRate()
+export const convertToIdr = (price: number, quote: QuoteCurrency, rate: number): number =>
+  quote === "idr" ? price : price * rate
 
 /**
  * Result of walking one book side best-first to the volume target.
@@ -86,17 +79,22 @@ export interface ExecutableQuote {
 /**
  * Convert a canonical tick into an executable quote.
  *
- * Book prices are converted to IDR before the walk using the single rate source.
+ * Book prices are converted to IDR before the walk using the supplied rate.
  * Buy lifts asks and sell hits bids. Returns `null` for a thin book so callers
- * leave the stored snapshot untouched.
+ * leave the stored opportunity side untouched.
  *
  * @param tick - The tick to convert.
  * @param quote - The exchange's quote currency.
+ * @param rate - Current USDT→IDR rate for `usdt` books.
  * @returns The executable quote, or `null` when either side is thin.
  */
-export const processTick = (tick: CanonicalTick, quote: QuoteCurrency): ExecutableQuote | null => {
-  const bidsIdr = tick.bids.map(([price, quantity]): PriceLevel => [convertToIdr(price, quote), quantity])
-  const asksIdr = tick.asks.map(([price, quantity]): PriceLevel => [convertToIdr(price, quote), quantity])
+export const processTick = (
+  tick: CanonicalTick,
+  quote: QuoteCurrency,
+  rate: number
+): ExecutableQuote | null => {
+  const bidsIdr = tick.bids.map(([price, quantity]): PriceLevel => [convertToIdr(price, quote, rate), quantity])
+  const asksIdr = tick.asks.map(([price, quantity]): PriceLevel => [convertToIdr(price, quote, rate), quantity])
   const bidWalk = walkBookSide(bidsIdr)
   const askWalk = walkBookSide(asksIdr)
 

@@ -1,0 +1,1035 @@
+{
+  "version": "8",
+  "dialect": "postgres",
+  "id": "8f8ab516-7d44-4746-a497-354a4280aed4",
+  "prevIds": [
+    "b0a8930a-e258-44cd-86be-02ce06bb1f61"
+  ],
+  "ddl": [
+    {
+      "values": [
+        "usdt",
+        "idr"
+      ],
+      "name": "exchangeBaseCurrency",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "chain",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "cryptocurrency",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "exchange_cryptocurrency_chain",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "exchange_cryptocurrency",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "exchange",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "opportunity",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "chain_id_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "cache": 1,
+        "cycle": false
+      },
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "chain"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "chain"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "code",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "chain"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "createdAt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "chain"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updatedAt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "chain"
+    },
+    {
+      "type": "serial",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cryptocurrency"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cryptocurrency"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "symbol",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cryptocurrency"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "slug",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cryptocurrency"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "logo",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cryptocurrency"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "coingeckoId",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cryptocurrency"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "createdAt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cryptocurrency"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updatedAt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cryptocurrency"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "exchange_cryptocurrency_chain_id_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "cache": 1,
+        "cycle": false
+      },
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency_chain"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "exchangeChainCode",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency_chain"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "exchangeCryptocurrencyId",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency_chain"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "chainId",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency_chain"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "exchangeChainName",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency_chain"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "name": "withdrawEnabled",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency_chain"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "name": "depositEnabled",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency_chain"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "createdAt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency_chain"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updatedAt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency_chain"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "exchange_cryptocurrency_id_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "cache": 1,
+        "cycle": false
+      },
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "exchangeId",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cryptocurrencyId",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "exchangeSymbol",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "name": "listed",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "name": "tradeEnabled",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "createdAt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updatedAt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange_cryptocurrency"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "exchange_id_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "cache": 1,
+        "cycle": false
+      },
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "coingeckoId",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "slug",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange"
+    },
+    {
+      "type": "varchar(255)",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "logo",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "name": "registeredOnCmc",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange"
+    },
+    {
+      "type": "exchangeBaseCurrency",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "baseCurrency",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "createdAt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updatedAt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "exchange"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "opportunity_id_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "cache": 1,
+        "cycle": false
+      },
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cryptocurrencyId",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "buyExchangeId",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "sellExchangeId",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "buyPrice",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "sellPrice",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "buyVolume",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "sellVolume",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "buyTickTimestamp",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "sellTickTimestamp",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "createdAt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updatedAt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "exchangeCryptocurrencyId"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exchange_cryptocurrency",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE",
+      "name": "exchange_cryptocurrency_chain_exchangeCryptocurrencyId_exchange",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "exchange_cryptocurrency_chain"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "chainId"
+      ],
+      "schemaTo": "public",
+      "tableTo": "chain",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE",
+      "name": "exchange_cryptocurrency_chain_chainId_chain_id_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "exchange_cryptocurrency_chain"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "exchangeId"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exchange",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE",
+      "name": "exchange_cryptocurrency_exchangeId_exchange_id_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "exchange_cryptocurrency"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "cryptocurrencyId"
+      ],
+      "schemaTo": "public",
+      "tableTo": "cryptocurrency",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE",
+      "name": "exchange_cryptocurrency_cryptocurrencyId_cryptocurrency_id_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "exchange_cryptocurrency"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "cryptocurrencyId"
+      ],
+      "schemaTo": "public",
+      "tableTo": "cryptocurrency",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE",
+      "name": "opportunity_cryptocurrencyId_cryptocurrency_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "buyExchangeId"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exchange",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE",
+      "name": "opportunity_buyExchangeId_exchange_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "sellExchangeId"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exchange",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "CASCADE",
+      "onDelete": "CASCADE",
+      "name": "opportunity_sellExchangeId_exchange_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "chain_pkey",
+      "schema": "public",
+      "table": "chain",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "cryptocurrency_pkey",
+      "schema": "public",
+      "table": "cryptocurrency",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "exchange_cryptocurrency_chain_pkey",
+      "schema": "public",
+      "table": "exchange_cryptocurrency_chain",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "exchange_cryptocurrency_pkey",
+      "schema": "public",
+      "table": "exchange_cryptocurrency",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "exchange_pkey",
+      "schema": "public",
+      "table": "exchange",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "opportunity_pkey",
+      "schema": "public",
+      "table": "opportunity",
+      "entityType": "pks"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "exchangeCryptocurrencyId",
+        "chainId"
+      ],
+      "nullsNotDistinct": false,
+      "name": "exchange_cryptocurrency_chain_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "exchange_cryptocurrency_chain"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "exchangeId",
+        "cryptocurrencyId"
+      ],
+      "nullsNotDistinct": false,
+      "name": "exchange_cryptocurrency_exchange_crypto_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "exchange_cryptocurrency"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "cryptocurrencyId",
+        "buyExchangeId",
+        "sellExchangeId"
+      ],
+      "nullsNotDistinct": false,
+      "name": "opportunity_crypto_buy_sell_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "opportunity"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "code"
+      ],
+      "nullsNotDistinct": false,
+      "name": "chain_code_unique",
+      "schema": "public",
+      "table": "chain",
+      "entityType": "uniques"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "slug"
+      ],
+      "nullsNotDistinct": false,
+      "name": "cryptocurrency_slug_unique",
+      "schema": "public",
+      "table": "cryptocurrency",
+      "entityType": "uniques"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "coingeckoId"
+      ],
+      "nullsNotDistinct": false,
+      "name": "cryptocurrency_coingeckoId_unique",
+      "schema": "public",
+      "table": "cryptocurrency",
+      "entityType": "uniques"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "coingeckoId"
+      ],
+      "nullsNotDistinct": false,
+      "name": "exchange_coingeckoId_unique",
+      "schema": "public",
+      "table": "exchange",
+      "entityType": "uniques"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "slug"
+      ],
+      "nullsNotDistinct": false,
+      "name": "exchange_slug_unique",
+      "schema": "public",
+      "table": "exchange",
+      "entityType": "uniques"
+    }
+  ],
+  "renames": []
+}

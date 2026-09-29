@@ -1,16 +1,10 @@
 import { Clock, Context, Effect, Layer, PubSub, Ref, Schema, Semaphore, Stream } from "effect"
+import { workerEventTypeLiterals } from "./WorkerEventTypes.ts"
 
 /**
  * Kind of worker lifecycle event published on the supervision stream.
  */
-export const WorkerEventType = Schema.Literals([
-  "started",
-  "stopped",
-  "shard-spawned",
-  "shard-exited",
-  "reconnecting",
-  "reconciled"
-])
+export const WorkerEventType = Schema.Literals(workerEventTypeLiterals)
 
 /**
  * Kind of worker lifecycle event published on the supervision stream.
@@ -68,9 +62,26 @@ export const CoinDetailChanged = Schema.Struct({
 export type CoinDetailChanged = typeof CoinDetailChanged.Type
 
 /**
+ * The set of exchanges the crawl gate considers active changed.
+ *
+ * Carries the active exchange ids for consumers that only need to know a
+ * recalculation is due; the authoritative set is always read back from the
+ * gate, never from this payload.
+ */
+export const GateChanged = Schema.Struct({
+  type: Schema.Literal("gate-changed"),
+  activeExchangeIds: Schema.Array(Schema.Int)
+})
+
+/**
+ * The set of exchanges the crawl gate considers active changed.
+ */
+export type GateChanged = typeof GateChanged.Type
+
+/**
  * Every in-process domain event the crawler services produce or consume.
  */
-export const DomainEvent = Schema.Union([WorkerEvent, WorkerChanged, CoinDetailChanged])
+export const DomainEvent = Schema.Union([WorkerEvent, WorkerChanged, CoinDetailChanged, GateChanged])
 
 /**
  * Every in-process domain event the crawler services produce or consume.

@@ -5,7 +5,7 @@ import {
   cryptocurrencyTable,
   exchangeCryptocurrencyChainTable,
   chainTable,
-  orderbookSnapshotTable,
+  opportunityTable,
 } from "./schema";
 
 const schema = {
@@ -14,7 +14,7 @@ const schema = {
   cryptocurrencyTable,
   exchangeCryptocurrencyChainTable,
   chainTable,
-  orderbookSnapshotTable,
+  opportunityTable,
 };
 
 export const dbRelations = defineRelations(schema, (r) => ({
@@ -48,14 +48,18 @@ export const dbRelations = defineRelations(schema, (r) => ({
   chainTable: {
     exchangeCryptocurrencyChains: r.many.exchangeCryptocurrencyChainTable(),
   },
-  orderbookSnapshotTable: {
-    exchange: r.one.exchangeTable({
-      from: r.orderbookSnapshotTable.exchangeId,
+  opportunityTable: {
+    cryptocurrency: r.one.cryptocurrencyTable({
+      from: r.opportunityTable.cryptocurrencyId,
+      to: r.cryptocurrencyTable.id,
+    }),
+    buyExchange: r.one.exchangeTable({
+      from: r.opportunityTable.buyExchangeId,
       to: r.exchangeTable.id,
     }),
-    exchangeCryptocurrency: r.one.exchangeCryptocurrencyTable({
-      from: r.orderbookSnapshotTable.exchangeCryptocurrencyId,
-      to: r.exchangeCryptocurrencyTable.id,
+    sellExchange: r.one.exchangeTable({
+      from: r.opportunityTable.sellExchangeId,
+      to: r.exchangeTable.id,
     }),
   },
 }));

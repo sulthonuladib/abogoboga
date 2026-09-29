@@ -101,6 +101,5 @@ export const MarketHandlersNoDeps = HttpApiBuilder.group(
 export const MarketHandlers = MarketHandlersNoDeps.pipe(
   Layer.provide(Market.layer),
   Layer.provide(MarketStoreLive),
-  Layer.provide(CoinDetailEvents.layerNoop),
   Layer.provideMerge(RequestValidationLive)
 )

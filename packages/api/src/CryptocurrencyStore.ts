@@ -433,6 +433,7 @@ export const layer: Layer.Layer<CryptocurrencyStore, never, Database> = Layer.ef
         if (term !== "") {
           const pattern = literalLikePattern(term)
           const numeric = Number(term)
+
           const match = or(
             ...(query.searchBy ?? defaultStatsSearchBy).map((field: CryptocurrencySearchField) =>
               field === "id"
