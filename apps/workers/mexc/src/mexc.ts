@@ -57,12 +57,6 @@ export const pingMethod = "PING" as const
 export const pingInterval = "20 seconds" as const
 
 /**
- * Sampling cadence for the ticks stream. MEXC has no fixed 100ms feed, so the
- * worker samples the latest book once per second per the workers guidance.
- */
-export const sampleInterval = "1 second" as const
-
-/**
  * Quote currency every MEXC spot book is denominated in.
  */
 const quote = "USDT"
