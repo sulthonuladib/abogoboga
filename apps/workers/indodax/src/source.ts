@@ -66,8 +66,9 @@ export const source: WorkerSourceFactory = (initial, context) =>
     const subscriptions = yield* Ref.make<ReadonlyMap<string, BootstrapCoin>>(new Map())
     // Normalized pair symbol → latest complete order-book snapshot.
     const books = yield* Ref.make<ReadonlyMap<string, OrderBook>>(new Map())
-    // Monotonic request id for the Indodax wire protocol.
-    const ids = yield* Ref.make(0)
+    // Monotonic request id for the Indodax wire protocol. The server rejects
+    // `id: 0` as a bad request, so ids are positive and strictly increasing.
+    const ids = yield* Ref.make(1)
     // Closed when the host tears the worker down; interrupts `ticks`.
     const closed = yield* Deferred.make<void>()
 
