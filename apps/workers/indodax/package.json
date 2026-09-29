@@ -5,7 +5,8 @@
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "dev": "bun run src/dev.ts"
   },
   "dependencies": {
     "@lister/worker-contract": "workspace:*",
