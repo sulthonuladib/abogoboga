@@ -12,11 +12,11 @@
   "module": "apps/control-plane-api/src/index.ts",
   "catalog": {
     "effect": "4.0.0-rc.117",
-    "@effect/platform-bun": "4.0.0-rc.115",
+    "@effect/platform-bun": "4.0.0-rc.117",
     "@effect/platform-node": "4.0.0-rc.117",
     "@effect/platform-node-shared": "4.0.0-rc.117",
     "@effect/platform-browser": "4.0.0-rc.117",
-    "@effect/sql-pg": "4.0.0-rc.115",
+    "@effect/sql-pg": "4.0.0-rc.117",
     "@effect/tsgo": "0.46.1",
     "foldkit": "0.163.0",
     "@foldkit/devtools": "0.163.0",
@@ -47,11 +47,11 @@
     "start": "bun run apps/control-plane-api/src/index.ts",
     "dev:web": "bun run --cwd apps/folding-plane dev",
     "build:web": "bun run --cwd apps/folding-plane build",
-    "test": "bun test --isolate ./packages ./apps",
+    "test": "bun test --concurrent ./packages ./apps",
     "test:web": "bun run --cwd apps/folding-plane test",
     "typecheck": "bunx tsc --noEmit",
     "typecheck:web": "bun run --cwd apps/folding-plane typecheck",
-    "lint": "bunx oxlint --type-aware ./packages ./apps ./test-setup.ts",
+    "lint": "bunx oxlint --type-aware ./packages ./apps ./tools ./test-setup.ts",
     "format": "oxfmt",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
@@ -59,7 +59,9 @@
     "db:seed:tester": "bun run apps/cli/src/index.ts seed tester",
     "scan:fetch": "bun run apps/cli/src/index.ts scan fetch",
     "scan:import": "bun run apps/cli/src/index.ts scan import",
-    "prepare": "effect-tsgo patch --typescript --oxlint"
+    "prepare": "effect-tsgo patch --typescript --oxlint",
+    "update:rc": "bun run tools/update-rc.ts",
+    "update:rc:dry": "bun run tools/update-rc.ts --dry-run"
   },
   "dependencies": {
     "@bufbuild/buf": "^1.73.0",

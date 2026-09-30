@@ -8,7 +8,7 @@ import {
   exchangeTable,
   opportunityTable
 } from "@lister/db"
-import { Duration, Effect, Layer, Option, Ref, Scope, Stream } from "effect"
+import { Duration, Effect, Layer, Ref, Scope, Stream } from "effect"
 import { layer as eligibilityStoreLayer } from "./EligibilityStore.ts"
 import { Gate } from "./Gate.ts"
 import { OpportunityReconciler } from "./OpportunityReconciler.ts"
@@ -81,7 +81,7 @@ const fakeEligibilityLayer = (pairs: Ref.Ref<ReadonlyArray<OpportunityKey>>): La
   Layer.succeed(
     Eligibility,
     Eligibility.of({
-      exchangeSlug: () => Effect.succeed(Option.some("fake-ex")),
+      exchangeSlug: () => Effect.succeedSome("fake-ex"),
       coinsForExchange: () => Effect.succeed([]),
       pairsFor: () => Ref.get(pairs)
     })

@@ -70,38 +70,38 @@ export const opportunityStoreLayer: Layer.Layer<OpportunityStore, never, Databas
   Effect.gen(function*() {
     const { db } = yield* Database
 
-    const diffInit = Effect.fn("OpportunityStore.diffInit")(function*(desired: ReadonlyArray<OpportunityKey>) {
-      const existing = yield* db
-        .select({
-          id: opportunityTable.id,
-          cryptocurrencyId: opportunityTable.cryptocurrencyId,
-          buyExchangeId: opportunityTable.buyExchangeId,
-          sellExchangeId: opportunityTable.sellExchangeId
-        })
-        .from(opportunityTable)
-        .pipe(Effect.orDie)
+    const diffInit = Effect.fn("OpportunityStore.diffInit")(
+      function*(desired: ReadonlyArray<OpportunityKey>) {
+        const existing = yield* db
+          .select({
+            id: opportunityTable.id,
+            cryptocurrencyId: opportunityTable.cryptocurrencyId,
+            buyExchangeId: opportunityTable.buyExchangeId,
+            sellExchangeId: opportunityTable.sellExchangeId
+          })
+          .from(opportunityTable)
 
-      const desiredKeys = new Set(desired.map(keyOf))
-      const existingKeys = new Set(existing.map(keyOf))
+        const desiredKeys = new Set(desired.map(keyOf))
+        const existingKeys = new Set(existing.map(keyOf))
 
-      const toInsert = desired.filter((key) => !existingKeys.has(keyOf(key)))
-      const toDelete = existing.filter((row) => !desiredKeys.has(keyOf(row)))
+        const toInsert = desired.filter((key) => !existingKeys.has(keyOf(key)))
+        const toDelete = existing.filter((row) => !desiredKeys.has(keyOf(row)))
 
-      if (toInsert.length > 0) {
-        yield* db
-          .insert(opportunityTable)
-          .values(toInsert.map((key) => ({ ...key })))
-          .onConflictDoNothing()
-          .pipe(Effect.orDie)
-      }
+        if (toInsert.length > 0) {
+          yield* db
+            .insert(opportunityTable)
+            .values(toInsert.map((key) => ({ ...key })))
+            .onConflictDoNothing()
+        }
 
-      if (toDelete.length > 0) {
-        yield* db
-          .delete(opportunityTable)
-          .where(inArray(opportunityTable.id, toDelete.map((row) => row.id)))
-          .pipe(Effect.orDie)
-      }
-    })
+        if (toDelete.length > 0) {
+          yield* db
+            .delete(opportunityTable)
+            .where(inArray(opportunityTable.id, toDelete.map((row) => row.id)))
+        }
+      },
+      Effect.orDie
+    )
 
     const applySides = Effect.fn("OpportunityStore.applySides")(
       function*(write: OpportunitySidesWrite) {

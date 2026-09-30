@@ -70,9 +70,7 @@ export class OpportunityWriter extends Context.Service<OpportunityWriter, {
         )
 
         yield* Effect.forkScoped(
-          Effect.forever(
-            Effect.flatMap(Effect.sleep(Duration.millis(interval)), () => safeFlush)
-          )
+          Effect.forever(Effect.andThen(Effect.sleep(Duration.millis(interval)), safeFlush))
         )
 
         yield* Effect.addFinalizer(() => safeFlush)
