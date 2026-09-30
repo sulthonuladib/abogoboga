@@ -1,4 +1,5 @@
 import { Api } from "@lister/api/client"
+import { ObservabilityBrowserLive } from "@lister/observability"
 import { FetchHttpClient } from "effect/unstable/http"
 import { AtomHttpApi } from "effect/unstable/reactivity"
 
@@ -15,3 +16,16 @@ export class ApiClient extends AtomHttpApi.Service<ApiClient>()("ApiClient", {
   httpClient: FetchHttpClient.layer,
   baseUrl: new URL(globalThis.location.origin)
 }) {}
+
+// NOTE: the runtime factory merges an added global layer into the context every
+// atom runs in, and reads that layer lazily, so registering here reaches every
+// atom the app creates afterwards. `FetchHttpClient` propagates `traceparent` by
+// default, unlike the Foldkit client, so an atom's request continues the browser
+// trace into the API's request span. An absent collector URL registers a layer
+// that exports nothing.
+ApiClient.runtime.factory.addGlobalLayer(
+  ObservabilityBrowserLive({
+    baseUrl: import.meta.env.VITE_OTEL_EXPORTER_OTLP_ENDPOINT,
+    serviceName: "control-plane-web"
+  })
+)

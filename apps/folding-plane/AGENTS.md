@@ -38,3 +38,45 @@ subtree_prompted: true
   resolve names from.
 - Icons are inline SVG built in `src/ui/icon.ts`. The old app used Phosphor; this app
   carries no icon package.
+
+### Local tracing
+
+The browser exports spans under the service name `folding-plane`, and the server
+under `folding-plane-host`. Both export nothing unless a collector is
+configured, so a checkout without one behaves as it did before.
+
+From the repo root, start the collector the repo ships, then open
+`http://localhost:16686`:
+
+```sh
+docker compose up -d jaeger
+```
+
+Point the dev server at it. This needs three variables: the browser reads the
+`VITE_` one, and the render the server runs in the same process reads the
+`OTEL_` pair.
+
+```sh
+VITE_OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+OTEL_TRACES_EXPORTER=otlp \
+bun run dev:web
+```
+
+For the production host, set the `VITE_` variable when building so it is
+compiled into the browser bundle, then start the host with the `OTEL_` pair:
+
+```sh
+VITE_OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 bun run build:web
+
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+OTEL_TRACES_EXPORTER=otlp \
+bun run --cwd apps/folding-plane start
+```
+
+The collector accepts browser exports from `http://localhost:3000`,
+`http://localhost:4173`, and `http://localhost:5173`; see `jaeger/config.yaml`.
+Serve the app from one of those origins, which is where `vite` and
+`scripts/serve.ts` already put it. Traces only: log and metric export stay off,
+and unsetting the variables turns every process back into the one with no
+collector.

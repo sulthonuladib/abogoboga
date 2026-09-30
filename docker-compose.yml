@@ -18,5 +18,19 @@ services:
       retries: 10
       start_period: 10s
 
+  # Local trace collector. One container: OTLP/HTTP receiver, in-memory trace
+  # storage, and the query UI. Configuration lives in jaeger/config.yaml.
+  # Traces only - logs and metrics are neither received nor stored.
+  jaeger:
+    image: jaegertracing/jaeger:2.6.0
+    restart: unless-stopped
+    container_name: abogoboga-jaeger
+    command: ["--config", "/jaeger/config.yaml"]
+    volumes:
+      - ./jaeger/config.yaml:/jaeger/config.yaml:ro
+    ports:
+      - "${JAEGER_UI_PORT:-16686}:16686"
+      - "${OTEL_COLLECTOR_PORT:-4318}:4318"
+
 volumes:
   postgres_data:

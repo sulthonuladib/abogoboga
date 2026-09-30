@@ -19,6 +19,7 @@
     "@foldkit/ui": "catalog:",
     "@lister/api": "workspace:*",
     "@lister/domain": "workspace:*",
+    "@lister/observability": "workspace:*",
     "effect": "catalog:",
     "foldkit": "catalog:"
   },

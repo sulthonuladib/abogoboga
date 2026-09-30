@@ -1,7 +1,9 @@
-import { Effect, Layer, Option } from 'effect'
+import { Effect, Layer, ManagedRuntime, Option } from 'effect'
 import { Http } from 'foldkit'
 import { Server } from 'foldkit/experimental'
 import { fromString } from 'foldkit/url'
+
+import { ObservabilityLive } from '@lister/observability'
 
 import { layerFor, originFromEnv } from './api'
 import { Flags, flagsFor } from './flags'
@@ -18,11 +20,27 @@ const serverApi = Layer.mergeAll(
 // RENDER
 
 /**
+ * The render runtime.
+ *
+ * The host calls `renderPage` as a plain fetch handler, outside any Effect
+ * fiber, so `Effect.runPromise` would run the render against the default
+ * context and nothing the host's own layer installs would reach it. Building
+ * the process observability layer into this runtime is what puts the tracer in
+ * the render's context, so a page's flag reads are exported as one trace.
+ *
+ * The service name matches the host's, because in production the two run in one
+ * process.
+ */
+const renderRuntime = ManagedRuntime.make(
+  ObservabilityLive({ serviceName: 'folding-plane-host' }),
+)
+
+/**
  * Render one request. The Flags are resolved first, so the page a browser
  * hydrates is the page the server read the data for.
  */
 export const renderPage = (request: Request): Promise<Server.EntryResult> =>
-  Effect.runPromise(
+  renderRuntime.runPromise(
     Effect.gen(function* () {
       if (request.method === 'OPTIONS') {
         return Server.Responded(preflightResponse())
@@ -51,7 +69,7 @@ export const renderPage = (request: Request): Promise<Server.EntryResult> =>
           'x-content-type-options': 'nosniff',
         },
       })
-    }),
+    }).pipe(Effect.withSpan('RenderPage')),
   )
 
 // HOST

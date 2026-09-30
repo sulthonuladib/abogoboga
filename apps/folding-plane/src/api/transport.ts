@@ -27,7 +27,8 @@ export const defaultApiOrigin = 'http://localhost:3001'
 
 /**
  * Everything a query needs when the browser runs it: this origin, and an HTTP
- * client that leaves trace headers off so a request stays a simple one.
+ * client that leaves trace headers off by default so a request stays a simple
+ * one. Calls to the control-plane API opt back in through {@link apiRequest}.
  */
 export const browserApi: Layer.Layer<ApiOrigin | HttpClient.HttpClient> = Layer.mergeAll(
   Http.layer,
@@ -180,4 +181,11 @@ export const apiRequest = <A, E>(
     return yield* callEndpoint(client).pipe(
       Effect.mapError((error) => describeError(label, error)),
     )
-  })
+  }).pipe(
+    // NOTE: `Http.layer` disables `traceparent` propagation so a browser request
+    // stays CORS-simple. This app reaches the control-plane API on its own
+    // origin, which the host proxies, so these calls opt back in and the API's
+    // request span continues the Command span that issued them. Providing the
+    // reference here keeps it ahead of the disabled default in `browserApi`.
+    Effect.provideService(HttpClient.TracerPropagationEnabled, true),
+  )
