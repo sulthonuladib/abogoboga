@@ -1,5 +1,7 @@
 import { Runtime } from 'foldkit'
 
+import { ObservabilityBrowserLive } from '@lister/observability'
+
 import { Flags } from './flags'
 import { Message } from './message'
 import { Model } from './model'
@@ -23,6 +25,14 @@ const application = Runtime.makeApplication<
   view,
   subscriptions,
   managedResources,
+  // NOTE: the runtime builds this layer once into its scope and provides it
+  // outermost around each Command, so the tracer is in context when a Command's
+  // span is created. An absent collector URL builds a layer that exports
+  // nothing.
+  resources: ObservabilityBrowserLive({
+    baseUrl: import.meta.env.VITE_OTEL_EXPORTER_OTLP_ENDPOINT,
+    serviceName: 'folding-plane',
+  }),
   container: document.getElementById('root'),
   routing: {
     onUrlRequest: (request) => Message.ClickedLink({ request }),

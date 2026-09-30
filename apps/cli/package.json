@@ -15,6 +15,7 @@
     "@lister/crawler": "workspace:*",
     "@lister/db": "workspace:*",
     "@lister/domain": "workspace:*",
+    "@lister/observability": "workspace:*",
     "drizzle-orm": "1.0.0-rc.4",
     "effect": "catalog:"
   }

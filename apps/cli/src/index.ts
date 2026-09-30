@@ -1,6 +1,7 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { AppConfig } from "@lister/config"
 import { Database } from "@lister/db"
+import { ObservabilityLive } from "@lister/observability"
 import { Effect, Layer } from "effect"
 import { Command } from "effect/unstable/cli"
 import { CoinGecko } from "./CoinGecko.ts"
@@ -31,12 +32,18 @@ const needsDatabase =
 
 const services = needsDatabase ? Layer.merge(databaseLayer, baseServices) : baseServices
 
+// The observability layer is merged here rather than provided in a second
+// `Effect.provide` so the tracer is part of the same context the command runs
+// in. With no collector configured it exports nothing.
+//
 // SAFETY: `Command.run` infers `unknown` for E/R on Effect v4 RC (`cli` unions
 // handlers with different service needs). `services` satisfies every concrete
 // requirement at runtime, so narrow to `never` for `runMain`. Proper fix
 // (explicit handler Return types) belongs to a later pass.
 const main = Command.run(cli, { version: "1.0.0" }).pipe(
-  Effect.provide(services)
+  Effect.provide(
+    Layer.mergeAll(services, ObservabilityLive({ serviceName: "lister-cli" }))
+  )
 ) as Effect.Effect<void, unknown, never>
 
 BunRuntime.runMain(main)

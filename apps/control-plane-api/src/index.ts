@@ -10,5 +10,5 @@ import { Layer } from "effect"
 import { HttpLive } from "./Main.ts"
 
 BunRuntime.runMain(
-  Layer.launch(HttpLive.pipe(Layer.provide(ObservabilityLive)))
+  Layer.launch(HttpLive.pipe(Layer.provide(ObservabilityLive({ serviceName: "control-plane" }))))
 )

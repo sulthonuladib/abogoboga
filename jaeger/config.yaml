@@ -1,0 +1,53 @@
+# Local trace collector for development.
+#
+# Jaeger v2 is configured with an OpenTelemetry Collector configuration file:
+# an OTLP/HTTP receiver writes into in-memory storage that the query UI reads.
+# Traces only, transient by design, and no external service is involved.
+service:
+  extensions: [jaeger_storage, jaeger_query]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [jaeger_storage_exporter]
+
+extensions:
+  jaeger_query:
+    storage:
+      traces: local
+    grpc:
+      endpoint: 0.0.0.0:16685
+    http:
+      endpoint: 0.0.0.0:16686
+
+  jaeger_storage:
+    backends:
+      local:
+        memory:
+          max_traces: 100000
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+        # The collector's CORS response reports credentials, which a browser
+        # rejects alongside a bare `*`. Name the local frontend origins instead:
+        # folding-plane (vite dev and the production host) and the legacy
+        # control-plane app (vite dev and preview).
+        cors:
+          allowed_origins:
+            - http://localhost:3000
+            - http://localhost:4173
+            - http://localhost:5173
+            - http://127.0.0.1:3000
+            - http://127.0.0.1:4173
+            - http://127.0.0.1:5173
+          allowed_headers: ["*"]
+
+processors:
+  batch:
+
+exporters:
+  jaeger_storage_exporter:
+    trace_storage: local

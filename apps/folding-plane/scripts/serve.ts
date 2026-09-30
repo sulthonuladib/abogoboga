@@ -26,6 +26,8 @@ import {
   NodeServices,
 } from '@effect/platform-node'
 
+import { ObservabilityLive } from '@lister/observability'
+
 type FetchHandler = {
   readonly fetch: (request: Request) => Promise<Response>
 }
@@ -214,4 +216,15 @@ const Main = Layer.unwrap(
   Layer.provide(NodeServices.layer),
 )
 
-NodeRuntime.runMain(Layer.launch(Main))
+// NOTE: the layer is provided last so spans created while the host builds its
+// own services, and every render it serves, are exported under this process's
+// service name.
+NodeRuntime.runMain(
+  Layer.launch(
+    Main.pipe(
+      Layer.provide(
+        ObservabilityLive({ serviceName: 'folding-plane-host' }),
+      ),
+    ),
+  ),
+)

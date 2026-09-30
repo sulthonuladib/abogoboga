@@ -8,6 +8,7 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
+    "@lister/observability": "workspace:*",
     "@lister/generated": "workspace:*",
     "@lister/worker-contract": "workspace:*",
     "effect": "catalog:"

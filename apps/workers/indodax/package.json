@@ -9,6 +9,7 @@
     "dev": "bun run src/dev.ts"
   },
   "dependencies": {
+    "@lister/observability": "workspace:*",
     "@lister/worker-contract": "workspace:*",
     "effect": "catalog:"
   },
