@@ -45,8 +45,6 @@
   ],
   "exclude": [
     "repos",
-    "packages/ui",
-    "apps/control-plane",
     "apps/folding-plane"
   ]
 }

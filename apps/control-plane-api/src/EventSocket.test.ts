@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { BunHttpServer } from "@effect/platform-bun"
 import {
+  type ClientFrame,
   EventChannel,
   type EventChannelService,
   SignalProjector,
@@ -97,7 +98,7 @@ const receive = (socket: WebSocket): Effect.Effect<string> =>
     return Effect.sync(() => socket.removeEventListener("message", onMessage))
   })
 
-const sendFrame = (socket: WebSocket, frame: unknown): Effect.Effect<void> =>
+const sendFrame = (socket: WebSocket, frame: ClientFrame): Effect.Effect<void> =>
   Effect.sync(() => socket.send(JSON.stringify(frame)))
 
 const waitForSubscribers = (channel: EventChannelService, expected: number): Effect.Effect<void> =>

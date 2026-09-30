@@ -1,10 +1,9 @@
 /**
  * Control-plane composition root.
  *
- * Wires the persistence adapters, crawler gate/reconcilers, JSON API handlers,
- * and the browser application's static routes into one HTTP server, then runs
- * it with the Bun runtime. Every dependency is chosen here; inner modules stay
- * framework- and vendor-independent.
+ * Wires the persistence adapters, crawler gate/reconcilers, and JSON API
+ * handlers into one HTTP server, then runs it with the Bun runtime. Every
+ * dependency is chosen here; inner modules stay framework- and vendor-independent.
  *
  * @module
  */
@@ -56,7 +55,6 @@ import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { EventSocketRoute } from "./EventSocket.ts"
-import { SpaRoutes } from "./Spa.ts"
 
 const workerEntrypointFor = (exchangeSlug: string): string =>
   fileURLToPath(new URL(`../../workers/${exchangeSlug}/src/index.ts`, import.meta.url))
@@ -193,16 +191,15 @@ const handlersLayer = Layer.mergeAll(
 const routeLayers = Layer.mergeAll(
   HttpApiBuilder.layer(Api).pipe(Layer.provide(handlersLayer)),
   apiDocsLayer,
-  EventSocketRoute,
-  SpaRoutes
+  EventSocketRoute
 )
 
 /**
  * Every route, application service, and crawler runtime with all dependencies
  * provided.
  *
- * The JSON API handlers, the OpenAPI document, and the browser application's
- * static routes all draw their services from `dependenciesLayer`.
+ * The JSON API handlers, the OpenAPI document, and the event socket all draw
+ * their services from `dependenciesLayer`.
  */
 export const ApplicationLive = routeLayers.pipe(Layer.provide(dependenciesLayer))
 
@@ -215,8 +212,8 @@ const serverLayer = Layer.unwrap(
 ).pipe(Layer.provide(AppConfig.layer))
 
 /**
- * The HTTP server serving the JSON API, the OpenAPI document, and the browser
- * application.
+ * The HTTP server serving the JSON API, the OpenAPI document, and the event
+ * socket.
  */
 export const HttpLive = HttpRouter.serve(ApplicationLive).pipe(
   Layer.provide(serverLayer),

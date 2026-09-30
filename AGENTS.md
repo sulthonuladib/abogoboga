@@ -23,5 +23,4 @@ This repository uses Effect. Before writing any Effect code, read `repos/effect/
 The vendored source is pinned to `catalog.effect`, so it matches the package this project compiles against. For the exact installed type surface, the `.d.ts` files in `node_modules` remain authoritative.
 
 ## Frontend apps
-We are trying to redesign and rewrite our frontend to foldkit, read it more about it here if needed
-`./apps/folding-plane/` we keep our old frontend which is `control-plane` along side it
+Our frontend is Foldkit, at `./apps/folding-plane/`. Read `apps/folding-plane/FOLDKIT.md` for its architecture.

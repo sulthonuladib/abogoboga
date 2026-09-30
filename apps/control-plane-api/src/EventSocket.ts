@@ -28,9 +28,11 @@ import { Socket } from "effect/unstable/socket"
 export const eventSocketPath = "/api/events"
 
 const ClientFrameJson = Schema.fromJsonString(ClientFrame)
+
 const ServerEventJson = Schema.fromJsonString(ServerEvent)
 
 const decodeClientFrame = Schema.decodeUnknownOption(ClientFrameJson)
+
 const encodeServerEvent = Schema.encodeSync(ServerEventJson)
 
 const topicStream = (
@@ -104,19 +106,17 @@ const runEventSocket = (
       const handleFrame = (frame: ClientFrame) =>
         frame.type === "subscribe" ? subscribeTopic(frame.topic) : unsubscribeTopic(frame.topic)
 
-      const { pull } = yield* socket.reader
-      const decoder = new TextDecoder()
+      const pull = yield* Socket.readerString(socket)
 
       yield* Effect.forever(
         Effect.flatMap(pull, (chunks) =>
-          Effect.forEach(chunks, (chunk) => {
-            const text = typeof chunk === "string" ? chunk : decoder.decode(chunk)
-
-            return Option.match(decodeClientFrame(text), {
+          Effect.forEach(chunks, (text) =>
+            Option.match(decodeClientFrame(text), {
               onNone: () => Effect.void,
               onSome: handleFrame
             })
-          }))
+          )
+        )
       ).pipe(Effect.catchTag("SocketError", () => Effect.void))
     })
   ).pipe(Effect.catchTag("SocketError", () => Effect.void))

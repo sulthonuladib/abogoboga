@@ -5,6 +5,7 @@ import { Clock, Effect, Layer } from "effect"
 import { freshnessWindowMs, SignalRow, SignalStore } from "./Signal.ts"
 
 const buyMarket = alias(exchangeCryptocurrencyTable, "signal_buy_market")
+
 const sellMarket = alias(exchangeCryptocurrencyTable, "signal_sell_market")
 
 const profitPercentOf = (buyPrice: number, sellPrice: number): number =>

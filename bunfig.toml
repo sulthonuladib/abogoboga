@@ -1,12 +1,4 @@
 [test]
-# Root preload preserves the runtime's `AbortSignal` across happy-dom's global
-# registration (see `./test-setup.ts`). The root `test` script also passes
-# `--isolate` so each test file runs in a fresh global object; the preload
-# covers bare invocations like `bun test ./packages/ui ./apps/cli` that share
-# one process, where `packages/ui` would otherwise replace `AbortSignal` and
-# break file reads in `apps/cli`.
-preload = ["./test-setup.ts"]
-
 # Never descend into the vendored reference checkout. Root commands pass
 # explicit `./packages ./apps` paths, but a bare `bun test` should also skip
 # `repos/` rather than running upstream suites.

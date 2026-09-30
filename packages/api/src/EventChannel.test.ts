@@ -46,6 +46,7 @@ describe("EventChannel", () => {
           Stream.runHead,
           Effect.timeoutOption("20 millis")
         )
+
         const after = yield* channel.count("signal")
 
         return { before, received, after }
@@ -62,6 +63,7 @@ describe("SignalProjector", () => {
   test("runs no query without a subscriber and one per tick with one", async () => {
     const counter = Ref.makeUnsafe(0)
     const shared = Layer.mergeAll(EventChannel.layer, fakeStore(counter, [row]))
+
     const dependencies = Layer.mergeAll(
       shared,
       SignalProjector.layer.pipe(Layer.provide(shared)),
@@ -101,6 +103,7 @@ describe("SignalProjector", () => {
   test("emits the current snapshot on subscribe before any tick", async () => {
     const counter = Ref.makeUnsafe(0)
     const shared = Layer.mergeAll(EventChannel.layer, fakeStore(counter, [row]))
+
     const dependencies = Layer.mergeAll(
       shared,
       SignalProjector.layer.pipe(Layer.provide(shared)),

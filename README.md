@@ -2,16 +2,15 @@
 
 Cryptocurrency, exchange, network, and metadata API. Control-plane service for market-data coverage: coins, exchanges, chains, markets, and the crawler workers that keep the data fresh.
 
-Stack: Bun + TypeScript + Effect, Postgres + Drizzle ORM, Foldkit (new frontend) + React (legacy frontend).
+Stack: Bun + TypeScript + Effect, Postgres + Drizzle ORM, Foldkit frontend.
 
 ## Layout
 
-- `apps/control-plane-api/` — HTTP server: JSON API under `/api/*`, OpenAPI docs, serves the browser app. Entrypoint `src/index.ts`, composition root `src/Main.ts`.
-- `apps/folding-plane/` — new Foldkit frontend (server-rendered, in rewrite). See `apps/folding-plane/FOLDKIT.md` and `apps/folding-plane/AGENTS.md`.
-- `apps/control-plane/` — legacy React 19 + Vite + Tailwind frontend, served by the API process in production.
+- `apps/control-plane-api/` — HTTP server: JSON API under `/api/*`, OpenAPI docs, and the event socket. Entrypoint `src/index.ts`, composition root `src/Main.ts`.
+- `apps/folding-plane/` — the Foldkit frontend (server-rendered) and the sole browser entry. See `apps/folding-plane/FOLDKIT.md` and `apps/folding-plane/AGENTS.md`.
 - `apps/cli/` — `lister` operations CLI: `scan fetch|import`, `seed tester`, `migrate`.
 - `apps/workers/<exchange>/` — per-exchange crawler workers (binance, bybit, indodax, kucoin, …) supervised by the control plane. `dummy` is the fallback.
-- `packages/` — `api` (HttpApi definition + handlers), `domain`, `db` (Drizzle schema), `config` (`AppConfig`), `crawler` (supervisor/reconciler), `worker-contract`, `observability`, `ui`, `generated`.
+- `packages/` — `api` (HttpApi definition + handlers), `domain`, `db` (Drizzle schema), `config` (`AppConfig`), `crawler` (supervisor/reconciler), `worker-contract`, `observability`, `generated`.
 - `drizzle/` — generated migrations. `repos/` — read-only vendored Effect + Foldkit source. `openspec/` — specs and change proposals.
 
 ## Prerequisites
@@ -37,15 +36,12 @@ bun run scan:fetch          # needs COINGECKO_DEMO_API_KEY for higher rate limit
 bun run scan:import
 ```
 
-Frontends:
+Browser app (folding-plane, the sole browser entry):
 
 ```sh
 bun run dev:web             # folding-plane dev server
 bun run build:web           # folding-plane production build
-
-# legacy app (needs API on :3001):
-# terminal 1: bun run start
-# terminal 2: cd apps/control-plane && bun run dev  # :5173, proxies /api
+bun run --cwd apps/folding-plane start   # production host on :3000, proxies /api to :3001
 ```
 
 ## Scripts
@@ -56,7 +52,7 @@ bun run build:web           # folding-plane production build
 | `bun run dev:web` / `bun run build:web` | folding-plane dev / build |
 | `bun test --isolate ./packages ./apps` (`bun run test`) | unit tests |
 | `bunx tsc --noEmit` | typecheck |
-| `bunx oxlint --type-aware ./packages ./apps ./test-setup.ts` | lint |
+| `bunx oxlint --type-aware ./packages ./apps ./tools` | lint |
 | `bun run db:push\|generate\|migrate` | drizzle-kit schema push / generate / migrate |
 | `bun run db:seed:tester`, `scan:fetch`, `scan:import` | CLI shortcuts |
 
@@ -70,12 +66,11 @@ bun run build:web           # folding-plane production build
 | `SERVICE_NAME` / `NODE_ENV` | `control-plane` / `development` | identity, env |
 | `CORS_ORIGINS` | allow-all in dev | browser origins |
 | `COINGECKO_DEMO_API_KEY` | — | higher CoinGecko rate limit for `scan fetch` |
-| `CONTROL_PLANE_ORIGIN` | `http://localhost:3001` | legacy app `/api` proxy target |
 | `PORT` / `ORIGIN` (folding-plane) | — | folding-plane serve port / public origin |
 
 ## API
 
-JSON API lives under `/api/*` with an OpenAPI document served by the API process (`apiDocsLayer` in `packages/api`). Typed clients: legacy app uses `apps/control-plane/src/api/client.ts`; folding-plane uses `apps/folding-plane/src/api.ts` (the only module that talks to the API).
+JSON API lives under `/api/*` with an OpenAPI document served by the API process (`apiDocsLayer` in `packages/api`). The folding-plane frontend uses `apps/folding-plane/src/api/` — the only module that talks to the API.
 
 ## Notes for agents
 

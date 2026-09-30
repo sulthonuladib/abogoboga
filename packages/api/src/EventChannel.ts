@@ -94,6 +94,7 @@ export class EventChannel extends Context.Service<EventChannel, EventChannelServ
             (pubsub) => [topic, pubsub] as const
           )
       )
+
       const pubsubs = new Map(entries)
       const counts = yield* Ref.make(new Map<Topic, number>(topics.map((topic) => [topic, 0])))
 

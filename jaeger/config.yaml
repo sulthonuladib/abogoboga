@@ -33,8 +33,7 @@ receivers:
         endpoint: 0.0.0.0:4318
         # The collector's CORS response reports credentials, which a browser
         # rejects alongside a bare `*`. Name the local frontend origins instead:
-        # folding-plane (vite dev and the production host) and the legacy
-        # control-plane app (vite dev and preview).
+        # folding-plane (vite dev and the production host).
         cors:
           allowed_origins:
             - http://localhost:3000

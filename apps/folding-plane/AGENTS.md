@@ -13,7 +13,7 @@ subtree_prompted: true
 
 - `src/route.ts`: every route, its URL, and the `AppRoute` union. The URL is the source
   of truth for search, sort, and page, which is why those are route parameters.
-- `src/api.ts`: the only module that talks to the control-plane API. Every page reaches
+- `src/api/`: the only module that talks to the control-plane API. Every page reaches
   the server through it.
 - `src/realtime.ts`: the app-wide event socket. One ManagedResource opens the WebSocket at
   boot and keeps it across navigation; Subscriptions read its frames and gate the `signal`
