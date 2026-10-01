@@ -2,6 +2,7 @@ import { Result, Schema } from 'effect'
 import { AsyncData } from 'foldkit'
 import {
   Command,
+  Subscription,
   click,
   expect,
   given,
@@ -212,6 +213,17 @@ describe('workers', () => {
       { update, view },
       given({ ...initialModel, workers: AsyncData.succeed([]) }),
       expect(text('No exchanges yet')).toExist(),
+    )
+  })
+
+  test('a received snapshot renders the pushed rows without refetching', () => {
+    scene(
+      { update, view },
+      given({ ...initialModel, workers: AsyncData.fail('unreachable') }),
+      Subscription.emit(Message.ReceivedWorkers({ workers: fixtureWorkers })),
+      expect(text('binance')).toExist(),
+      expect(text('indodax')).toExist(),
+      expect(role('alert')).toBeAbsent(),
     )
   })
 })

@@ -26,6 +26,7 @@ import {
   MarketHandlers,
   SignalProjector,
   WorkersHandlers,
+  WorkersProjector,
   apiDocsLayer,
   chainLinkStoreLayer,
   chainStoreLayer,
@@ -101,8 +102,6 @@ const signalProjectorLoop = Layer.effectDiscard(
   Effect.flatMap(SignalProjector, (projector) => Effect.forkScoped(projector.start))
 ).pipe(Layer.provide(signalProjectorProvided))
 
-const eventServices = Layer.mergeAll(signalProjectorProvided, signalProjectorLoop)
-
 const opportunityWriterLayer = OpportunityWriter.layer().pipe(Layer.provide(storesProvided))
 
 const tickIngestionLayer = TickIngestion.layer.pipe(
@@ -164,6 +163,26 @@ const reconcilerProvided = Reconciler.layer.pipe(Layer.provide(crawlerBase))
 const opportunityReconcilerProvided = OpportunityReconciler.layer.pipe(Layer.provide(crawlerBase))
 
 const workerControlProvided = workerControlLiveLayer.pipe(Layer.provide(crawlerBase))
+
+/**
+ * The workers projector shares the single `EventChannel` and the single
+ * `WorkerControl` built for the JSON API. Effect memoizes both by reference
+ * within one build, so no second crawler supervisor is spawned.
+ */
+const workersProjectorProvided = WorkersProjector.layer.pipe(
+  Layer.provide(Layer.mergeAll(eventChannelLayer, workerControlProvided))
+)
+
+const workersProjectorLoop = Layer.effectDiscard(
+  Effect.flatMap(WorkersProjector, (projector) => Effect.forkScoped(projector.start))
+).pipe(Layer.provide(workersProjectorProvided))
+
+const eventServices = Layer.mergeAll(
+  signalProjectorProvided,
+  signalProjectorLoop,
+  workersProjectorProvided,
+  workersProjectorLoop
+)
 
 const dependenciesLayer = Layer.mergeAll(
   appServicesProvided,

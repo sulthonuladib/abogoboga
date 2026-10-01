@@ -5,7 +5,7 @@ import { modifyFields } from 'foldkit/struct'
 import { toString as urlToString } from 'foldkit/url'
 import { Menu, Tooltip } from '@foldkit/ui'
 
-import { type SignalRow, call, isApiFailure } from './api'
+import { type SignalRow, type WorkerStatus, call, isApiFailure } from './api'
 import { ConnectionState } from './connection'
 import { readCoverage } from './coverage'
 import type { Flags } from './flags'
@@ -100,6 +100,24 @@ export const FetchCoverage = Command.define('FetchCoverage', {
     Effect.result,
     Effect.map((result) => Message.SettledFetchCoverage({ result })),
   ),
+})
+
+/**
+ * How long to wait before trying the event socket again after a failed
+ * connection, so a dev server restart or a brief network drop recovers on its
+ * own instead of dead-ending in `Error`.
+ */
+const socketRetryDelay = '1500 millis'
+
+/**
+ * The event socket failed to open. Wait, then ask for another attempt by
+ * bumping the generation the socket ManagedResource keys on. Without this the
+ * app stays in `Error` until a full reload, so an open tab never reconnects
+ * after the server restarts.
+ */
+export const RetrySocket = Command.define('RetrySocket', {
+  messages: [Message.RetrySocket],
+  execute: Effect.sleep(socketRetryDelay).pipe(Effect.as(Message.RetrySocket())),
 })
 
 // STEP
@@ -371,6 +389,21 @@ const foldSignalsTicked = (
     toParentMessage: (message) => Message.GotSignalsMessage({ message }),
   })(model)
 
+/**
+ * The socket delivered a worker snapshot. Like the signals fold, the root owns
+ * the fact and drives the Workers child through a capability.
+ */
+const foldWorkersReceived = (
+  model: Model,
+  workers: ReadonlyArray<WorkerStatus>,
+): Update.Return<Model, Message> =>
+  Update.foldChildStep({
+    update: Workers.receivedWorkers(workers),
+    read: (parent: Model) => Option.some(parent.workers),
+    write: (parent, nextWorkers) => modifyFields(parent, { workers: () => nextWorkers }),
+    toParentMessage: (message) => Message.GotWorkersMessage({ message }),
+  })(model)
+
 // ROUTE
 
 const setRoute =
@@ -595,6 +628,8 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 
     ReceivedSignalRows: ({ rows }) => foldSignalsReceivedRows(model, rows),
 
+    ReceivedWorkers: ({ workers }) => foldWorkersReceived(model, workers),
+
     TickedSignals: ({ now }) => foldSignalsTicked(model, now),
 
     SocketAcquired: () => ({
@@ -607,6 +642,13 @@ export const update = (model: Model, message: Message): UpdateReturn =>
 
     SocketFailed: ({ detail }) => ({
       model: modifyFields(model, { connection: () => ConnectionState.Error({ detail }) }),
+      commands: [RetrySocket()],
+    }),
+
+    RetrySocket: () => ({
+      model: modifyFields(model, {
+        socketGeneration: (generation) => generation + 1,
+      }),
     }),
 
     SocketClosed: () => ({

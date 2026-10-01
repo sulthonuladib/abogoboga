@@ -426,21 +426,35 @@ export class Supervisor extends Context.Service<Supervisor, {
                             shard.phase = status.phase
                             shard.attempt = status.attempt ?? null
 
-                            if (status.phase !== "reconnecting") return
+                            if (status.phase === "reconnecting") {
+                              const event = {
+                                type: "reconnecting" as const,
+                                exchangeId: exchange.exchangeId,
+                                exchangeSlug: exchange.exchangeSlug,
+                                shardId: shard.shardId,
+                                message: `shard ${shard.shardId} reconnecting (attempt ${status.attempt ?? "unknown"})`
+                              }
 
-                            const event = {
-                              type: "reconnecting" as const,
-                              exchangeId: exchange.exchangeId,
-                              exchangeSlug: exchange.exchangeSlug,
-                              shardId: shard.shardId,
-                              message: `shard ${shard.shardId} reconnecting (attempt ${status.attempt ?? "unknown"})`
+                              const published = status.attempt === undefined
+                                ? event
+                                : { ...event, attempt: status.attempt }
+
+                              yield* events.publish(yield* workerEvent(published))
+
+                              return
                             }
 
-                            const published = status.attempt === undefined
-                              ? event
-                              : { ...event, attempt: status.attempt }
-
-                            yield* events.publish(yield* workerEvent(published))
+                            if (status.phase === "running") {
+                              yield* events.publish(
+                                yield* workerEvent({
+                                  type: "running",
+                                  exchangeId: exchange.exchangeId,
+                                  exchangeSlug: exchange.exchangeSlug,
+                                  shardId: shard.shardId,
+                                  message: `shard ${shard.shardId} running`
+                                })
+                              )
+                            }
                           })
                         )
                       )

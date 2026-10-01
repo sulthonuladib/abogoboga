@@ -32,6 +32,18 @@ export const FetchWorkers = Command.define('FetchWorkers', {
   ),
 })
 
+/**
+ * The socket delivered a worker snapshot. The parent drives this fact through
+ * this capability rather than constructing a child Message, so the socket
+ * wiring stays free of the page's Message union. A pushed snapshot settles the
+ * rows to success, so it also recovers a page that previously failed to load.
+ */
+export const receivedWorkers = (
+  rows: ReadonlyArray<WorkerStatus>,
+): Update.Step<Model, Message> => (model) => ({
+  model: modifyFields(model, { workers: () => AsyncData.succeed(rows) }),
+})
+
 export const StartWorker = Command.define('StartWorker', {
   args: { exchangeId: Schema.Int },
   messages: [Message.SucceededStartWorker, Message.FailedWorkerRequest],
@@ -112,6 +124,8 @@ export const entered = (model: Model): Update.Return<Model, Message> =>
 
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
+    ReceivedWorkers: ({ workers }) => receivedWorkers(workers)(model),
+
     ClickedRetry: () => refresh(model),
 
     SettledFetchWorkers: ({ result }) => ({

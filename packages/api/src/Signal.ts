@@ -50,19 +50,6 @@ export const SignalEvent = Schema.Struct({
 export type SignalEvent = typeof SignalEvent.Type
 
 /**
- * Every message the server pushes to a subscribed client.
- *
- * The union is discriminated on `type`; adding a later event type is one more
- * member, not a protocol change.
- */
-export const ServerEvent = Schema.Union([SignalEvent])
-
-/**
- * Every message the server pushes to a subscribed client.
- */
-export type ServerEvent = typeof ServerEvent.Type
-
-/**
  * Freshness window applied to both tick timestamps, in milliseconds.
  */
 export const freshnessWindowMs = 5000

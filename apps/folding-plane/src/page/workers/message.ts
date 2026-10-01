@@ -6,6 +6,7 @@ import { WorkerStatus } from '../../api'
 // MESSAGE
 
 export const Message = defineMessageUnion({
+  ReceivedWorkers: { workers: Schema.Array(WorkerStatus) },
   ClickedRetry: {},
   SettledFetchWorkers: { result: Schema.Result(Schema.Array(WorkerStatus), Schema.String) },
   ClickedStartWorker: { exchangeId: Schema.Int },

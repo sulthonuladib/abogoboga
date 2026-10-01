@@ -325,6 +325,40 @@ describe("Supervisor worker lifecycle", () => {
     )
   })
 
+  test("publishes a running event when a shard recovers from reconnecting", async () => {
+    await runSupervisor(
+      { workerScript: reconnectingWorker },
+      (supervisor) =>
+        Effect.gen(function*() {
+          const events = yield* DomainEvents
+          const phases = Ref.makeUnsafe<ReadonlyArray<WorkerEvent["type"]>>([])
+
+          yield* Effect.forkScoped(
+            events.subscribe.pipe(
+              Stream.filter(
+                (event): event is WorkerEvent =>
+                  event.type === "reconnecting" || event.type === "running"
+              ),
+              Stream.runForEach((event) =>
+                Ref.update(phases, (seen) => [...seen, event.type])
+              )
+            )
+          )
+
+          yield* supervisor.start(15, "reconnecting-ex", [btc]).pipe(Effect.orDie)
+
+          yield* waitUntil(
+            Effect.map(Ref.get(phases), (seen) =>
+              seen.includes("reconnecting") && seen.includes("running")
+            ),
+            "running event after reconnect"
+          )
+
+          yield* supervisor.stop(15)
+        })
+    )
+  })
+
   test("gracefully closes a worker when an exchange stops", async () => {
     const ticks = Ref.makeUnsafe<ReadonlyArray<CanonicalTick>>([])
 

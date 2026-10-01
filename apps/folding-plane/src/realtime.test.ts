@@ -1,14 +1,16 @@
 import { Effect, Fiber, Option, Stream } from 'effect'
 import { describe, expect, test } from 'vitest'
 
-import type { SignalRow } from './api'
+import type { SignalRow, WorkerStatus } from './api'
 import { initialModel } from './model'
+import type { Message } from './message'
 import { AppRoute } from './route'
 import {
   type EventSocket,
   eventMessageStream,
   managedResources,
   signalFrameStream,
+  workersFrameStream,
 } from './realtime'
 
 const row: SignalRow = {
@@ -26,6 +28,16 @@ const row: SignalRow = {
   sellTickTimestamp: 1_000,
   profitPercent: 10,
   profitVolume: 0.2,
+}
+
+const workerStatus: WorkerStatus = {
+  exchangeId: 1,
+  exchangeSlug: 'binance',
+  desired: 'started',
+  running: true,
+  shards: [],
+  restarts: 0,
+  subscribedCoins: 0,
 }
 
 type FakeSocket = Readonly<{
@@ -75,17 +87,20 @@ const waitUntil = (predicate: () => boolean): Effect.Effect<void> =>
 const parsedFrames = (frames: ReadonlyArray<string>): ReadonlyArray<unknown> =>
   frames.map((frame) => JSON.parse(frame))
 
-const runTopicStream = (fake: FakeSocket): Promise<void> =>
+const runStream = (stream: Stream.Stream<Message>): Promise<void> =>
   Effect.runPromise(
     Effect.scoped(
       Effect.gen(function*() {
-        const fiber = yield* Effect.forkScoped(signalFrameStream(fake.socket).pipe(Stream.runDrain))
+        const fiber = yield* Effect.forkScoped(stream.pipe(Stream.runDrain))
 
         yield* Effect.sleep('1 millis')
         yield* Fiber.interrupt(fiber)
       }),
     ),
   )
+
+const runTopicStream = (fake: FakeSocket): Promise<void> =>
+  runStream(signalFrameStream(fake.socket))
 
 describe('signal socket resource', () => {
   test('its requirements do not depend on the route', () => {
@@ -135,6 +150,19 @@ describe('signal topic frames', () => {
   })
 })
 
+describe('workers topic frames', () => {
+  test('subscribes on start and unsubscribes on teardown', async () => {
+    const fake = fakeSocket()
+
+    await runStream(workersFrameStream(fake.socket))
+
+    expect(parsedFrames(fake.frames)).toEqual([
+      { type: 'subscribe', topic: 'workers' },
+      { type: 'unsubscribe', topic: 'workers' },
+    ])
+  })
+})
+
 describe('event message stream', () => {
   test('a pushed frame decodes to the signal Message', async () => {
     const fake = fakeSocket()
@@ -160,6 +188,32 @@ describe('event message stream', () => {
 
     expect(message._tag).toBe('ReceivedSignalRows')
     expect(message._tag === 'ReceivedSignalRows' ? message.rows : []).toEqual([row])
+  })
+
+  test('a pushed workers frame decodes to the workers Message', async () => {
+    const fake = fakeSocket()
+
+    const received = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function*() {
+          const fiber = yield* Effect.forkChild(
+            eventMessageStream(fake.socket).pipe(Stream.take(1), Stream.runHead),
+          )
+
+          yield* waitUntil(fake.isSubscribed)
+          fake.push(JSON.stringify({ type: 'workers', seq: 0, workers: [workerStatus] }))
+
+          return yield* Fiber.join(fiber)
+        }),
+      ),
+    )
+
+    expect(Option.isSome(received)).toBe(true)
+
+    const message = Option.getOrThrow(received)
+
+    expect(message._tag).toBe('ReceivedWorkers')
+    expect(message._tag === 'ReceivedWorkers' ? message.workers : []).toEqual([workerStatus])
   })
 
   test('a closed socket asks update to reconnect', async () => {

@@ -17,6 +17,7 @@ export const workerEventTypeLiterals = [
   "paused",
   "shard-spawned",
   "shard-exited",
+  "running",
   "reconnecting",
   "reconciled"
 ] as const

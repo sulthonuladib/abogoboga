@@ -16,7 +16,9 @@ import {
   ServerEvent,
   SignalProjector,
   type SignalProjectorService,
-  type Topic
+  type Topic,
+  WorkersProjector,
+  type WorkersProjectorService
 } from "@lister/api"
 import { Effect, Fiber, Match, Option, Queue, Ref, Schema, Stream } from "effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
@@ -36,11 +38,13 @@ const decodeClientFrame = Schema.decodeUnknownOption(ClientFrameJson)
 const encodeServerEvent = Schema.encodeSync(ServerEventJson)
 
 const topicStream = (
-  projector: SignalProjectorService,
+  signal: SignalProjectorService,
+  workers: WorkersProjectorService,
   topic: Topic
 ): Stream.Stream<ServerEvent> =>
   Match.value(topic).pipe(
-    Match.when("signal", () => projector.subscribe),
+    Match.when("signal", () => signal.subscribe),
+    Match.when("workers", () => workers.subscribe),
     Match.exhaustive
   )
 
@@ -53,7 +57,8 @@ const topicStream = (
  */
 const runEventSocket = (
   socket: Socket.Socket,
-  projector: SignalProjectorService
+  signal: SignalProjectorService,
+  workers: WorkersProjectorService
 ): Effect.Effect<void> =>
   Effect.scoped(
     Effect.gen(function*() {
@@ -76,7 +81,7 @@ const runEventSocket = (
           }
 
           const fiber = yield* Effect.forkScoped(
-            topicStream(projector, topic).pipe(
+            topicStream(signal, workers, topic).pipe(
               Stream.runForEach((event) => Queue.offer(outbound, encodeServerEvent(event))),
               Effect.orDie
             )
@@ -124,10 +129,11 @@ const runEventSocket = (
 const handleEventSocket: Effect.Effect<
   HttpServerResponse.HttpServerResponse,
   never,
-  HttpServerRequest.HttpServerRequest | SignalProjector
+  HttpServerRequest.HttpServerRequest | SignalProjector | WorkersProjector
 > = Effect.gen(function*() {
   const request = yield* HttpServerRequest.HttpServerRequest
-  const projector = yield* SignalProjector
+  const signal = yield* SignalProjector
+  const workers = yield* WorkersProjector
 
   const upgraded = yield* request.upgrade.pipe(Effect.option)
 
@@ -135,7 +141,7 @@ const handleEventSocket: Effect.Effect<
     return HttpServerResponse.text("WebSocket upgrade required", { status: 426 })
   }
 
-  yield* runEventSocket(upgraded.value, projector)
+  yield* runEventSocket(upgraded.value, signal, workers)
 
   return HttpServerResponse.empty()
 })

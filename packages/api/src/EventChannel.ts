@@ -1,10 +1,11 @@
-import { Context, Effect, Layer, PubSub, Ref, Schema, Stream } from "effect"
-import { ServerEvent, SignalEvent, SignalStore } from "./Signal.ts"
+import { Context, Effect, Layer, PubSub, Ref, Schema, Scope, Semaphore, Stream } from "effect"
+import { SignalEvent, SignalStore } from "./Signal.ts"
+import { WorkerControl, WorkerStatus } from "./WorkerControl.ts"
 
 /**
  * Every topic a client can subscribe to.
  */
-export const topics = ["signal"] as const
+export const topics = ["signal", "workers"] as const
 
 /**
  * Every topic a client can subscribe to.
@@ -17,9 +18,50 @@ export const Topic = Schema.Literals(topics)
 export type Topic = typeof Topic.Type
 
 /**
+ * The `workers` server event: a complete snapshot of every exchange worker's
+ * status.
+ *
+ * The snapshot is self-contained, so a client applies it without a request and
+ * without reconciling against a previous event. `seq` is a monotonically
+ * increasing per-process counter: an event with a lower sequence than one
+ * already applied is stale and can be discarded, which closes the gap between
+ * reading a snapshot and attaching to the live stream.
+ */
+export const WorkersEvent = Schema.Struct({
+  type: Schema.Literal("workers"),
+  seq: Schema.Int,
+  workers: Schema.Array(WorkerStatus)
+})
+
+/**
+ * The `workers` server event: a complete snapshot of every exchange worker's
+ * status.
+ */
+export type WorkersEvent = typeof WorkersEvent.Type
+
+/**
+ * Every message the server pushes to a subscribed client.
+ *
+ * The union is discriminated on `type`; adding a later event type is one more
+ * member, not a protocol change. It lives beside `topics` because it is a
+ * property of the socket, not of any single topic.
+ */
+export const ServerEvent = Schema.Union([SignalEvent, WorkersEvent])
+
+/**
+ * Every message the server pushes to a subscribed client.
+ */
+export type ServerEvent = typeof ServerEvent.Type
+
+/**
  * Whether a server event belongs to the `signal` topic.
  */
 export const isSignalEvent = (event: ServerEvent): event is SignalEvent => event.type === "signal"
+
+/**
+ * Whether a server event belongs to the `workers` topic.
+ */
+export const isWorkersEvent = (event: ServerEvent): event is WorkersEvent => event.type === "workers"
 
 /**
  * A client's request to start receiving a topic's events.
@@ -68,6 +110,10 @@ export type ClientFrame = typeof ClientFrame.Type
 export type EventChannelService = {
   /** Stream a topic's events, counted for as long as the stream runs. */
   readonly subscribe: (topic: Topic) => Stream.Stream<ServerEvent>
+  /** Attach to a topic now and hand back its subscription; the count rises for the scope's lifetime. */
+  readonly subscribeScoped: (
+    topic: Topic
+  ) => Effect.Effect<PubSub.Subscription<ServerEvent>, never, Scope.Scope>
   /** Fan an event out to a topic's current subscribers. */
   readonly publish: (topic: Topic, event: ServerEvent) => Effect.Effect<void>
   /** The number of live subscribers for a topic. */
@@ -108,13 +154,24 @@ export class EventChannel extends Context.Service<EventChannel, EventChannelServ
       const count = (topic: Topic): Effect.Effect<number> =>
         Effect.map(Ref.get(counts), (current) => current.get(topic) ?? 0)
 
-      const subscribe = (topic: Topic): Stream.Stream<ServerEvent> =>
-        Stream.fromPubSub(pubsubs.get(topic)!).pipe(
-          Stream.onStart(bump(topic, 1)),
-          Stream.ensuring(bump(topic, -1))
+      const subscribeScoped = (
+        topic: Topic
+      ): Effect.Effect<PubSub.Subscription<ServerEvent>, never, Scope.Scope> =>
+        Effect.acquireRelease(
+          Effect.gen(function*() {
+            const subscription = yield* PubSub.subscribe(pubsubs.get(topic)!)
+
+            yield* bump(topic, 1)
+
+            return subscription
+          }),
+          () => bump(topic, -1)
         )
 
-      return EventChannel.of({ subscribe, publish, count })
+      const subscribe = (topic: Topic): Stream.Stream<ServerEvent> =>
+        Stream.unwrap(Effect.map(subscribeScoped(topic), Stream.fromSubscription))
+
+      return EventChannel.of({ subscribe, subscribeScoped, publish, count })
     })
   )
 }
@@ -181,6 +238,104 @@ export class SignalProjector extends Context.Service<SignalProjector, SignalProj
       )
 
       return SignalProjector.of({ subscribe, start, snapshot })
+    })
+  )
+}
+
+/**
+ * The workers projector: a fresh full snapshot per worker lifecycle event, but
+ * only while `workers` has a subscriber.
+ *
+ * The crawler publishes a lifecycle event for every status the page renders,
+ * including a shard's phase reaching `running` after a reconnect, so the
+ * event-driven loop stays current with no refresh tick. `subscribe` emits the
+ * current snapshot before the live stream, so a newly opened page shows present
+ * state without waiting for a transition.
+ */
+export type WorkersProjectorService = {
+  /** The current snapshot followed by live worker events. */
+  readonly subscribe: Stream.Stream<WorkersEvent>
+  /** The projection loop; runs until interrupted. */
+  readonly start: Effect.Effect<never>
+  /** Project once and return the snapshot event. */
+  readonly snapshot: Effect.Effect<WorkersEvent>
+}
+
+/**
+ * The workers projector: a fresh full snapshot per worker lifecycle event, but
+ * only while `workers` has a subscriber.
+ */
+export class WorkersProjector extends Context.Service<WorkersProjector, WorkersProjectorService>()(
+  "lister/control-plane-api/WorkersProjector"
+) {
+  /**
+   * A projector over the {@link WorkerControl} status and the {@link EventChannel} hub.
+   */
+  static readonly layer: Layer.Layer<WorkersProjector, never, EventChannel | WorkerControl> = Layer.effect(
+    WorkersProjector,
+    Effect.gen(function*() {
+      const channel = yield* EventChannel
+      const control = yield* WorkerControl
+      const sequence = yield* Ref.make(0)
+      const gate = yield* Semaphore.make(1)
+
+      const project = (seq: number): Effect.Effect<WorkersEvent> =>
+        Effect.map(
+          control.statuses,
+          (workers) => WorkersEvent.make({ type: "workers", seq, workers })
+        )
+
+      // A published snapshot and the one handed to a new subscriber both take
+      // the gate, so a snapshot's sequence and the state it reports are read
+      // together: every event whose sequence is at or below the snapshot's
+      // carries no state newer than the snapshot does.
+      const snapshot: Effect.Effect<WorkersEvent> = gate.withPermits(1)(
+        Effect.gen(function*() {
+          const seq = yield* Ref.get(sequence)
+
+          return yield* project(seq)
+        })
+      )
+
+      const publishSnapshot: Effect.Effect<void> = gate.withPermits(1)(
+        Effect.gen(function*() {
+          const seq = yield* Ref.updateAndGet(sequence, (current) => current + 1)
+          const event = yield* project(seq)
+
+          yield* channel.publish("workers", event)
+        })
+      )
+
+      const publishIfSubscribed = Effect.flatMap(channel.count("workers"), (subscribers) =>
+        subscribers > 0 ? publishSnapshot : Effect.void
+      )
+
+      const start: Effect.Effect<never> = control.events.pipe(
+        Stream.mapEffect(() => publishIfSubscribed),
+        Stream.runDrain,
+        Effect.flatMap(() => Effect.never)
+      )
+
+      const subscribe = Stream.unwrap(
+        Effect.gen(function*() {
+          // Attach before reading the snapshot so an event published in between
+          // is buffered rather than lost. The sequence then orders the two: a
+          // buffered event at or before the snapshot's sequence is stale and is
+          // dropped, and one after it is newer and is forwarded.
+          const live = yield* channel.subscribeScoped("workers")
+          const current = yield* snapshot
+
+          return Stream.concat(
+            Stream.succeed(current),
+            Stream.fromSubscription(live).pipe(
+              Stream.filter(isWorkersEvent),
+              Stream.filter((event) => event.seq > current.seq)
+            )
+          )
+        })
+      )
+
+      return WorkersProjector.of({ subscribe, start, snapshot })
     })
   )
 }

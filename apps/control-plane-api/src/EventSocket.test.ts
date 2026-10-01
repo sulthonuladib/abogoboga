@@ -6,9 +6,12 @@ import {
   type EventChannelService,
   SignalProjector,
   SignalStore,
-  type SignalRow
+  type SignalRow,
+  WorkerControl,
+  type WorkerStatus,
+  WorkersProjector
 } from "@lister/api"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Option, Stream } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { EventSocketRoute, eventSocketPath } from "./EventSocket.ts"
 
@@ -34,11 +37,32 @@ const storeLayer = Layer.succeed(
   SignalStore.of({ project: Effect.succeed([row]) })
 )
 
-const shared = Layer.mergeAll(EventChannel.layer, storeLayer)
+const workerStatus: WorkerStatus = {
+  exchangeId: 1,
+  exchangeSlug: "binance",
+  desired: "started",
+  running: true,
+  shards: [],
+  restarts: 0,
+  subscribedCoins: 0
+}
+
+const workerControlLayer = Layer.succeed(
+  WorkerControl,
+  WorkerControl.of({
+    start: () => Effect.die("start is not used"),
+    stop: () => Effect.die("stop is not used"),
+    statuses: Effect.succeed([workerStatus]),
+    events: Stream.never
+  })
+)
+
+const shared = Layer.mergeAll(EventChannel.layer, storeLayer, workerControlLayer)
 
 const dependencies = Layer.mergeAll(
   shared,
   SignalProjector.layer.pipe(Layer.provide(shared)),
+  WorkersProjector.layer.pipe(Layer.provide(shared)),
   BunHttpServer.layerTest
 )
 
@@ -156,6 +180,23 @@ describe("event socket route", () => {
     expect(result.first.type).toBe("signal")
     expect(result.first.rows).toHaveLength(1)
     expect(Option.isNone(result.afterUnsubscribe)).toBe(true)
+  })
+
+  test("subscribe to workers delivers a worker status event", async () => {
+    const result = await withServer(({ wsUrl }) =>
+      Effect.gen(function*() {
+        const socket = yield* connect(wsUrl + eventSocketPath)
+
+        yield* sendFrame(socket, { type: "subscribe", topic: "workers" })
+        const first = yield* receive(socket)
+
+        socket.close()
+
+        return JSON.parse(first)
+      }))
+
+    expect(result.type).toBe("workers")
+    expect(result.workers).toEqual([workerStatus])
   })
 
   test("closing the socket releases the connection's subscriptions", async () => {

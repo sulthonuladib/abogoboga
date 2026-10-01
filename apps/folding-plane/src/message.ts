@@ -4,7 +4,7 @@ import { UrlRequest } from 'foldkit/navigation'
 import { Url } from 'foldkit/url'
 import { Menu, Tooltip } from '@foldkit/ui'
 
-import { SignalRow } from './api'
+import { SignalRow, WorkerStatus } from './api'
 import { Coverage } from './coverage'
 import * as ChainDetail from './page/chainDetail'
 import * as Chains from './page/chains'
@@ -40,11 +40,13 @@ export const Message = defineMessageUnion({
   GotWorkersMessage: { message: Workers.Message },
   GotSignalsMessage: { message: Signals.Message },
   ReceivedSignalRows: { rows: Schema.Array(SignalRow) },
+  ReceivedWorkers: { workers: Schema.Array(WorkerStatus) },
   TickedSignals: { now: Schema.Int },
   SocketAcquired: {},
   SocketReleased: {},
   SocketFailed: { detail: Schema.String },
   SocketClosed: {},
+  RetrySocket: {},
 })
 
 export type Message = typeof Message.Type

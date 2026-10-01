@@ -141,6 +141,16 @@ export const signalFrameStream = (socket: EventSocket): Stream.Stream<Message> =
   )
 
 /**
+ * The subscribe frame on start and the unsubscribe frame on teardown for the
+ * `workers` topic, with no emitted Messages.
+ */
+export const workersFrameStream = (socket: EventSocket): Stream.Stream<Message> =>
+  holdOpen(
+    sendFrame(socket, encodeClientFrame({ type: 'subscribe', topic: 'workers' })),
+    sendFrame(socket, encodeClientFrame({ type: 'unsubscribe', topic: 'workers' })),
+  )
+
+/**
  * Every server frame the socket delivers, decoded to a Message. A close or
  * error ends the stream and asks update to reconnect.
  */
@@ -156,6 +166,13 @@ export const eventMessageStream = (socket: EventSocket): Stream.Stream<Message> 
               Queue.offerUnsafe(
                 queue,
                 Message.ReceivedSignalRows({ rows: decoded.value.rows }),
+              )
+            }
+
+            if (Option.isSome(decoded) && decoded.value.type === 'workers') {
+              Queue.offerUnsafe(
+                queue,
+                Message.ReceivedWorkers({ workers: decoded.value.workers }),
               )
             }
           },
@@ -188,6 +205,14 @@ const signalTopicStream = (): Stream.Stream<Message, never, SignalSocketService>
     ),
   )
 
+const workersTopicStream = (): Stream.Stream<Message, never, SignalSocketService> =>
+  Stream.unwrap(
+    SignalSocket.get.pipe(
+      Effect.map(workersFrameStream),
+      Effect.catchTag('ResourceNotAvailable', () => Effect.succeed(Stream.empty)),
+    ),
+  )
+
 const tickStream = (): Stream.Stream<Message> =>
   Stream.tick('1 seconds').pipe(
     Stream.mapEffect(() =>
@@ -201,8 +226,8 @@ const tickStream = (): Stream.Stream<Message> =>
 
 /**
  * The app-wide socket seam. Two socket entries gate on the connection, so a
- * released socket carries no listeners; the topic entry gates on the route, so
- * the server's projector only runs while a client is on the signal view.
+ * released socket carries no listeners; each topic entry gates on its route, so
+ * the server's projector only runs while a client is on the matching view.
  */
 export const subscriptions = Subscription.make<Model, Message, SignalSocketService>()(
   (entry) => ({
@@ -224,6 +249,18 @@ export const subscriptions = Subscription.make<Model, Message, SignalSocketServi
         }),
         dependenciesToStream: ({ isSignalRoute, isConnected }) =>
           isSignalRoute && isConnected ? signalTopicStream() : Stream.empty,
+      },
+    ),
+    workersTopic: entry(
+      { isWorkersRoute: Schema.Boolean, isConnected: Schema.Boolean, generation: Schema.Int },
+      {
+        modelToDependencies: (model) => ({
+          isWorkersRoute: model.route._tag === 'Workers',
+          isConnected: model.connection._tag === 'Connected',
+          generation: model.socketGeneration,
+        }),
+        dependenciesToStream: ({ isWorkersRoute, isConnected }) =>
+          isWorkersRoute && isConnected ? workersTopicStream() : Stream.empty,
       },
     ),
     signalsTick: entry(

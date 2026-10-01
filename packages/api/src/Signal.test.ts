@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { Schema } from "effect"
-import { ServerEvent, SignalEvent, SignalRow } from "./Signal.ts"
+import { ServerEvent } from "./EventChannel.ts"
+import { SignalEvent, SignalRow } from "./Signal.ts"
 
 const row: SignalRow = {
   opportunityId: 1,
@@ -36,6 +37,11 @@ describe("Signal schemas", () => {
     })
 
     expect(decoded.type).toBe("signal")
+
+    if (decoded.type !== "signal") {
+      throw new Error("expected a signal event")
+    }
+
     expect(decoded.rows).toEqual([row])
   })
 })

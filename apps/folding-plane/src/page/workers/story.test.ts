@@ -6,7 +6,7 @@ import { describe, expect, test } from 'vitest'
 import { WorkerStatus } from '../../api'
 import { Message, OutMessage } from './message'
 import { Model, initialModel } from './model'
-import { FetchWorkers, StartWorker, StopWorker, entered, init, update } from './update'
+import { FetchWorkers, StartWorker, StopWorker, entered, init, receivedWorkers, update } from './update'
 
 const fixtureWorkers = Schema.decodeUnknownSync(Schema.Array(WorkerStatus))([
   {
@@ -70,6 +70,30 @@ describe('entered', () => {
     const next = entered(initialModel)
 
     expect(next.commands?.map((command) => command.name)).toEqual([FetchWorkers.name])
+  })
+})
+
+describe('receivedWorkers', () => {
+  test('a received snapshot sets the rows', () => {
+    const next = receivedWorkers(fixtureWorkers)(initialModel)
+
+    if (!AsyncData.isSuccess(next.model.workers)) {
+      throw new Error('expected the rows to settle to success')
+    }
+
+    expect(next.model.workers.data).toEqual(fixtureWorkers)
+  })
+
+  test('a received snapshot recovers a page that had failed', () => {
+    const failed: Model = { ...initialModel, workers: AsyncData.fail('unreachable') }
+
+    const next = receivedWorkers(fixtureWorkers)(failed)
+
+    if (!AsyncData.isSuccess(next.model.workers)) {
+      throw new Error('expected the rows to settle to success')
+    }
+
+    expect(next.model.workers.data).toEqual(fixtureWorkers)
   })
 })
 
