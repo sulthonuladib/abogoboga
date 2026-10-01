@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import { BunServices } from "@effect/platform-bun"
+import Coingecko from "@coingecko/coingecko-typescript"
 import { Effect, Layer } from "effect"
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { CoinGecko, type CoinListItem, type ExchangeTickerPage } from "./CoinGecko.ts"
+import { CoinGecko, CoinGeckoError, type CoinListItem, type ExchangeTickerPage, coinImageBatchSize } from "./CoinGecko.ts"
 import {
   fetchSnapshot,
   mapSnapshot,
@@ -153,6 +154,184 @@ describe("fetchSnapshot", () => {
     expect(result.exchanges[0]?.logo).toBe("https://example.test/indodax.png")
     expect(result.exchanges[0]?.tickers).toHaveLength(204)
     expect(result.coins.map((coin) => coin.id)).toEqual(["coin-0", "coin-203"])
+    expect(result.coins.every((coin) => coin.logo.startsWith("https://example.test/"))).toBe(true)
+  })
+
+  test("chunks coin logo lookups so each /coins/markets request stays within the id cap", async () => {
+    const ticker = (index: number): ExchangeTickerPage["tickers"][number] => ({
+      base: `T${index}`,
+      target: "USDT",
+      coinId: `coin-${index}`,
+      targetCoinId: ""
+    })
+
+    const page = (tickers: ExchangeTickerPage["tickers"]): ExchangeTickerPage => ({
+      name: "Binance",
+      tickers,
+      pageSize: tickers.length
+    })
+
+    const coinCount = coinImageBatchSize * 2 + 5
+
+    const pages = new Map<number, ExchangeTickerPage>([
+      [1, page(Array.from({ length: 100 }, (_, index) => ticker(index)))],
+      [2, page(Array.from({ length: coinCount - 100 }, (_, index) => ticker(100 + index)))]
+    ])
+
+    const allCoins: ReadonlyArray<CoinListItem> = Array.from({ length: coinCount }, (_, index) => ({
+      id: `coin-${index}`,
+      name: `Coin ${index}`,
+      symbol: `c${index}`,
+      platforms: {}
+    }))
+
+    const batchSizes: Array<number> = []
+
+    const layer = Layer.succeed(
+      CoinGecko,
+      CoinGecko.of({
+        listCoins: Effect.succeed(allCoins),
+        exchangeTickers: (_coingeckoId, pageNumber) => Effect.succeed(pages.get(pageNumber) ?? page([])),
+        exchangeLogo: () => Effect.succeed("https://example.test/binance.png"),
+        coinImages: (ids) => {
+          batchSizes.push(ids.length)
+
+          return Effect.succeed(new Map(ids.map((id) => [id, `https://example.test/${id}.png`] as const)))
+        }
+      })
+    )
+
+    const result = await Effect.runPromise(
+      fetchSnapshot({ exchanges: ["binance"], delayMillis: 0 }).pipe(Effect.provide(layer))
+    )
+
+    expect(result.coins).toHaveLength(coinCount)
+    expect(batchSizes).toEqual([coinImageBatchSize, coinImageBatchSize, 5])
+    expect(batchSizes.every((size) => size <= coinImageBatchSize)).toBe(true)
+  })
+
+  test("splits a failed coin logo batch instead of failing the scan", async () => {
+    const ticker = (index: number): ExchangeTickerPage["tickers"][number] => ({
+      base: `T${index}`,
+      target: "USDT",
+      coinId: `coin-${index}`,
+      targetCoinId: ""
+    })
+
+    const coinCount = 60
+
+    const page: ExchangeTickerPage = {
+      name: "Binance",
+      tickers: Array.from({ length: coinCount }, (_, index) => ticker(index)),
+      pageSize: coinCount
+    }
+
+    const allCoins: ReadonlyArray<CoinListItem> = Array.from({ length: coinCount }, (_, index) => ({
+      id: `coin-${index}`,
+      name: `Coin ${index}`,
+      symbol: `c${index}`,
+      platforms: {}
+    }))
+
+    const batchSizes: Array<number> = []
+    let calls = 0
+
+    const layer = Layer.succeed(
+      CoinGecko,
+      CoinGecko.of({
+        listCoins: Effect.succeed(allCoins),
+        exchangeTickers: () => Effect.succeed(page),
+        exchangeLogo: () => Effect.succeed("https://example.test/binance.png"),
+        coinImages: (ids) => {
+          calls += 1
+          batchSizes.push(ids.length)
+
+          if (calls === 1) {
+            return Effect.fail(
+              new CoinGeckoError({
+                operation: "coinImages",
+                detail: "Request blocked.",
+                status: 403,
+                retryable: false,
+                cause: new Error("Request blocked.")
+              })
+            )
+          }
+
+          return Effect.succeed(new Map(ids.map((id) => [id, `https://example.test/${id}.png`] as const)))
+        }
+      })
+    )
+
+    const result = await Effect.runPromise(
+      fetchSnapshot({ exchanges: ["binance"], delayMillis: 0 }).pipe(Effect.provide(layer))
+    )
+
+    expect(result.coins).toHaveLength(coinCount)
+    // The first 50-coin batch fails, splits into two 25-coin retries, and the
+    // remaining 10-coin batch succeeds.
+    expect(batchSizes).toEqual([50, 25, 25, 10])
+    expect(result.coins.every((coin) => coin.logo.startsWith("https://example.test/"))).toBe(true)
+  })
+
+  test("splits a rate-limited coin logo batch after waiting the Retry-After window", async () => {
+    const ticker = (index: number): ExchangeTickerPage["tickers"][number] => ({
+      base: `T${index}`,
+      target: "USDT",
+      coinId: `coin-${index}`,
+      targetCoinId: ""
+    })
+
+    const coinCount = 60
+
+    const page: ExchangeTickerPage = {
+      name: "Binance",
+      tickers: Array.from({ length: coinCount }, (_, index) => ticker(index)),
+      pageSize: coinCount
+    }
+
+    const allCoins: ReadonlyArray<CoinListItem> = Array.from({ length: coinCount }, (_, index) => ({
+      id: `coin-${index}`,
+      name: `Coin ${index}`,
+      symbol: `c${index}`,
+      platforms: {}
+    }))
+
+    const batchSizes: Array<number> = []
+
+    const layer = Layer.succeed(
+      CoinGecko,
+      CoinGecko.of({
+        listCoins: Effect.succeed(allCoins),
+        exchangeTickers: () => Effect.succeed(page),
+        exchangeLogo: () => Effect.succeed("https://example.test/binance.png"),
+        coinImages: (ids) => {
+          batchSizes.push(ids.length)
+
+          if (ids.length > 30) {
+            return Effect.fail(
+              new CoinGeckoError({
+                operation: "coinImages",
+                detail: "rate limited",
+                status: 429,
+                retryable: true,
+                // `Retry-After: 0` keeps the wait at zero so the test does not sleep.
+                cause: new Coingecko.APIError(429, undefined, "rate limited", new Headers({ "retry-after": "0" }))
+              })
+            )
+          }
+
+          return Effect.succeed(new Map(ids.map((id) => [id, `https://example.test/${id}.png`] as const)))
+        }
+      })
+    )
+
+    const result = await Effect.runPromise(
+      fetchSnapshot({ exchanges: ["binance"], delayMillis: 0 }).pipe(Effect.provide(layer))
+    )
+
+    expect(result.coins).toHaveLength(coinCount)
+    expect(batchSizes).toEqual([50, 25, 25, 10])
     expect(result.coins.every((coin) => coin.logo.startsWith("https://example.test/"))).toBe(true)
   })
 })

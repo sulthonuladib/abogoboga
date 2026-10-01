@@ -80,7 +80,7 @@ describe("CoinGecko rate-limit handling", () => {
     expect(calls).toBe(1)
   })
 
-  test("gives up after the retry budget and surfaces the last rate-limit error", async () => {
+  test("keeps retrying a 429 until the rate-limit retry budget is exhausted", async () => {
     let calls = 0
 
     const fetch = async (): Promise<Response> => {
@@ -99,7 +99,32 @@ describe("CoinGecko rate-limit handling", () => {
 
     expect(result.status).toBe(429)
     expect(result.retryable).toBe(true)
-    // One initial attempt plus the retry budget.
+    // One initial attempt plus the rate-limit retry budget.
+    expect(calls).toBe(61)
+  })
+
+  test("gives up after the smaller retry budget for a server error", async () => {
+    let calls = 0
+
+    const fetch = async (): Promise<Response> => {
+      calls += 1
+
+      // `Retry-After` keeps the exponential backoff at zero so the test does not
+      // actually sleep for the accumulated delay.
+      return json({ status: { error_code: 500 } }, 500, { "retry-after": "0" })
+    }
+
+    const result = await Effect.runPromise(
+      Effect.flip(readCoins.pipe(Effect.provide(makeCoinGeckoLayer({ fetch }))))
+    )
+
+    expect(result).toBeInstanceOf(CoinGeckoError)
+
+    if (!(result instanceof CoinGeckoError)) throw new Error("expected CoinGeckoError")
+
+    expect(result.status).toBe(500)
+    expect(result.retryable).toBe(true)
+    // Server errors keep the five-attempt budget, unlike rate limits.
     expect(calls).toBe(6)
   })
 })
