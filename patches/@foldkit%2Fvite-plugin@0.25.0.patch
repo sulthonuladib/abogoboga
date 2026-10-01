@@ -1,0 +1,12 @@
+diff --git a/dist/index.js b/dist/index.js
+index 69ebcccc40766ccd1e8c6ff9a72601d380f8b8d8..1bce0f10bb372144334548ee9b6b4467858a97ca 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -59,7 +59,6 @@ const FORCE_INCLUDED_EFFECT_NAMESPACES = [
+     'effect/Result',
+     'effect/Runtime',
+     'effect/Scheduler',
+-    'effect/Schema',
+     'effect/SchemaAST',
+     'effect/SchemaIssue',
+     'effect/SchemaTransformation',

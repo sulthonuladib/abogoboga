@@ -320,6 +320,7 @@
     },
   },
   "patchedDependencies": {
+    "@foldkit/vite-plugin@0.25.0": "patches/@foldkit%2Fvite-plugin@0.25.0.patch",
     "foldkit@0.164.0": "patches/foldkit@0.164.0.patch",
     "drizzle-orm@1.0.0-rc.4": "patches/drizzle-orm@1.0.0-rc.4.patch",
     "@foldkit/devtools@0.164.0": "patches/@foldkit%2Fdevtools@0.164.0.patch",
