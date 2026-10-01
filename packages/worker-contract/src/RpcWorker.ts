@@ -11,8 +11,8 @@
  * @module
  */
 import { Duration, Effect, Option, Queue, Ref, Schedule, Scope, Stream, SynchronizedRef } from "effect"
-import { RpcServer, RpcWorker } from "effect/unstable/rpc"
-import { WorkerRunner } from "effect/unstable/workers"
+import { RpcServer, RpcWorker } from "effect/rpc"
+import { WorkerRunner } from "effect/workers"
 import { BootstrapContext } from "./BootstrapContext.ts"
 import type { BootstrapCoin } from "./BootstrapCoin.ts"
 import { WorkerRpc, type WorkerStatus } from "./WorkerRpc.ts"

@@ -19,8 +19,8 @@ import {
   type Topic
 } from "@lister/api"
 import { Effect, Fiber, Match, Option, Queue, Ref, Schema, Stream } from "effect"
-import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
-import { Socket } from "effect/unstable/socket"
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
+import { Socket } from "effect/socket"
 
 /**
  * Path the event socket is served on.

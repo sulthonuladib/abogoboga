@@ -4,7 +4,7 @@ import { EffectDrizzleQueryError, MigratorInitError } from "drizzle-orm/effect-c
 import { type EffectPgDatabase, makeWithDefaults } from "drizzle-orm/effect-postgres"
 import { migrate } from "drizzle-orm/effect-postgres/migrator"
 import { Config, Context, Effect, Layer } from "effect"
-import type { SqlError } from "effect/unstable/sql/SqlError"
+import type { SqlError } from "effect/sql/SqlError"
 import { fileURLToPath } from "node:url"
 import { postgresCodecs } from "./PostgresCodecs.ts"
 import { dbRelations } from "./relations.ts"

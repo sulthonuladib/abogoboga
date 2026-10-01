@@ -11,30 +11,30 @@
   "type": "module",
   "module": "apps/control-plane-api/src/index.ts",
   "catalog": {
-    "effect": "4.0.0-rc.117",
-    "@effect/platform-bun": "4.0.0-rc.117",
-    "@effect/platform-node": "4.0.0-rc.117",
-    "@effect/platform-node-shared": "4.0.0-rc.117",
-    "@effect/platform-browser": "4.0.0-rc.117",
-    "@effect/sql-pg": "4.0.0-rc.117",
-    "@effect/tsgo": "0.46.1",
-    "foldkit": "0.163.0",
-    "@foldkit/devtools": "0.163.0",
-    "@foldkit/devtools-mcp": "0.22.0",
-    "@foldkit/oxlint-plugin": "0.15.0",
-    "@foldkit/ui": "0.163.0",
-    "@foldkit/vite-plugin": "0.24.0",
+    "effect": "4.0.0",
+    "@effect/platform-bun": "4.0.0",
+    "@effect/platform-node": "4.0.0",
+    "@effect/platform-node-shared": "4.0.0",
+    "@effect/platform-browser": "4.0.0",
+    "@effect/sql-pg": "4.0.0",
+    "@effect/tsgo": "0.47.2",
+    "foldkit": "0.164.0",
+    "@foldkit/devtools": "0.164.0",
+    "@foldkit/devtools-mcp": "0.23.0",
+    "@foldkit/oxlint-plugin": "0.15.1",
+    "@foldkit/ui": "0.164.0",
+    "@foldkit/vite-plugin": "0.25.0",
     "@fontsource-variable/inter": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^26.4.0",
-    "happy-dom": "^20.11.13",
-    "oxfmt": "^0.66.0",
-    "oxlint": "1.85.0",
+    "@types/node": "^26.6.3",
+    "happy-dom": "^20.14.5",
+    "oxfmt": "^0.71.0",
+    "oxlint": "1.86.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.1",
-    "vitest": "^5.0.0",
-    "@effect/sql-pglite": "4.0.0-rc.117"
+    "vitest": "^5.0.3",
+    "@effect/sql-pglite": "4.0.0"
   },
   "scripts": {
     "dev": "bun run --watch apps/control-plane-api/src/index.ts",
@@ -53,9 +53,7 @@
     "db:seed:tester": "bun run apps/cli/src/index.ts seed tester",
     "scan:fetch": "bun run apps/cli/src/index.ts scan fetch",
     "scan:import": "bun run apps/cli/src/index.ts scan import",
-    "prepare": "effect-tsgo patch --typescript --oxlint",
-    "update:rc": "bun run tools/update-rc.ts",
-    "update:rc:dry": "bun run tools/update-rc.ts --dry-run"
+    "prepare": "effect-tsgo patch --typescript --oxlint"
   },
   "dependencies": {
     "@bufbuild/buf": "^1.73.0",
@@ -68,7 +66,7 @@
   "devDependencies": {
     "@effect/platform-bun": "catalog:",
     "@effect/sql-pg": "catalog:",
-    "@oxlint/plugins": "1.85.0",
+    "@oxlint/plugins": "1.86.0",
     "@types/bun": "^1.4.2",
     "drizzle-kit": "1.0.0-rc.4",
     "oxlint": "catalog:",
@@ -79,6 +77,8 @@
     "@effect/tsgo": "catalog:"
   },
   "patchedDependencies": {
-    "drizzle-orm@1.0.0-rc.4": "patches/drizzle-orm@1.0.0-rc.4.patch"
+    "drizzle-orm@1.0.0-rc.4": "patches/drizzle-orm@1.0.0-rc.4.patch",
+    "foldkit@0.164.0": "patches/foldkit@0.164.0.patch",
+    "@foldkit/devtools@0.164.0": "patches/@foldkit%2Fdevtools@0.164.0.patch"
   }
 }

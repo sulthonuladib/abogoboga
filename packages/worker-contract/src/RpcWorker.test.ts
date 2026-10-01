@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { Duration, Effect, Ref, Stream } from "effect"
-import { RpcTest } from "effect/unstable/rpc"
+import { RpcTest } from "effect/rpc"
 import type { BootstrapCoin } from "./BootstrapCoin.ts"
 import type { CanonicalTick } from "./CanonicalTick.ts"
 import { workerHostState } from "./RpcWorker.ts"

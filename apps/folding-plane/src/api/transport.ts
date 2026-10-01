@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Predicate, Schema } from 'effect'
 import { Http } from 'foldkit'
-import { HttpClient, HttpClientError } from 'effect/unstable/http'
-import { HttpApiClient } from 'effect/unstable/httpapi'
+import { HttpClient, HttpClientError } from 'effect/http'
+import { HttpApiClient } from 'effect/http-api'
 import { Api } from '@lister/api/client'
 
 // ORIGIN

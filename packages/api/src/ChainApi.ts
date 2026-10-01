@@ -1,6 +1,6 @@
 import { Chain as ChainModel, ChainId } from "@lister/domain"
 import { Effect, Schema } from "effect"
-import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
+import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api"
 import {
   ChainOrderField,
   type ChainOrderField as ChainOrderFieldType,

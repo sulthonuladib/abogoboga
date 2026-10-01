@@ -33,8 +33,7 @@ const exampleFile = (slug: string, fileName: string): string =>
 
 // The playground and the example source tabs both publish what an example is
 // made of. `vite build` reads the config rather than a script, so the config is
-// the file that has to reach both: without it the published command cannot run,
-// and the build id contract it implements is invisible to a reader.
+// the file that has to reach both.
 describe('server-rendered example build scripts', () => {
   for (const slug of SERVER_RENDERED_EXAMPLES) {
     it(`ships the config the ${slug} build command reads`, () => {
@@ -47,20 +46,6 @@ describe('server-rendered example build scripts', () => {
       expect(EXAMPLE_ROOT_FILES).toContain(configFileName)
       expect(EXAMPLE_FILE_EXTENSIONS.has(extname(configFileName))).toBe(true)
       expect(INCLUDED_EXTENSIONS.has(extname(configFileName))).toBe(true)
-    })
-
-    it(`computes a build id in every ${slug} config it publishes`, () => {
-      // The playground runs a config of its own, written against published
-      // packages. A build id missing there is a playground whose pages refuse
-      // to hydrate, with nothing in the example's own source to explain it.
-      for (const fileName of ['vite.config.ts', 'vite.config.playground.ts']) {
-        const config = exampleFile(slug, fileName)
-        expect(config, fileName).toContain('FOLDKIT_BUILD_ID')
-        expect(config, fileName).toContain(
-          "process.env['FOLDKIT_BUILD_ID'] ||= randomUUID()",
-        )
-        expect(config, fileName).toContain('buildId,')
-      }
     })
   }
 

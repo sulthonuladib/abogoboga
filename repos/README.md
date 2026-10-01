@@ -14,7 +14,7 @@ Because these are subtrees (not submodules), they are committed with this reposi
 
 - Path: `repos/effect`
 - Source: <https://github.com/Effect-TS/effect>
-- Tag: `effect@4.0.0-rc.117`
+- Tag: `effect@4.0.0`
 - Matches `catalog.effect` in the root `package.json`.
 
 Layout:
@@ -52,7 +52,7 @@ If a version has no tag, pin to the full commit hash instead.
 
 - Path: `repos/foldkit`
 - Source: <https://github.com/foldkit/foldkit>
-- Tag: `foldkit@0.163.0`
+- Tag: `foldkit@0.164.0`
 - Matches `catalog.foldkit` in the root `package.json`.
 
 Foldkit vendors itself the same way and documents the layout, conventions, and read-from-it rules in `apps/folding-plane/FOLDKIT.md`. Treat that file as the source of truth for how to use this subtree. The short version: `repos/foldkit/packages/foldkit/src/` is the framework source, `repos/foldkit/examples/` holds runnable examples, and `repos/foldkit/AGENTS.md` carries the project conventions.

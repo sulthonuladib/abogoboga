@@ -1,6 +1,6 @@
 import { Config, Effect, Layer, Logger, References } from "effect"
-import { FetchHttpClient } from "effect/unstable/http"
-import { Otlp, OtlpSerialization, OtlpTracer } from "effect/unstable/observability"
+import { FetchHttpClient } from "effect/http"
+import { Otlp, OtlpSerialization, OtlpTracer } from "effect/observability"
 
 /**
  * Console logger layer: human-readable lines in development, one JSON object

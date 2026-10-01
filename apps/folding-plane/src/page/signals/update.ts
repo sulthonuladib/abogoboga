@@ -1,5 +1,5 @@
 import { Array, Effect, Option, Order, Schema } from 'effect'
-import { HttpClient } from 'effect/unstable/http'
+import { HttpClient } from 'effect/http'
 import { AsyncData, Command, Update } from 'foldkit'
 import { pushUrl, replaceUrl } from 'foldkit/navigation'
 import { modifyFields } from 'foldkit/struct'

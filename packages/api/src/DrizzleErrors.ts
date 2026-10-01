@@ -1,6 +1,6 @@
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core/errors"
 import { Cause, Option } from "effect"
-import { SqlError, UniqueViolation } from "effect/unstable/sql/SqlError"
+import { SqlError, UniqueViolation } from "effect/sql/SqlError"
 
 /**
  * Extract the violated unique constraint from a Drizzle query error.

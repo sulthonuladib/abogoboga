@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect"
-import { HttpRouter, HttpServerResponse } from "effect/unstable/http"
-import { HttpApiScalar, OpenApi } from "effect/unstable/httpapi"
+import { HttpRouter, HttpServerResponse } from "effect/http"
+import { HttpApiScalar, OpenApi } from "effect/http-api"
 import { Api } from "./Api.ts"
 
 /**

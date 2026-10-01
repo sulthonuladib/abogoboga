@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpApiBuilder } from "effect/http-api"
 import { Api } from "./Api.ts"
 import { Chain, type ChainListQuery } from "./Chain.ts"
 import { ChainListPayload } from "./ChainApi.ts"

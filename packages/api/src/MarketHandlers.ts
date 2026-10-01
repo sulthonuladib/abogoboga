@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpApiBuilder } from "effect/http-api"
 import { Api } from "./Api.ts"
 import { CoinDetailEvents } from "./CoinDetailEvents.ts"
 import { Market } from "./Market.ts"

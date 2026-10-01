@@ -1,6 +1,6 @@
 import { CryptocurrencyId, ExchangeId, Market as MarketModel, MarketId } from "@lister/domain"
 import { Effect, Schema } from "effect"
-import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
+import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api"
 import { CryptocurrencyNotFound } from "./CryptocurrencyErrors.ts"
 import { ExchangeNotFound } from "./ExchangeErrors.ts"
 import { MarketExists, MarketNotFound } from "./MarketErrors.ts"

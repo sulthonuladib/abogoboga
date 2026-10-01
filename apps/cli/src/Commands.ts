@@ -1,6 +1,6 @@
 import { Database } from "@lister/db"
 import { Console, Effect } from "effect"
-import { Command, Flag } from "effect/unstable/cli"
+import { Command, Flag } from "effect/cli"
 import {
   defaultSnapshotPath,
   defaultUnmappedChainCode,

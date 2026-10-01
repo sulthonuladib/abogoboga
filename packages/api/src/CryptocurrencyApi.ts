@@ -7,7 +7,7 @@ import {
   MarketId
 } from "@lister/domain"
 import { Effect, Schema, Struct } from "effect"
-import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
+import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api"
 import {
   CryptocurrencyOrderField,
   CryptocurrencySearchField,

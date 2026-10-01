@@ -23,7 +23,7 @@
     "preview:search": "pnpm build && pnpm prerender && vite preview"
   },
   "dependencies": {
-    "@effect/platform-browser": "4.0.0-rc.116",
+    "@effect/platform-browser": "4.0.0-rc.117",
     "@foldkit/devtools": "workspace:*",
     "@foldkit/markdown": "workspace:*",
     "@foldkit/ui": "workspace:*",
@@ -31,29 +31,29 @@
     "@vercel/speed-insights": "^2.0.0",
     "@webcontainer/api": "^1.6.4",
     "clsx": "^2.1.1",
-    "effect": "4.0.0-rc.116",
+    "effect": "4.0.0-rc.117",
     "foldkit": "workspace:*",
     "monaco-editor": "^0.56.0",
     "shiki": "^4.4.3",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.11.1",
-    "@effect/platform-node": "4.0.0-rc.116",
+    "@axe-core/playwright": "^4.13.0",
+    "@effect/platform-node": "4.0.0-rc.117",
     "@foldkit/api-reference-generator": "workspace:*",
     "@foldkit/vite-plugin": "workspace:*",
-    "@playwright/test": "^1.62.1",
+    "@playwright/test": "^1.63.0",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
-    "happy-dom": "^20.11.13",
-    "image-size": "^2.0.2",
+    "happy-dom": "^20.14.5",
+    "image-size": "^2.0.4",
     "pagefind": "^1.5.2",
-    "playwright": "^1.62.1",
-    "rolldown": "^1.2.6",
-    "satori": "^0.33.4",
+    "playwright": "^1.63.0",
+    "rolldown": "^1.2.11",
+    "satori": "^0.33.5",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2",
+    "vite": "^8.3.1",
     "vitest": "^4.1.11"
   }
 }

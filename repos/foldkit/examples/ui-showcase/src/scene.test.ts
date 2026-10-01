@@ -24,6 +24,8 @@ describe('view', () => {
       expect(role('link', { name: 'Calendar' })).toExist(),
       expect(role('link', { name: 'Dialog' })).toExist(),
       expect(role('link', { name: 'Hover Intent' })).toExist(),
+      expect(role('link', { name: 'Meter' })).toExist(),
+      expect(role('link', { name: 'Progress' })).toExist(),
       expect(role('link', { name: 'Toast' })).toExist(),
       expect(role('link', { name: 'Virtual List' })).toExist(),
     )
@@ -50,6 +52,8 @@ describe('view', () => {
       AppRoute.Fieldset(),
       AppRoute.HoverIntent(),
       AppRoute.Input(),
+      AppRoute.Meter(),
+      AppRoute.Progress(),
       AppRoute.RadioGroup(),
       AppRoute.Select(),
       AppRoute.Switch(),

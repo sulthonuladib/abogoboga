@@ -184,25 +184,27 @@ Most structural mismatches are safe because Foldkit rebuilds the affected subtre
 
 Flags create the same risk. A payload belongs to the deployment that rendered it. A new Schema may accept the old data even when its values now mean something different.
 
-The deployment supplies the id because Foldkit cannot infer it. Imported constants, configuration, and caller arguments can change a view's output without changing the view function. `@foldkit/vite-plugin` compiles the value from its `buildId` option or `FOLDKIT_BUILD_ID` into application code as `import.meta.env.FOLDKIT_BUILD_ID`. The client and server entries pass that value explicitly:
+`@foldkit/vite-plugin` generates one opaque id when a Vite app build coordinates the client and server artifacts. It compiles that id into Foldkit in both artifacts, so `Runtime.hydrate(application)` and `Server.renderToString(config, options)` use it without application forwarding.
 
-::Snippet{name="serverRenderingBuildId" label="Build id example"}
+Set an explicit override only when the artifacts build in separate jobs, or when the id should name a deployment in another system. Use the plugin's `buildId` option or the `FOLDKIT_BUILD_ID` environment variable, and give every job the same value:
+
+::Snippet{name="serverRenderingBuildId" label="Build id override"}
 
 Whatever value you pick, three things have to be true:
 
 - It is public. The id appears in the HTML sent to every visitor, so it must not contain a secret.
-- It identifies one deployment. Reusing an id makes a stale page look current and produces no warning. A commit or version is insufficient when the same revision can be deployed with different rendering inputs. The `ssr` and `ssg` scaffolds generate a fresh id whenever `FOLDKIT_BUILD_ID` is unset.
-- It reaches both builds. `@foldkit/vite-plugin` builds the client and the server from one `vite build`, but Vite reads the config once per environment it builds, so whatever supplies the id has to answer with the same value each time it is asked. Read it from the environment, or store a generated fallback back into the environment, as the scaffolds do. A config that computes a fresh value per read gives the two bundles different ids, and hydration then refuses every page of the deployment that just shipped. A build split into separate commands has to pass the same value to each itself. A unique CI deployment id is a good source. A commit SHA or release tag is enough only when every deployment carrying it has identical rendering inputs.
+- It identifies one deployment. Reusing an override makes a stale page look current and produces no warning. A unique CI deployment id is a good source. A commit SHA or release tag is enough only when every deployment carrying it has identical rendering inputs.
+- It reaches both artifacts. One Vite app build handles this automatically. Separate build jobs must receive the same explicit override.
 
-A hydratable render without an id fails with `MissingBuildId`. `Runtime.hydrate` also requires one. A static render with `isHydratable: false` needs none.
+A hydratable render without a compiled or explicit id fails with `MissingBuildId`. `Runtime.hydrate` refuses hydration on the same terms. A static render with `isHydratable: false` needs none.
 
-Only a build takes the id from the deployment. The development server compiles the fixed value `development` into its server and client transforms. Development runs one live source session rather than producing independently deployable artifacts, so there is no deployment identity to derive.
+The development server generates an opaque id for its own client and server transforms. A second dev server receives a different id, so a page from one session is not accepted by the other.
 
 ### Why view identity cannot replace the build id
 
 A view identity names a module path and function. It does not capture imported constants, configuration, or caller arguments.
 
-View identity also ships in the client bundle. Adding a source hash would expose a digest of that source to every visitor. A reader could test candidates for a low-entropy server-only value by hashing each one, even when the client build removed the value itself. A deployment-supplied build id detects skew without hashing source files.
+View identity also ships in the client bundle. Adding a source hash would expose a digest of that source to every visitor. A reader could test candidates for a low-entropy server-only value by hashing each one, even when the client build removed the value itself. An opaque build id detects skew without hashing source files.
 
 ## Request-time SSR
 
@@ -253,6 +255,18 @@ A deployed SSG build is a directory of static files. Any static host or CDN can 
 A build that `@foldkit/vite-plugin` owns writes `foldkit.build.json` beside the server bundle. It names the two output directories, the server entry, and every generated path. An SSR host can serve those files and send requests that match no file to the server. A static-only SSG host serves the generated files and leaves other paths as misses.
 
 A deployed SSR application needs a host that serves the built client assets and calls `fetch` for page requests. The build writes no fallback document. Send requests that match no file to `fetch`; do not enable a single-page-application fallback that answers those requests with a file. The [SSR example's Node host](https://github.com/foldkit/foldkit/tree/main/examples/ssr/scripts/serve.ts) serves assets and sends page requests to `dist/server/fetch.js`.
+
+### Reading completed build metadata
+
+A deployment integration that runs Vite in process can read the `foldkit:build` plugin's `api` after `await builder.buildApp()` succeeds. Its `getBuildMetadata()` method returns a frozen, serializable `FoldkitBuildMetadata` snapshot with absolute `root`, `clientDirectory`, `serverDirectory`, and emitted `serverEntry` paths, plus the same `manifest` data written to disk. These paths follow the resolved Vite environments, including host overrides.
+
+:::Snippet{name="serverRenderingBuildMetadata" label="Read completed build metadata"}
+
+`@foldkit/vite-plugin` exports `FoldkitBuildMetadata` as a Schema and inferred type, and `FoldkitBuildApi` as the plugin API type. The API's existing `serverEntry` field names the source module; the metadata's `serverEntry` names the generated fetch handler. `manifest` retains the version-1 relative POSIX paths and successfully prerendered routes.
+
+A client-only build has no `foldkit:build` plugin. A present plugin without `getBuildMetadata` needs a Foldkit upgrade. Calling the accessor before finalization, during another environment build, or after a Foldkit build failure throws. Always await the full application build successfully, because later plugins can still fail after Foldkit finishes. Neither an environment's `writeBundle` nor an arbitrary post-order `buildApp` hook guarantees that prerendering has completed.
+
+Create a fresh plugin set for each independent builder. Foldkit uses Vite's `sharedDuringBuild` to share state across that builder's environments; do not reuse one plugin object across concurrent builders. This does not add watch-mode support. A tool running Vite in a child process can read and serialize this metadata in the child. A tool consuming an existing build can continue reading `foldkit.build.json`.
 
 ### Which methods reach the entry
 

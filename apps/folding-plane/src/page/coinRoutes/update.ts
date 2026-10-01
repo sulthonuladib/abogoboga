@@ -1,5 +1,5 @@
 import { Effect, Option, Schema } from 'effect'
-import { HttpClient } from 'effect/unstable/http'
+import { HttpClient } from 'effect/http'
 import { Dialog } from '@foldkit/ui'
 import { AsyncData, Command, FieldValidation, Update } from 'foldkit'
 import { modifyFields } from 'foldkit/struct'

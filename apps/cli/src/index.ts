@@ -3,7 +3,7 @@ import { AppConfig } from "@lister/config"
 import { Database } from "@lister/db"
 import { ObservabilityLive } from "@lister/observability"
 import { Effect, Layer } from "effect"
-import { Command } from "effect/unstable/cli"
+import { Command } from "effect/cli"
 import { CoinGecko } from "./CoinGecko.ts"
 import { cli } from "./Commands.ts"
 

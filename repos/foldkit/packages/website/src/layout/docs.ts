@@ -945,6 +945,28 @@ export const view = (
           }),
           Ui.SliderPage.tableOfContents,
         ),
+      UiMeter: () =>
+        withTableOfContents(
+          h.submodel({
+            slotId: 'ui-Meter',
+            model: model.uiPages,
+            view: Ui.MeterPage.view,
+            viewInputs: { renderCopyButton, renderHeadingLink },
+            toParentMessage: toUiPageMessage,
+          }),
+          Ui.MeterPage.tableOfContents,
+        ),
+      UiProgress: () =>
+        withTableOfContents(
+          h.submodel({
+            slotId: 'ui-Progress',
+            model: model.uiPages,
+            view: Ui.ProgressPage.view,
+            viewInputs: { renderCopyButton, renderHeadingLink },
+            toParentMessage: toUiPageMessage,
+          }),
+          Ui.ProgressPage.tableOfContents,
+        ),
       UiSwitch: () =>
         withTableOfContents(
           h.submodel({

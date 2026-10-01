@@ -1,5 +1,5 @@
 import { Option, Record, pipe } from 'effect'
-import { Cookies } from 'effect/unstable/http'
+import { Cookies } from 'effect/http'
 
 import { Preset, Theme } from './model'
 

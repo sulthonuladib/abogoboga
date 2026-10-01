@@ -97,21 +97,21 @@
     "check:published-versions": "node scripts/check-published-versions.ts"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "^1.0.0",
-    "@changesets/cli": "^3.0.1",
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.3",
     "@foldkit/oxlint-plugin": "workspace:*",
-    "@types/node": "^26.4.0",
+    "@types/node": "26.4.0",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "effect": "4.0.0-rc.116",
+    "effect": "4.0.0-rc.117",
     "foldkit": "workspace:*",
-    "knip": "^6.33.0",
+    "knip": "^6.38.0",
     "madge": "^8.0.0",
     "oxfmt": "^0.66.0",
-    "oxlint": "^1.80.0",
+    "oxlint": "^1.85.0",
     "semver": "^7.8.5",
     "simple-git-hooks": "^2.14.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.3.1"
   },
   "simple-git-hooks": {
     "commit-msg": "if grep -q 'Co-Authored-By.*[Cc]laude' \"$1\"; then echo '\\n❌ Commit message contains a Claude Co-Authored-By line. Remove it and try again.' && exit 1; fi",

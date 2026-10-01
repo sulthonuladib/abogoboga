@@ -1,6 +1,6 @@
 {
   "name": "@foldkit/devtools",
-  "version": "0.163.0",
+  "version": "0.164.0",
   "description": "In-browser DevTools overlay for Foldkit applications",
   "type": "module",
   "exports": {
@@ -22,21 +22,21 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@effect/platform-browser": "4.0.0-rc.116",
+    "@effect/platform-browser": "4.0.0-rc.117",
     "@foldkit/ui": "workspace:^0",
-    "effect": "4.0.0-rc.116",
+    "effect": "4.0.0-rc.117",
     "foldkit": ">=0.163.0"
   },
   "dependencies": {
     "clsx": "^2.1.1"
   },
   "devDependencies": {
-    "@effect/platform-browser": "4.0.0-rc.116",
+    "@effect/platform-browser": "4.0.0-rc.117",
     "@foldkit/ui": "workspace:*",
     "@foldkit/vite-plugin": "workspace:*",
-    "effect": "4.0.0-rc.116",
+    "effect": "4.0.0-rc.117",
     "foldkit": "workspace:*",
-    "happy-dom": "^20.11.13",
+    "happy-dom": "^20.14.5",
     "rimraf": "^6.1.3",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"

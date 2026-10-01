@@ -131,6 +131,8 @@ export const STATIC_ROUTES: ReadonlyArray<AppRoute> = [
   AppRoute.UiRadioGroup(),
   AppRoute.UiSelect(),
   AppRoute.UiSlider(),
+  AppRoute.UiMeter(),
+  AppRoute.UiProgress(),
   AppRoute.UiSwitch(),
   AppRoute.UiButton(),
   AppRoute.UiCalendar(),
@@ -163,7 +165,6 @@ const PLAYGROUND_ROUTES: ReadonlyArray<AppRoute> = Array.map(
   exampleSlugs,
   exampleSlug => AppRoute.Playground({ exampleSlug }),
 )
-
 export const INDEX_OUTPUT_PATH = 'index.html'
 
 export const routeToOutputPath = (route: AppRoute): string => {

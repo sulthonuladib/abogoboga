@@ -82,8 +82,8 @@ describe('Toast Subscriptions', () => {
     const documentElement = document.documentElement
     const previousStyle = documentElement.getAttribute('style')
     const previousStyleCount = document.head.querySelectorAll('style').length
-    documentElement.style.setProperty('user-select', 'text')
-    documentElement.style.setProperty('-webkit-user-select', 'text')
+    const existingStyle = 'user-select: text; -webkit-user-select: text'
+    documentElement.setAttribute('style', existingStyle)
 
     const model = withDraggingEntries([
       makeDraggingEntry('test-entry-0', POINTER_ID, 100),
@@ -102,14 +102,11 @@ describe('Toast Subscriptions', () => {
         )
       })
 
-      expect(documentElement.style.getPropertyValue('user-select')).toBe('text')
-      expect(
-        documentElement.style.getPropertyValue('-webkit-user-select'),
-      ).toBe('text')
+      expect(documentElement.getAttribute('style')).toBe(existingStyle)
 
       await Effect.runPromise(Fiber.interrupt(fiber))
 
-      expect(documentElement.style.getPropertyValue('user-select')).toBe('text')
+      expect(documentElement.getAttribute('style')).toBe(existingStyle)
       expect(document.head.querySelectorAll('style')).toHaveLength(
         previousStyleCount,
       )

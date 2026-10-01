@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { Model } from "effect/unstable/schema"
+import { Model } from "effect/schema"
 import { CryptocurrencyId } from "./Cryptocurrency.ts"
 import { ExchangeId } from "./Exchange.ts"
 

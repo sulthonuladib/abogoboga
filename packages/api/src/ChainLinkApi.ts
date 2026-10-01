@@ -1,6 +1,6 @@
 import { ChainId, ChainLink as ChainLinkModel, ChainLinkId, MarketId } from "@lister/domain"
 import { Effect, Schema } from "effect"
-import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
+import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api"
 import { ChainNotFound } from "./ChainErrors.ts"
 import { ChainLinkExists, ChainLinkNotFound } from "./ChainLinkErrors.ts"
 import { MarketNotFound } from "./MarketErrors.ts"

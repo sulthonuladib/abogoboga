@@ -14,9 +14,9 @@ import {
   Schema,
   Stream
 } from "effect"
-import { RpcClient, RpcClientError, RpcWorker } from "effect/unstable/rpc"
-import { Spawner, WorkerPlatform } from "effect/unstable/workers/Worker"
-import type { WorkerError } from "effect/unstable/workers/WorkerError"
+import { RpcClient, RpcClientError, RpcWorker } from "effect/rpc"
+import { Spawner, WorkerPlatform } from "effect/workers/Worker"
+import type { WorkerError } from "effect/workers/WorkerError"
 import { DomainEvents, workerEvent } from "./WorkerEvents.ts"
 
 /**

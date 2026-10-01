@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { BunWorker } from "@effect/platform-bun"
 import { Duration, Effect, Ref, Stream } from "effect"
-import { RpcClient, RpcWorker } from "effect/unstable/rpc"
+import { RpcClient, RpcWorker } from "effect/rpc"
 import { fileURLToPath } from "node:url"
 import type { BootstrapCoin } from "./BootstrapCoin.ts"
 import type { CanonicalTick } from "./CanonicalTick.ts"

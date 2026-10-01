@@ -132,7 +132,7 @@ const ogTemplate = (metadata: PageMetadata): SatoriNode =>
                 lineHeight: '1.1',
                 letterSpacing: '-0.025em',
               },
-              escapeHtml(metadata.title),
+              metadata.title,
             ),
             el(
               'div',
@@ -142,7 +142,7 @@ const ogTemplate = (metadata: PageMetadata): SatoriNode =>
                 color: '#a1a1aa',
                 lineHeight: '1.4',
               },
-              escapeHtml(metadata.description),
+              metadata.description,
             ),
           ]),
 
@@ -174,7 +174,7 @@ const ogTemplate = (metadata: PageMetadata): SatoriNode =>
                         textTransform: 'uppercase',
                         letterSpacing: '0.12em',
                       },
-                      escapeHtml(metadata.section),
+                      metadata.section,
                     ),
                   ]
                 : []),
