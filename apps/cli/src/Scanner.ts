@@ -30,6 +30,7 @@ import {
   type CoinListItem,
   type TargetExchange,
   coinImageBatchSize,
+  rateLimitDelayMillis,
   targetExchangeBySlug,
   targetExchanges
 } from "./CoinGecko.ts"
@@ -60,6 +61,11 @@ export const tickerPageSize = 100 as const
  * Safety bound on ticker pages per exchange, so a stuck cursor cannot loop.
  */
 export const maxTickerPages = 300 as const
+
+/**
+ * How many times a single coin's logo request is retried before it is dropped.
+ */
+const maxLogoAttempts = 3 as const
 
 const boundedString = Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(255)))
 
@@ -317,20 +323,73 @@ export const fetchSnapshot = Effect.fn("Scanner.fetchSnapshot")(function*(option
   )
 
   // CoinGecko has no bulk image endpoint, so resolve logos for the referenced
-  // coins through `/coins/markets` in batches; misses keep an empty logo.
+  // coins through `/coins/markets` in batches; misses keep an empty logo. A
+  // batch the API refuses (blocked or rate limited) is split in half and
+  // retried, so a limit degrades to more, smaller requests instead of a dead
+  // scan. A rate-limited batch waits out the `Retry-After` window before
+  // splitting, so the smaller requests are not sent into the same wall.
   const images = new Map<string, string>()
   const batchCount = Math.ceil(selected.length / coinImageBatchSize)
+
+  const loadImages = (ids: ReadonlyArray<string>, attempts: number): Effect.Effect<void, never> =>
+    Effect.gen(function*() {
+      if (ids.length === 0) return
+
+      const found = yield* paced(coingecko.coinImages(ids)).pipe(
+        Effect.catch((error) =>
+          Effect.gen(function*() {
+            const reason = `${error.operation}${error.status === undefined ? "" : ` HTTP ${error.status}`}`
+
+            if (error.status === 429) {
+              const waitMillis = rateLimitDelayMillis(error)
+
+              yield* Effect.logWarning(
+                `scan: rate limited (${reason}); waiting ${Math.round(waitMillis / 1_000)}s before splitting`
+              )
+              yield* Effect.sleep(Duration.millis(waitMillis))
+            }
+
+            if (ids.length > 1) {
+              const half = Math.ceil(ids.length / 2)
+
+              yield* Effect.logWarning(`scan: coin logo batch of ${ids.length} failed (${reason}); splitting in half`)
+
+              yield* loadImages(ids.slice(0, half), 0)
+              yield* loadImages(ids.slice(half), 0)
+
+              return undefined
+            }
+
+            if (attempts < maxLogoAttempts) {
+              yield* Effect.logWarning(
+                `scan: logo for ${ids[0]} failed (${reason}); retrying (${attempts + 1}/${maxLogoAttempts})`
+              )
+
+              yield* loadImages(ids, attempts + 1)
+
+              return undefined
+            }
+
+            yield* Effect.logWarning(`scan: skipping logo for ${ids[0]} (${reason})`)
+
+            return undefined
+          })
+        )
+      )
+
+      if (found === undefined) return
+
+      for (const [id, image] of found) {
+        images.set(id, image)
+      }
+    })
 
   for (let offset = 0, batch = 1; offset < selected.length; offset += coinImageBatchSize, batch += 1) {
     const ids = selected.slice(offset, offset + coinImageBatchSize).map((coin) => coin.id)
 
     yield* Effect.logInfo(`scan: coin logo batch ${batch}/${batchCount}: ${ids.length} coin(s)`)
 
-    const found = yield* paced(coingecko.coinImages(ids))
-
-    for (const [id, image] of found) {
-      images.set(id, image)
-    }
+    yield* loadImages(ids, 0)
   }
 
   const coins = selected.map((coin: CoinListItem): SnapshotCoin => ({

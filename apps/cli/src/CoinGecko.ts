@@ -129,10 +129,15 @@ const rawTickerPage = Schema.Struct({
 })
 
 /**
- * Maximum coin ids sent to one `/coins/markets` logo batch (the API caps
- * `per_page` at 250).
+ * Maximum coin ids sent to one `/coins/markets` logo batch.
+ *
+ * The `per_page` parameter accepts up to 250, but filtering by `ids` is capped
+ * far lower: CoinGecko's CDN blocks a request carrying too many ids with a 403
+ * "Request blocked" (an HTML edge response, not the API's JSON error). Batches
+ * therefore stay at the documented limit for id lookups (50), not the
+ * pagination limit.
  */
-export const coinImageBatchSize = 250 as const
+export const coinImageBatchSize = 50 as const
 
 const rawExchangeImage = Schema.Struct({ image: Schema.String })
 
@@ -244,35 +249,57 @@ const retryAfterMillis = (error: CoinGeckoError): number | undefined => {
 }
 
 /**
+ * How long a rate-limited request should wait: the `Retry-After` window
+ * CoinGecko sent, or {@link defaultRateLimitDelayMillis} when the header is
+ * absent. Exported so a caller that batches requests can wait the same window
+ * before splitting the batch into smaller requests.
+ *
+ * @param error - Rate-limit failure, possibly wrapping an SDK `APIError`.
+ * @returns Delay in milliseconds.
+ */
+export const rateLimitDelayMillis = (error: CoinGeckoError): number =>
+  retryAfterMillis(error) ?? defaultRateLimitDelayMillis
+
+/**
  * Retry transient CoinGecko failures, logging each attempt.
  *
  * A 429 (rate limit) is treated differently from other transient failures: it
- * is retried up to {@link maxRateLimitRetries} times, waiting the `Retry-After`
- * window CoinGecko sends (falling back to
- * {@link defaultRateLimitDelayMillis}) so a keyless, rate-limited scan keeps
- * making progress instead of aborting. Server errors and connection failures
- * keep the smaller {@link maxRetries} budget with exponential backoff.
+ * is retried up to {@link maxRateLimitRetries} times (or `options.rateLimitRetries`
+ * when given), waiting the `Retry-After` window CoinGecko sends so a keyless,
+ * rate-limited scan keeps making progress instead of aborting. Server errors and
+ * connection failures keep the smaller {@link maxRetries} budget with
+ * exponential backoff.
+ *
+ * Pass `rateLimitRetries: 0` when the caller intends to shrink the request
+ * instead of retrying it unchanged: the 429 then surfaces immediately so the
+ * caller can split the batch.
  *
  * @param effect - Request effect to retry.
+ * @param options - Optional retry overrides.
  * @returns The request with the retry policy applied.
  */
-const withRetry = <A>(effect: Effect.Effect<A, CoinGeckoError>): Effect.Effect<A, CoinGeckoError> => {
+const withRetry = <A>(
+  effect: Effect.Effect<A, CoinGeckoError>,
+  options: { readonly rateLimitRetries?: number } = {}
+): Effect.Effect<A, CoinGeckoError> => {
+  const rateLimitBudget = options.rateLimitRetries ?? maxRateLimitRetries
+
   const attempt = (remaining: number, rateLimitRetries: number): Effect.Effect<A, CoinGeckoError> =>
     effect.pipe(
       Effect.catch((error: CoinGeckoError) => {
         if (!error.retryable) return Effect.fail(error)
 
         if (error.status === 429) {
-          if (rateLimitRetries >= maxRateLimitRetries) return Effect.fail(error)
+          if (rateLimitRetries >= rateLimitBudget) return Effect.fail(error)
 
-          const delayMillis = retryAfterMillis(error) ?? defaultRateLimitDelayMillis
+          const delayMillis = rateLimitDelayMillis(error)
           const next = rateLimitRetries + 1
 
           return Effect.gen(function*() {
             yield* Effect.logWarning(
               `CoinGecko ${error.operation} rate limited (HTTP 429); waiting ${
                 Math.round(delayMillis / 1_000)
-              }s then retrying (rate-limit retry ${next}/${maxRateLimitRetries})`
+              }s then retrying (rate-limit retry ${next}/${rateLimitBudget})`
             )
             yield* Effect.sleep(Duration.millis(delayMillis))
 
@@ -342,6 +369,12 @@ export const makeCoinGeckoLayer = (
             maxRetries: 0,
             fetch: options.fetch
           })
+
+      yield* Effect.logInfo(
+        Option.isSome(demoKey)
+          ? "CoinGecko: using the keyed Demo API (~100 calls/min)"
+          : "CoinGecko: using the keyless public API (~10-30 calls/min, shared IP pool); set COINGECKO_DEMO_API_KEY for a keyed ~100 calls/min"
+      )
 
       const listCoins = Effect.gen(function*() {
         yield* Effect.logInfo("CoinGecko: getting coin list (/coins/list)")
@@ -431,6 +464,8 @@ export const makeCoinGeckoLayer = (
 
         yield* Effect.logInfo(`CoinGecko: getting logos for ${ids.length} coin(s) (/coins/markets)`)
 
+        // A rate-limited batch is not retried at this size: it surfaces so the
+        // scanner can wait out the window and split it into smaller requests.
         const raw = yield* withRetry(
           Effect.tryPromise({
             try: () =>
@@ -441,7 +476,8 @@ export const makeCoinGeckoLayer = (
                 page: 1
               }),
             catch: (cause) => requestError("coinImages", cause)
-          })
+          }),
+          { rateLimitRetries: 0 }
         )
 
         const parsed = yield* Schema.decodeEffect(Schema.Array(rawCoinImage))(raw).pipe(
@@ -480,6 +516,9 @@ export class CoinGecko extends Context.Service<
     /**
      * Logo URLs keyed by coin id for one batch of at most
      * {@link coinImageBatchSize} coins.
+     *
+     * A rate-limited (429) call fails fast rather than retrying at the same
+     * size, so the caller can wait out the window and split the batch.
      */
     readonly coinImages: (
       ids: ReadonlyArray<string>
