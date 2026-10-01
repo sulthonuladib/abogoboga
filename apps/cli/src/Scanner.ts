@@ -250,12 +250,17 @@ export const fetchSnapshot = Effect.fn("Scanner.fetchSnapshot")(function*(option
   const referenced = new Set<string>()
   let requests = 0
 
+  yield* Effect.logInfo(
+    `scan: fetching ${targets.length} exchange(s) from CoinGecko (${options.delayMillis}ms between requests)`
+  )
+
   // Pace every request (ticker pages and the coins list) so the scanner stays
   // under the Demo limit instead of bursting; the first request goes out
   // immediately.
   const paced = <A>(effect: Effect.Effect<A, CoinGeckoError>): Effect.Effect<A, CoinGeckoError> =>
     Effect.gen(function*() {
       if (requests > 0 && options.delayMillis > 0) {
+        yield* Effect.logDebug(`scan: waiting ${options.delayMillis}ms before request #${requests + 1}`)
         yield* Effect.sleep(Duration.millis(options.delayMillis))
       }
 
@@ -282,10 +287,16 @@ export const fetchSnapshot = Effect.fn("Scanner.fetchSnapshot")(function*(option
         }
       }
 
+      yield* Effect.logInfo(
+        `scan: ${target.slug} tickers page ${page}: +${result.tickers.length} ticker(s), ${byCoin.size} unique coin(s) so far`
+      )
+
       if (result.pageSize < tickerPageSize) break
     }
 
     const exchangeLogo = yield* paced(coingecko.exchangeLogo(target.coingeckoId, target.searchQuery))
+
+    yield* Effect.logInfo(`scan: ${target.slug} complete: ${byCoin.size} unique coin(s)`)
 
     exchanges.push({
       slug: target.slug,
@@ -301,16 +312,21 @@ export const fetchSnapshot = Effect.fn("Scanner.fetchSnapshot")(function*(option
 
   const selected = allCoins.filter((coin) => referenced.has(coin.id) && coin.name !== "" && coin.symbol !== "")
 
+  yield* Effect.logInfo(
+    `scan: coin list: ${allCoins.length} coin(s), ${referenced.size} referenced, ${selected.length} usable`
+  )
+
   // CoinGecko has no bulk image endpoint, so resolve logos for the referenced
   // coins through `/coins/markets` in batches; misses keep an empty logo.
   const images = new Map<string, string>()
+  const batchCount = Math.ceil(selected.length / coinImageBatchSize)
 
-  for (let offset = 0; offset < selected.length; offset += coinImageBatchSize) {
-    const batch = selected
-      .slice(offset, offset + coinImageBatchSize)
-      .map((coin) => coin.id)
+  for (let offset = 0, batch = 1; offset < selected.length; offset += coinImageBatchSize, batch += 1) {
+    const ids = selected.slice(offset, offset + coinImageBatchSize).map((coin) => coin.id)
 
-    const found = yield* paced(coingecko.coinImages(batch))
+    yield* Effect.logInfo(`scan: coin logo batch ${batch}/${batchCount}: ${ids.length} coin(s)`)
+
+    const found = yield* paced(coingecko.coinImages(ids))
 
     for (const [id, image] of found) {
       images.set(id, image)
@@ -324,6 +340,10 @@ export const fetchSnapshot = Effect.fn("Scanner.fetchSnapshot")(function*(option
     logo: boundedLogo(images.get(coin.id) ?? ""),
     platforms: coin.platforms ?? {}
   }))
+
+  yield* Effect.logInfo(
+    `scan: done: ${exchanges.length} exchange(s), ${coins.length} coin(s), ${requests} paced request(s)`
+  )
 
   const fetchedAt = new Date(yield* Clock.currentTimeMillis).toISOString()
 

@@ -210,6 +210,20 @@ const maxRetryDelayMillis = 60_000
 const maxRetries = 5
 
 /**
+ * Rate limits are the expected cost of the keyless public pool (~10-30 calls
+ * per minute, shared and dynamic), so a 429 is retried far more patiently than
+ * a transient server error: wait for the window CoinGecko asks for and keep
+ * going instead of failing the whole scan. This cap only bounds a run against a
+ * limit that never clears.
+ */
+const maxRateLimitRetries = 60
+
+/**
+ * Wait used for a 429 that carries no usable `Retry-After` header.
+ */
+const defaultRateLimitDelayMillis = 60_000
+
+/**
  * Read the `Retry-After` delay CoinGecko sends with rate-limit responses.
  *
  * @param error - Request failure, possibly wrapping an SDK `APIError`.
@@ -230,34 +244,63 @@ const retryAfterMillis = (error: CoinGeckoError): number | undefined => {
 }
 
 /**
- * Retry transient CoinGecko failures, honoring `Retry-After` on 429s and
- * logging each attempt.
+ * Retry transient CoinGecko failures, logging each attempt.
+ *
+ * A 429 (rate limit) is treated differently from other transient failures: it
+ * is retried up to {@link maxRateLimitRetries} times, waiting the `Retry-After`
+ * window CoinGecko sends (falling back to
+ * {@link defaultRateLimitDelayMillis}) so a keyless, rate-limited scan keeps
+ * making progress instead of aborting. Server errors and connection failures
+ * keep the smaller {@link maxRetries} budget with exponential backoff.
  *
  * @param effect - Request effect to retry.
  * @returns The request with the retry policy applied.
  */
 const withRetry = <A>(effect: Effect.Effect<A, CoinGeckoError>): Effect.Effect<A, CoinGeckoError> => {
-  const attempt = (remaining: number): Effect.Effect<A, CoinGeckoError> =>
+  const attempt = (remaining: number, rateLimitRetries: number): Effect.Effect<A, CoinGeckoError> =>
     effect.pipe(
       Effect.catch((error: CoinGeckoError) => {
-        if (!error.retryable || remaining <= 0) return Effect.fail(error)
+        if (!error.retryable) return Effect.fail(error)
+
+        if (error.status === 429) {
+          if (rateLimitRetries >= maxRateLimitRetries) return Effect.fail(error)
+
+          const delayMillis = retryAfterMillis(error) ?? defaultRateLimitDelayMillis
+          const next = rateLimitRetries + 1
+
+          return Effect.gen(function*() {
+            yield* Effect.logWarning(
+              `CoinGecko ${error.operation} rate limited (HTTP 429); waiting ${
+                Math.round(delayMillis / 1_000)
+              }s then retrying (rate-limit retry ${next}/${maxRateLimitRetries})`
+            )
+            yield* Effect.sleep(Duration.millis(delayMillis))
+
+            return yield* attempt(remaining, next)
+          })
+        }
+
+        if (remaining <= 0) return Effect.fail(error)
 
         const backoffMillis = Math.min(baseRetryDelayMillis * 2 ** (maxRetries - remaining), maxRetryDelayMillis)
         const delayMillis = retryAfterMillis(error) ?? backoffMillis
         const status = error.status === undefined ? "" : ` (HTTP ${error.status})`
+        const attemptNumber = maxRetries - remaining + 1
 
         return Effect.gen(function*() {
           yield* Effect.logWarning(
-            `CoinGecko ${error.operation} failed${status}; retrying in ${Math.round(delayMillis / 1_000)}s`
+            `CoinGecko ${error.operation} failed${status}; retrying in ${
+              Math.round(delayMillis / 1_000)
+            }s (attempt ${attemptNumber}/${maxRetries})`
           )
           yield* Effect.sleep(Duration.millis(delayMillis))
 
-          return yield* attempt(remaining - 1)
+          return yield* attempt(remaining - 1, rateLimitRetries)
         })
       })
     )
 
-  return attempt(maxRetries)
+  return attempt(maxRetries, 0)
 }
 
 /**
@@ -300,20 +343,24 @@ export const makeCoinGeckoLayer = (
             fetch: options.fetch
           })
 
-      const listCoins = withRetry(
-        Effect.tryPromise({
-          try: () => client.coins.list.get({ include_platform: true }),
-          catch: (cause) => requestError("listCoins", cause)
-        })
-      ).pipe(
-        Effect.flatMap((raw) =>
-          Schema.decodeEffect(Schema.Array(CoinListItem))(raw).pipe(
-            Effect.mapError((cause) => responseError("listCoins", cause))
-          )
+      const listCoins = Effect.gen(function*() {
+        yield* Effect.logInfo("CoinGecko: getting coin list (/coins/list)")
+
+        const raw = yield* withRetry(
+          Effect.tryPromise({
+            try: () => client.coins.list.get({ include_platform: true }),
+            catch: (cause) => requestError("listCoins", cause)
+          })
         )
-      )
+
+        return yield* Schema.decodeEffect(Schema.Array(CoinListItem))(raw).pipe(
+          Effect.mapError((cause) => responseError("listCoins", cause))
+        )
+      })
 
       const exchangeTickers = Effect.fn("CoinGecko.exchangeTickers")(function*(coingeckoId: string, page: number) {
+        yield* Effect.logInfo(`CoinGecko: getting tickers for ${coingeckoId} (page ${page})`)
+
         const raw = yield* withRetry(
           Effect.tryPromise({
             try: () => client.exchanges.tickers.get(coingeckoId, { page, order: "base_target" }),
@@ -344,6 +391,8 @@ export const makeCoinGeckoLayer = (
       })
 
       const exchangeLogo = Effect.fn("CoinGecko.exchangeLogo")(function*(coingeckoId: string, searchQuery: string) {
+        yield* Effect.logInfo(`CoinGecko: getting logo for ${coingeckoId} via search "${searchQuery}"`)
+
         const searchRaw = yield* withRetry(
           Effect.tryPromise({
             try: () => client.search.get({ query: searchQuery }),
@@ -361,6 +410,8 @@ export const makeCoinGeckoLayer = (
 
         // Fallback when search does not surface the venue: the canonical
         // exchange endpoint always has it, but only at the small size.
+        yield* Effect.logInfo(`CoinGecko: logo for ${coingeckoId} missing from search; getting /exchanges/${coingeckoId}`)
+
         const imageRaw = yield* withRetry(
           Effect.tryPromise({
             try: () => client.exchanges.getID(coingeckoId),
@@ -377,6 +428,8 @@ export const makeCoinGeckoLayer = (
 
       const coinImages = Effect.fn("CoinGecko.coinImages")(function*(ids: ReadonlyArray<string>) {
         if (ids.length === 0) return new Map<string, string>()
+
+        yield* Effect.logInfo(`CoinGecko: getting logos for ${ids.length} coin(s) (/coins/markets)`)
 
         const raw = yield* withRetry(
           Effect.tryPromise({
@@ -405,8 +458,9 @@ export const makeCoinGeckoLayer = (
 /**
  * CoinGecko access used by the metadata scanner.
  *
- * Requests are paced at the call site and retried with backoff (honoring
- * `Retry-After`) for transient failures such as 429 rate limits.
+ * Requests are paced at the call site. Transient failures are retried with
+ * backoff; a 429 rate limit is waited out (`Retry-After`) and retried
+ * patiently, since the keyless public pool rate-limits routinely.
  */
 export class CoinGecko extends Context.Service<
   CoinGecko,
