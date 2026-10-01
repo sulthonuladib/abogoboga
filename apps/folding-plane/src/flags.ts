@@ -1,5 +1,5 @@
 import { Effect, Match, Option, Schema } from 'effect'
-import { HttpClient } from 'effect/unstable/http'
+import { HttpClient } from 'effect/http'
 import { AsyncData } from 'foldkit'
 import type { Url } from 'foldkit/url'
 

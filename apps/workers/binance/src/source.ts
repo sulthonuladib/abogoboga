@@ -6,7 +6,7 @@ import {
   WorkerSourceError
 } from "@lister/worker-contract"
 import { Clock, Deferred, Effect, Option, Ref, Schema, Stream } from "effect"
-import * as Socket from "effect/unstable/socket/Socket"
+import * as Socket from "effect/socket/Socket"
 
 import {
   PartialDepthMessage,

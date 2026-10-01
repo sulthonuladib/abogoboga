@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect"
-import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { HttpApiBuilder } from "effect/http-api"
 import { Api } from "./Api.ts"
 import { Cryptocurrency, type CryptocurrencyListQuery, type CryptocurrencyStatsQuery } from "./Cryptocurrency.ts"
 import { CryptocurrencyListPayload, CryptocurrencyStatsPayload } from "./CryptocurrencyApi.ts"

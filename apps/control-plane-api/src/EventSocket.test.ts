@@ -9,7 +9,7 @@ import {
   type SignalRow
 } from "@lister/api"
 import { Effect, Layer, Option } from "effect"
-import { HttpRouter, HttpServer } from "effect/unstable/http"
+import { HttpRouter, HttpServer } from "effect/http"
 import { EventSocketRoute, eventSocketPath } from "./EventSocket.ts"
 
 const row: SignalRow = {

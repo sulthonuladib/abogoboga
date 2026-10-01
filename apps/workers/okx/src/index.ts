@@ -2,7 +2,7 @@ import { BunRuntime, BunWorkerRunner } from "@effect/platform-bun"
 import { ObservabilityLive } from "@lister/observability"
 import { runRpcWorker } from "@lister/worker-contract"
 import { Effect, Layer } from "effect"
-import { RpcServer } from "effect/unstable/rpc"
+import { RpcServer } from "effect/rpc"
 
 import { source } from "./source.ts"
 

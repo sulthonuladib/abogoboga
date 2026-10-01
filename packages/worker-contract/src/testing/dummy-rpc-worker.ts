@@ -11,7 +11,7 @@
  */
 import { BunRuntime, BunWorkerRunner } from "@effect/platform-bun"
 import { Clock, Effect, Layer, Ref, Stream } from "effect"
-import { RpcServer } from "effect/unstable/rpc"
+import { RpcServer } from "effect/rpc"
 
 import type { BootstrapCoin } from "../BootstrapCoin.ts"
 import type { CanonicalTick } from "../CanonicalTick.ts"

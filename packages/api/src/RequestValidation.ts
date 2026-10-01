@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect"
-import { HttpApiMiddleware } from "effect/unstable/httpapi"
+import { HttpApiMiddleware } from "effect/http-api"
 
 /**
  * Expected failure: the request did not match the endpoint schema.

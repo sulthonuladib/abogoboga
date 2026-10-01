@@ -1,6 +1,6 @@
 import { Exchange as ExchangeModel, ExchangeId } from "@lister/domain"
 import { Effect, Schema } from "effect"
-import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
+import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/http-api"
 import {
   ExchangeOrderField,
   type ExchangeOrderField as ExchangeOrderFieldType,

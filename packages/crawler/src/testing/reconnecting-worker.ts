@@ -7,7 +7,7 @@ import {
   type WorkerSourceFactory
 } from "@lister/worker-contract"
 import { Clock, Effect, Layer, Ref, Stream } from "effect"
-import { RpcServer } from "effect/unstable/rpc"
+import { RpcServer } from "effect/rpc"
 
 const coinKey = (coin: BootstrapCoin): string => `${coin.symbol}:${coin.coingeckoId}`
 

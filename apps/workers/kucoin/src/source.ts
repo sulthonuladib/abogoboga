@@ -6,8 +6,8 @@ import {
   WorkerSourceError
 } from "@lister/worker-contract"
 import { Clock, Deferred, Duration, Effect, Option, Ref, Schema, Stream } from "effect"
-import { HttpClient, HttpClientResponse } from "effect/unstable/http"
-import * as Socket from "effect/unstable/socket/Socket"
+import { HttpClient, HttpClientResponse } from "effect/http"
+import * as Socket from "effect/socket/Socket"
 
 import {
   BulletPublicResponse,

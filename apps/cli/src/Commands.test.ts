@@ -9,7 +9,7 @@ import {
   exchangeTable
 } from "@lister/db"
 import { Effect, Layer } from "effect"
-import { Command } from "effect/unstable/cli"
+import { Command } from "effect/cli"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"

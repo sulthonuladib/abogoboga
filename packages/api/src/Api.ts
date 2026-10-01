@@ -1,4 +1,4 @@
-import { HttpApi, OpenApi } from "effect/unstable/httpapi"
+import { HttpApi, OpenApi } from "effect/http-api"
 import { ChainApiGroup } from "./ChainApi.ts"
 import { ChainLinkApiGroup } from "./ChainLinkApi.ts"
 import { CryptocurrencyApiGroup } from "./CryptocurrencyApi.ts"

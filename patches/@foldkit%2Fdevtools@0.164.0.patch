@@ -1,0 +1,13 @@
+diff --git a/dist/overlay.js b/dist/overlay.js
+index 6ac05832ea6ca0f44e7a20b41b7447d87720b16b..2501770dba8bf77a849484e6459ac0ed07861b5f 100644
+--- a/dist/overlay.js
++++ b/dist/overlay.js
+@@ -1,7 +1,7 @@
+ import { brandViewResult as __foldkitBrandViewResult } from 'foldkit/brand'
+ import { clsx } from 'clsx';
+ import { Array, Context, Effect, Function, HashSet, Match, Number, Option, Order, Predicate, Queue, Record, Schema, Stream, String, SubscriptionRef, pipe, } from 'effect';
+-import { KeyValueStore } from 'effect/unstable/persistence';
++import { KeyValueStore } from 'effect/persistence';
+ import { Update } from 'foldkit';
+ import * as Command from 'foldkit/command';
+ import { DEVTOOLS_HOST_ID, GOT_MESSAGE_PATTERN, INIT_INDEX, extractSubmodelInfo, isTagged, latestEntryIndex, toInspectableValue, } from 'foldkit/devtools-host';
